@@ -10,6 +10,7 @@ on:
       - 'scripts/**'
       - 'package.json'
       - 'Dockerfile'
+  workflow_dispatch:
 
 jobs:
   build-and-push:
