@@ -4,7 +4,7 @@ import prompts_default from '../utils/others/prompt';
 // -- 只能通过环境变量覆盖的配置 --
 export class EnvironmentConfig {
     // 多语言支持
-    LANGUAGE = 'zh-cn';
+    LANGUAGE = 'en';
     // 检查更新的分支
     UPDATE_BRANCH = 'master';
     // Chat Complete API Timeout, scale: seconds
@@ -39,16 +39,7 @@ export class EnvironmentConfig {
     LOCK_USER_CONFIG_KEYS = [
         // 默认为API BASE 防止被替换导致token 泄露
         'OPENAI_API_BASE',
-        'GOOGLE_API_BASE',
-        'MISTRAL_API_BASE',
-        'COHERE_API_BASE',
-        'ANTHROPIC_API_BASE',
-        'AZURE_COMPLETIONS_API',
-        'AZURE_DALLE_API',
-        'GOOGLE_API_BASE',
-        'VERTEX_CREDENTIALS',
         'OAILIKE_API_BASE',
-        'XAI_API_BASE',
     ];
 
     // -- 群组相关 --
@@ -184,34 +175,6 @@ export class EnvironmentConfig {
     // free account max timeout 15m
     QSTASH_TIMEOUT = '15m';
 
-    FISH_REFERENCE_IDS: Record<string, string> = {
-        '丁真': '54a5170264694bfc8e9ad98df7bd89c3',
-        '雷军': '4462fa28f3824bff808a94a6075570e5',
-        '小明剑魔': '4f77d5137e15401b96617895a2275923',
-        '央视配音': '59cb5986671546eaa6ca8ae6f29f6d22',
-        '麦当劳': '4066d617322e41abb30ed70eaeaf273f',
-        '赛马娘': '0eb38bc974e1459facca38b359e13511',
-        '郑翔洲': '63393102cf1248849477da56ee5dc3ae',
-        '蔡徐坤': 'e4642e5edccd4d9ab61a69e82d4f8a14',
-        '女大学生': '5c353fdb312f4888836a9a5680099ef0',
-        '董宇辉': '8f454f665d214e4284ba05f703b63960',
-        '黑手': 'f7561ff309bd4040a59f1e600f4f4338',
-        '奶龙(效果最好的一个)': '3d1cb00d75184099992ddbaf0fdd7387',
-        '陶矜': 'acb16651a5e14be89b7826a2e24687cd',
-        '邓紫琪': '3b55b3d84d2f453a98d8ca9bb24182d6',
-        '郭德纲': '4914b8e04e2148118c91f322d409ccc6',
-        '毕业季温情女学生': 'a1417155aa234890aab4a18686d12849',
-        '女主播': '57eab548c7ed4ddc974c4c153cb015b2',
-        '影视解说': 'b4bdf5dc66004241a21ff2df165bf442',
-        '麦克阿瑟': '405736979e244634914add64e37290b0',
-        '甜美女主播': 'e752df7d20cd4576af9a207520349a33',
-        '男科医生': '610ab13942834060ba4f3fbd1ca94aa6',
-        '台灣彭總 新聲2025': '9f3de3329541472d9b16f9ac2c345351',
-        '懒羊羊': '131c6b3a889543139680d8b3aa26b98d',
-        '骚气御姐音': 'f44181a3d6d444beae284ad585a1af37',
-        '刘德华': 'cb03a4a3ff6a4784b319cde85a07e31c',
-    };
-
     // Only relax /set command temporarily modifies permissions
     RELAX_AUTH_KEYS: string[] = [];
     // inline query send interval
@@ -244,7 +207,7 @@ export class EnvironmentConfig {
     // otherwise, only the set variables will be shown.
     ENVS_VARIABLES = [];
     // callback menu, if it is empty, all options will be displayed.
-    // options: 'AI_CHAT_PROVIDER', 'AI_IMAGE_PROVIDER', 'AI_TTS_PROVIDER', 'AI_ASR_PROVIDER', 'USE_TOOLS', 'USE_MCP', 'USE_OAILIKE_RELAY_TOOLS', 'CHAT_MODEL', 'IMAGE_MODEL', 'VISION_MODEL', 'TOOL_MODEL', 'ENVS', 'RERANK_AGENT'
+    // options: 'AI_CHAT_PROVIDER', 'AI_IMAGE_PROVIDER', 'AI_TTS_PROVIDER', 'AI_ASR_PROVIDER', 'USE_TOOLS', 'USE_MCP', 'CHAT_MODEL', 'IMAGE_MODEL', 'VISION_MODEL', 'TOOL_MODEL', 'ENVS', 'RERANK_AGENT'
     CALLBACK_MENU = [];
 
     // Whether to transform  tool_call/tool_result message to user message
@@ -264,9 +227,9 @@ export class EnvironmentConfig {
 
 // -- 通用配置 --
 export class AgentShareConfig {
-    // AI提供商: openai, anthropic, azure, workers, google, vertex, mistral, xai, oailike
+    // AI provider: openai, oailike
     AI_CHAT_PROVIDER = 'openai';
-    // AI图片提供商: openai, azure, workers
+    // Image provider: openai, oailike
     AI_IMAGE_PROVIDER = 'openai';
     // AI ASR 提供商: openai, oailike
     AI_ASR_PROVIDER = 'openai';
@@ -289,6 +252,7 @@ export class OpenAIConfig {
     OPENAI_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
     // OpenAI STT Model
     OPENAI_STT_MODEL = 'whisper-1';
+    OPENAI_STT_EXTRA_PARAMS: Record<string, string> = {};
     // OpenAI Vision Model
     OPENAI_VISION_MODEL = 'gpt-4o-mini';
     // OpenAI TTS Model
@@ -339,44 +303,44 @@ export class OpenAIConfig {
 
     // Web Search - 网页搜索工具
     OPENAI_ENABLE_WEB_SEARCH = false;
-    OPENAI_WEB_SEARCH_EXTERNAL_ACCESS = true;  // true=实时抓取，false=使用缓存
-    OPENAI_WEB_SEARCH_ALLOWED_DOMAINS: string[] = [];  // 允许的域名列表
-    OPENAI_WEB_SEARCH_CONTEXT_SIZE: 'low' | 'medium' | 'high' = 'medium';  // 搜索上下文大小
-    OPENAI_WEB_SEARCH_USER_LOCATION = '';  // 用户位置，格式: "City, Country" 或 "latitude,longitude"
+    OPENAI_WEB_SEARCH_EXTERNAL_ACCESS = true; // true=实时抓取，false=使用缓存
+    OPENAI_WEB_SEARCH_ALLOWED_DOMAINS: string[] = []; // 允许的域名列表
+    OPENAI_WEB_SEARCH_CONTEXT_SIZE: 'low' | 'medium' | 'high' = 'medium'; // 搜索上下文大小
+    OPENAI_WEB_SEARCH_USER_LOCATION = ''; // 用户位置，格式: "City, Country" 或 "latitude,longitude"
 
     // Code Interpreter - Python 代码执行工具
     OPENAI_ENABLE_CODE_INTERPRETER = false;
-    OPENAI_CODE_INTERPRETER_CONTAINER = '';  // 容器ID（可选）
+    OPENAI_CODE_INTERPRETER_CONTAINER = ''; // 容器ID（可选）
 
     // File Search - 文件向量搜索工具
     OPENAI_ENABLE_FILE_SEARCH = false;
-    OPENAI_FILE_SEARCH_VECTOR_STORES: string[] = [];  // 向量存储ID列表（必需）
-    OPENAI_FILE_SEARCH_MAX_RESULTS = 10;  // 最大返回结果数
-    OPENAI_FILE_SEARCH_SCORE_THRESHOLD = 0.0;  // 相关性阈值（0-1），越高越严格
+    OPENAI_FILE_SEARCH_VECTOR_STORES: string[] = []; // 向量存储ID列表（必需）
+    OPENAI_FILE_SEARCH_MAX_RESULTS = 10; // 最大返回结果数
+    OPENAI_FILE_SEARCH_SCORE_THRESHOLD = 0.0; // 相关性阈值（0-1），越高越严格
 
     // Image Generation - 图片生成工具 (GPT-5.1+)
     OPENAI_ENABLE_IMAGE_GENERATION = false;
-    OPENAI_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto';  // 背景类型
-    OPENAI_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low';  // 输入保真度
-    OPENAI_IMAGE_MODEL = 'gpt-image-1';  // 图片生成模型
-    OPENAI_IMAGE_OUTPUT_COMPRESSION = 100;  // 输出压缩等级 (0-100)
-    OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png';  // 输出格式
-    OPENAI_IMAGE_PARTIAL_IMAGES = 0;  // 流式模式下生成的部分图片数量 (0-3)
-    OPENAI_IMAGE_QUALITY: 'auto' | 'low' | 'medium' | 'high' = 'auto';  // 图片质量
-    OPENAI_IMAGE_SIZE: 'auto' | '1024x1024' | '1024x1536' | '1536x1024' = 'auto';  // 图片尺寸
+    OPENAI_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto'; // 背景类型
+    OPENAI_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low'; // 输入保真度
+    OPENAI_IMAGE_MODEL = 'gpt-image-1'; // 图片生成模型
+    OPENAI_IMAGE_OUTPUT_COMPRESSION = 100; // 输出压缩等级 (0-100)
+    OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png'; // 输出格式
+    OPENAI_IMAGE_PARTIAL_IMAGES = 0; // 流式模式下生成的部分图片数量 (0-3)
+    OPENAI_IMAGE_QUALITY: 'auto' | 'low' | 'medium' | 'high' = 'auto'; // 图片质量
+    OPENAI_IMAGE_SIZE: 'auto' | '1024x1024' | '1024x1536' | '1536x1024' = 'auto'; // 图片尺寸
 
     // MCP - Model Context Protocol
     OPENAI_ENABLE_MCP = false;
-    OPENAI_MCP_SERVER_LABEL = '';  // MCP服务器标签（必需）
-    OPENAI_MCP_SERVER_URL = '';  // MCP服务器URL（与connectorId二选一）
-    OPENAI_MCP_CONNECTOR_ID = '';  // 服务连接器ID（与serverUrl二选一）
-    OPENAI_MCP_SERVER_DESCRIPTION = '';  // 服务器描述（可选）
-    OPENAI_MCP_ALLOWED_TOOLS: string[] = [];  // 允许的工具名称列表
-    OPENAI_MCP_ALLOWED_TOOLS_READ_ONLY = false;  // 仅允许只读工具
-    OPENAI_MCP_AUTHORIZATION = '';  // OAuth访问令牌
-    OPENAI_MCP_HEADERS: Record<string, string> = {};  // 自定义HTTP头
-    OPENAI_MCP_REQUIRE_APPROVAL: 'always' | 'never' = 'never';  // 工具执行审批策略
-    OPENAI_MCP_APPROVAL_TOOL_NAMES: string[] = [];  // 需要审批的工具名称（当requireApproval非always时）
+    OPENAI_MCP_SERVER_LABEL = ''; // MCP服务器标签（必需）
+    OPENAI_MCP_SERVER_URL = ''; // MCP服务器URL（与connectorId二选一）
+    OPENAI_MCP_CONNECTOR_ID = ''; // 服务连接器ID（与serverUrl二选一）
+    OPENAI_MCP_SERVER_DESCRIPTION = ''; // 服务器描述（可选）
+    OPENAI_MCP_ALLOWED_TOOLS: string[] = []; // 允许的工具名称列表
+    OPENAI_MCP_ALLOWED_TOOLS_READ_ONLY = false; // 仅允许只读工具
+    OPENAI_MCP_AUTHORIZATION = ''; // OAuth访问令牌
+    OPENAI_MCP_HEADERS: Record<string, string> = {}; // 自定义HTTP头
+    OPENAI_MCP_REQUIRE_APPROVAL: 'always' | 'never' = 'never'; // 工具执行审批策略
+    OPENAI_MCP_APPROVAL_TOOL_NAMES: string[] = []; // 需要审批的工具名称（当requireApproval非always时）
 }
 
 // -- DALLE 配置 --
@@ -389,253 +353,6 @@ export class DalleAIConfig {
     DALL_E_IMAGE_QUALITY = 'standard';
     // DALL-E图片风格
     DALL_E_IMAGE_STYLE = 'vivid';
-}
-
-// -- AZURE 配置 --
-export class AzureConfig {
-    // Azure API Key
-    AZURE_API_KEY: string | null = null;
-    // Azure Completions API
-    // https://RESOURCE_NAME.openai.azure.com/openai/deployments/MODEL_NAME/chat/completions?api-version=VERSION_NAME
-    AZURE_COMPLETIONS_API: string | null = null;
-    // Azure DallE API
-    // https://RESOURCE_NAME.openai.azure.com/openai/deployments/MODEL_NAME/images/generations?api-version=VERSION_NAME
-    AZURE_DALLE_API: string | null = null;
-    AZURE_MODELS = [];
-    AZURE_MODELS_API = '';
-}
-
-// -- Workers 配置 --
-export class WorkersConfig {
-    // Cloudflare Account ID
-    CLOUDFLARE_ACCOUNT_ID: string | null = null;
-    // Cloudflare Token
-    CLOUDFLARE_TOKEN: string | null = null;
-    // Text Generation Model
-    WORKERS_CHAT_MODEL = '@cf/mistral/mistral-7b-instruct-v0.1 ';
-    // Text-to-Image Model
-    WORKERS_IMAGE_MODEL = '@cf/stabilityai/stable-diffusion-xl-base-1.0';
-    WORKERS_MODELS = [];
-
-    // https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/ai/models/search
-    WORKERS_MODELS_API = '';
-}
-
-// -- Gemini 配置 --
-export class GeminiConfig {
-    // Google Gemini API Key
-    GOOGLE_API_KEY: string | null = null;
-    // Google Gemini API: Cloudflare AI gateway: https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_name}/google-ai-studio/v1/models
-    GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-    // Google Gemini Model
-    GOOGLE_CHAT_MODEL = 'gemini-2.5-flash';
-    // Google Gemini Vision Model
-    GOOGLE_VISION_MODEL = 'gemini-2.5-flash';
-    // Google Gemini Image Model
-    GOOGLE_IMAGE_MODEL = 'gemini-2.0-flash-exp';
-    // Google Embedding Model
-    GOOGLE_EMBEDDING_MODEL = 'text-embedding-004';
-    // Google API Extra Params, key is model name prefix, separated by commas; value is extra Params, support path(camelCase), split by '.'
-    // for example: GOOGLE_API_EXTRA_PARAMS = { 'gemini-2.0-flash,gemini-2.5-flash': { 'generationConfig.temperature': 0.5 } };
-    // GOOGLE_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {
-    //     'gemini-2.5-flash': {
-    //         'generationConfig.thinkingConfig': {
-    //             includeThoughts: false,
-    //             thinkingBudget: 0,
-    //         },
-    //     },
-    // };
-
-    GOOGLE_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
-    GOOGLE_MODELS = [];
-    GOOGLE_MODELS_API = '/models';
-    GOOGLE_BUILDIN = ['googleSearch', 'codeExecution', 'urlContext', 'googleMaps', 'fileSearch', 'enterpriseWebSearch'];
-    USE_GOOGLE_BUILDIN: string[] = [];
-
-    // File Search configuration (for RAG)
-    // Example: ['fileSearchStores/my-store-123']
-    GOOGLE_FILE_SEARCH_STORES: string[] = [];
-    GOOGLE_FILE_SEARCH_TOP_K = 10;
-    GOOGLE_FILE_SEARCH_METADATA_FILTER = '';
-
-    // Google Maps Grounding - location context for location-aware responses (latitude, longitude)
-    GOOGLE_RETRIEVAL_CONFIG: { latLng?: { latitude: number; longitude: number } } = {};
-    // Model to use when googleMaps tool is active (only gemini-2.5-flash supports Maps)
-    // Set to empty string to disable auto-switching
-    GOOGLE_MAPS_MODEL = 'gemini-2.5-flash';
-    GOOGLE_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
-
-    // Gemini 3 Pro Image Configuration (gemini-3-pro-image-preview)
-    // Image aspect ratio: "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"
-    GOOGLE_IMAGE_ASPECT_RATIO: string | null = null;
-    // Image resolution: "1K", "2K", "4K"
-    GOOGLE_IMAGE_SIZE: string | null = null;
-    // Enable Google Search grounding for real-time data (weather, stocks, current events)
-    GOOGLE_IMAGE_ENABLE_GOOGLE_SEARCH = false;
-
-    // available voices: https://ai.google.dev/gemini-api/docs/speech-generation#voices
-    GOOGLE_TTS_VOICE = 'Zephyr';
-    GOOGLE_TTS_PROMPT = '';
-    // It is mutually exclusive with GOOGLE_TTS_VOICE
-    GOOGLE_TTS_EXTRA_PARAMS: Record<string, any> = {
-    //     multi_speaker_voice_config: {
-    //         speaker_voice_configs: [
-    //             {
-    //                 speaker: 'Speaker1',
-    //                 voice_config: {
-    //                     prebuilt_voice_config: {
-    //                         voice_name: 'Kore',
-    //                     },
-    //                 },
-    //             },
-    //             {
-    //                 speaker: 'Speaker2',
-    //                 voice_config: {
-    //                     prebuilt_voice_config: {
-    //                         voice_name: 'Puck',
-    //                     },
-    //                 },
-    //             },
-    //         ],
-    //     },
-    //     language_code: 'en-US',
-    };
-
-    GOOGLE_PROVIDER_OPTIONS = {
-        // responseModalities: ['TEXT'],
-        // thinkingConfig: {
-        //     thinkingBudget: '1024',
-        //     includeThoughts: false,
-        // },
-        // cachedContent: '',
-        // structuredOutputs: false,
-        safetySettings: [
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
-        ],
-        threshold: 'OFF',
-        // useSearchGrounding: true,
-        // dynamicRetrievalConfig: {
-        //     // mode: 'MODE_DYNAMIC', // 'MODE_UNSPECIFIED' | 'MODE_DYNAMIC'
-        //     // dynamicThreshold: 5,
-        // },
-    };
-}
-
-// -- Mistral 配置 --
-export class MistralConfig {
-    // mistral api key
-    MISTRAL_API_KEY: string | null = null;
-    // mistral api base
-    MISTRAL_API_BASE = 'https://api.mistral.ai/v1';
-    // mistral api model
-    MISTRAL_CHAT_MODEL = 'mistral-tiny';
-    MISTRAL_MODELS = [];
-    MISTRAL_MODELS_API = '/models';
-}
-
-// -- Cohere 配置 --
-export class CohereConfig {
-    // cohere api key
-    COHERE_API_KEY: string | null = null;
-    // cohere api base
-    COHERE_API_BASE = 'https://api.cohere.com/v1';
-    // cohere api model
-    COHERE_CHAT_MODEL = 'command-r-plus';
-    COHERE_MODELS = [];
-    COHERE_MODELS_API = '/models';
-}
-
-// -- Anthropic 配置 --
-export class AnthropicConfig {
-    // Anthropic api key
-    ANTHROPIC_API_KEY: string | null = null;
-    // Anthropic api base
-    ANTHROPIC_API_BASE = 'https://api.anthropic.com/v1';
-    // Anthropic api model
-    ANTHROPIC_CHAT_MODEL = 'claude-3-5-haiku-20241022';
-    // Anthropic vision model
-    ANTHROPIC_VISION_MODEL = 'claude-3-5-haiku-20241022';
-    // Anthropic API Extra Params, key is model name prefix, separated by commas; value is extra Params, support path(camelCase), split by '.'
-    // for example: ANTHROPIC_API_EXTRA_PARAMS = { 'claude-3-5': { 'temperature': 0.5 } };
-    ANTHROPIC_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {
-        'claude-3-7-sonnet': {
-            temperature: 1,
-            thinking: {
-                type: 'enabled',
-                budget_tokens: 4096,
-            },
-        },
-    };
-
-    ANTHROPIC_MODELS = [];
-    ANTHROPIC_MODELS_API = '/models';
-
-    // Anthropic Cache Control - 启用prompt caching以降低API成本
-    // 当启用时，system message和tools会自动标记为可缓存
-    ANTHROPIC_ENABLE_CACHE_CONTROL = true;
-
-    // Anthropic Server-Side Tools - Anthropic原生工具支持
-    // 可用工具列表：webFetch, webSearch, codeExecution
-    ANTHROPIC_BUILDIN = ['webFetch', 'webSearch', 'codeExecution'];
-    // 启用的工具列表（为保持向后兼容，也支持使用ANTHROPIC_ENABLE_*开关）
-    USE_ANTHROPIC_BUILDIN: string[] = [];
-
-    // Web Fetch - 获取网页内容并支持citations
-    ANTHROPIC_ENABLE_WEB_FETCH = false;
-    ANTHROPIC_WEB_FETCH_MAX_USES = 5;
-    ANTHROPIC_WEB_FETCH_ALLOWED_DOMAINS: string[] = [];
-    ANTHROPIC_WEB_FETCH_BLOCKED_DOMAINS: string[] = [];
-    ANTHROPIC_WEB_FETCH_ENABLE_CITATIONS = true;
-    ANTHROPIC_WEB_FETCH_MAX_CONTENT_TOKENS = 4000;
-
-    // Web Search - 网页搜索工具
-    ANTHROPIC_ENABLE_WEB_SEARCH = false;
-    ANTHROPIC_WEB_SEARCH_MAX_USES = 5;
-    ANTHROPIC_WEB_SEARCH_ALLOWED_DOMAINS: string[] = [];
-    ANTHROPIC_WEB_SEARCH_BLOCKED_DOMAINS: string[] = [];
-    ANTHROPIC_WEB_SEARCH_USER_LOCATION = '';
-
-    // Code Execution - 代码执行工具（Python + Bash）
-    ANTHROPIC_ENABLE_CODE_EXECUTION = false;
-
-    // Tool Streaming - 细粒度工具流（实时显示工具执行进度）
-    ANTHROPIC_ENABLE_TOOL_STREAMING = true;
-
-    // Context Management - 自动清理历史工具调用，避免上下文过长
-    ANTHROPIC_ENABLE_CONTEXT_MANAGEMENT = true;
-    // 触发模式: 'auto' 自动触发清理 | 'manual' 手动控制
-    ANTHROPIC_CONTEXT_CLEAR_TRIGGER: 'auto' | 'manual' = 'auto';
-    // 保留最近N次工具调用（其余会被清理）
-    ANTHROPIC_CONTEXT_KEEP_RECENT = 5;
-    // 至少清理N千个tokens（例如：2 = 2000 tokens）
-    ANTHROPIC_CONTEXT_CLEAR_AT_LEAST = 2;
-    // 是否清理工具输入参数（保留工具调用但清理输入）
-    ANTHROPIC_CONTEXT_CLEAR_TOOL_INPUTS = false;
-    // 排除的工具（这些工具的调用不会被清理）
-    ANTHROPIC_CONTEXT_EXCLUDE_TOOLS: string[] = [];
-
-    // Thinking 清理配置（针对推理模型如 Claude 3.7 Sonnet）
-    ANTHROPIC_ENABLE_THINKING_CLEANUP = false;
-    // 保留最近N轮的 thinking 内容
-    ANTHROPIC_THINKING_KEEP_RECENT = 3;
-
-    // Structured Output Mode - 强制输出符合 JSON Schema 的结构化数据
-    // 模式: 'outputFormat' 使用 output format | 'tool' 使用工具模式 | 'auto' 自动选择
-    // 'outputFormat' 更灵活，推荐用于大多数场景
-    // 'tool' 强制使用工具，适合需要严格验证的场景
-    ANTHROPIC_STRUCTURED_OUTPUT_MODE: 'outputFormat' | 'tool' | 'auto' = 'auto';
-
-    ANTHROPIC_PROVIDER_OPTIONS = {
-        // sendReasoning: true,
-        // thinking: {
-        //     type: 'enabled', // 'enabled' | 'disabled'
-        //     budgetTokens: '1024',
-        // },
-    };
 }
 
 export class OpenAILikeConfig {
@@ -657,6 +374,7 @@ export class OpenAILikeConfig {
     OAILIKE_RERANK_MODEL = '';
     // oailike asr model
     OAILIKE_STT_MODEL = 'FunAudioLLM/SenseVoiceSmall';
+    OAILIKE_STT_EXTRA_PARAMS: Record<string, string> = {};
     // oailike tts model
     OAILIKE_TTS_MODEL = 'tts-1';
     // oailike tts extra params
@@ -668,106 +386,8 @@ export class OpenAILikeConfig {
     OAILIKE_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
     OAILIKE_MODELS = [];
     OAILIKE_MODELS_API = '/models';
-    // oailike relay
-    OAILIKE_RELAY_TOOLS: Record<string, string[]> = {
-        gemini: ['googleSearch', 'codeExecution', 'urlContext'],
-    };
-
-    // use oailike relay tools, support 'googleSearch, codeExecution, urlContext'
-    USE_OAILIKE_RELAY_TOOLS: string[] = [];
     // OAILIKE Provider Options
     OAILIKE_PROVIDER_OPTIONS = {};
-}
-
-export class VertexConfig {
-    // Google Project id
-    VERTEX_PROJECT_ID: string | null = null;
-    VERTEX_LOCATION = 'us-central1';
-    // Vertex Credentials: need obtain client_email & private_key from google cloud console
-    VERTEX_CREDENTIALS: Record<string, any> = {};
-
-    // Vertex Model
-    VERTEX_CHAT_MODEL = 'gemini-2.5-flash';
-    // Vertex Vision Model
-    VERTEX_VISION_MODEL = 'gemini-2.5-flash';
-    /**
-     * @deprecated
-     * when use search grounding, do not use other tools at the same time, otherwise errors occur.
-     */
-    SEARCH_GROUNDING = false;
-    // Vertex Image Model
-    VERTEX_IMAGE_MODEL = 'imagen-3.0-fast-generate-001';
-    VERTEX_MODELS = [];
-
-    // https://{service-endpoint}/v1/{parent}/models
-    // Where {service-endpoint} is one of the [supported service endpoints](https://cloud.google.com/vertex-ai/docs/reference/rest#rest_endpoints).
-    // parent: Required. The resource name of the Location to list the Models from. Format: projects/{project}/locations/{location}
-    VERTEX_MODELS_API = '';
-}
-
-export class XAIConfig {
-    // XAI api key
-    XAI_API_KEY: string | null = null;
-    // XAI api base
-    XAI_API_BASE = 'https://api.x.ai/v1';
-    // XAI api model
-    XAI_CHAT_MODEL = 'grok-3';
-    XAI_VISION_MODEL = 'grok-2-vision';
-    // XAI image model
-    XAI_IMAGE_MODEL = 'grok-2-image';
-    // XAI API Extra Params, key is model name prefix, separated by commas; value is extra Params,  support path(camelCase), split by '.'
-    // for example: XAI_API_EXTRA_PARAMS = { 'grok-3': { 'temperature': 0.5 } };
-    XAI_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
-    XAI_MODELS = [];
-    XAI_MODELS_API = '/models';
-    XAI_PROVIDER_OPTIONS = {
-        // reasoningEffort: 'high',
-    };
-    // XAI Server-Side Tools (executed on xAI servers)
-    // 可用工具列表：webSearch, xSearch, codeExecution, fileSearch
-    XAI_BUILDIN = ['webSearch', 'xSearch', 'codeExecution', 'fileSearch'];
-    // 启用的工具列表（为保持向后兼容，也支持使用XAI_ENABLE_*开关）
-    USE_XAI_BUILDIN: string[] = [];
-
-    // Enable web search tool (allows Grok to search the web and browse pages)
-    XAI_ENABLE_WEB_SEARCH = false;
-    // Enable X/Twitter search tool (allows Grok to search X posts)
-    XAI_ENABLE_X_SEARCH = false;
-    // Enable code execution tool (allows Grok to run Python code in sandbox)
-    XAI_ENABLE_CODE_EXECUTION = false;
-    // Enable file search tool (allows Grok to search in vector stores/collections)
-    XAI_ENABLE_FILE_SEARCH = false;
-    // Vector store IDs (collection IDs) to search through
-    // Create collections at https://console.x.ai/ and get the collection ID
-    XAI_FILE_SEARCH_VECTOR_STORES: string[] = [];
-    // Maximum number of search results to return
-    XAI_FILE_SEARCH_MAX_RESULTS = 10;
-    // Allowed domains for web search (max 5 domains, empty = no restriction)
-    XAI_WEB_SEARCH_ALLOWED_DOMAINS: string[] = [];
-    // Excluded domains for web search (max 5 domains)
-    XAI_WEB_SEARCH_EXCLUDED_DOMAINS: string[] = [];
-    // Enable image understanding in web search results
-    XAI_WEB_SEARCH_IMAGE_UNDERSTANDING = false;
-    // Allowed X handles for X search (max 10 handles, empty = no restriction)
-    XAI_X_SEARCH_ALLOWED_HANDLES: string[] = [];
-    // Excluded X handles for X search (max 10 handles)
-    XAI_X_SEARCH_EXCLUDED_HANDLES: string[] = [];
-    // Enable image understanding in X search results
-    XAI_X_SEARCH_IMAGE_UNDERSTANDING = false;
-    // Enable video understanding in X search results
-    XAI_X_SEARCH_VIDEO_UNDERSTANDING = false;
-}
-
-export class FishConfig {
-    // Fish api key
-    FISH_API_KEY: string | null = null;
-    // Fish api base
-    FISH_API_BASE = ' https://api.fish.audio/v1';
-    // Fish reference id, if not set, will use tts model
-    FISH_TTS_VOICE = '';
-    // Fish TTS Model
-    FISH_TTS_MODEL = 'speech-1.6';
-    FISH_TTS_EXTRA_PARAMS: Record<string, any> = {};
 }
 
 export class DefineKeys {
@@ -775,7 +395,7 @@ export class DefineKeys {
 }
 
 export class ExtraUserConfig {
-    MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-md:CURRENT_MODE|-v:VISION_MODEL|-t:OPENAI_TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-tool:USE_TOOLS|-im:IMAGE_MODEL|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-ra:RERANK_AGENT|-ew:ENABLE_WORKFLOW|-tp:CHAT_TEMPERATURE';
+    MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-im:IMAGE_MODEL|-v:VISION_MODEL|-s:STT_MODEL|-t:TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-tool:USE_TOOLS|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-ra:RERANK_AGENT|-ew:ENABLE_WORKFLOW|-tp:CHAT_TEMPERATURE';
     // /set command mapping value, separated by |, : separates multiple relationships
     MAPPING_VALUE = '';
     // MAPPING_VALUE = "cson:claude-3-5-sonnet-20240620|haiku:claude-3-haiku-20240307|g4m:gpt-4o-mini|g4:gpt-4o|rp+:command-r-plus";
@@ -793,12 +413,6 @@ export class ExtraUserConfig {
     // Keep empty to use the current agent chat model as function call model.
     TOOL_MODEL = '';
     PROMPT: Record<string, string> = prompts_default;
-    // KlingAI Cookie
-    KLINGAI_COOKIE: string[] = [];
-    // KlingAI Image Count
-    KLINGAI_IMAGE_COUNT = 1;
-    // KlingAI Image Ratio
-    KLINGAI_IMAGE_RATIO = '1:1';
 
     // chat agent temperature
     CHAT_TEMPERATURE: number | undefined = undefined;
@@ -810,11 +424,9 @@ export class ExtraUserConfig {
     MAX_STEPS = 5;
     // chat agent max retries
     MAX_RETRIES = 0;
-    // Rerank Agent, jina or openai or oailikeV1 or oailikeV2 or google
-    // oailikeV1 means use embedding model, oailikeV2 means use rerank model to rerank
-    RERANK_AGENT = 'google';
-    // Jina Rerank Model
-    JINA_RERANK_MODEL = 'jina-colbert-v2';
+    // Rerank agent: openai or oailike
+    // oailikeV1 uses embeddings, oailikeV2 uses the compatible rerank endpoint.
+    RERANK_AGENT = 'openai';
     // Whether to enable intelligent model processing
     ENABLE_INTELLIGENT_MODEL = false;
     // text handle type, to 'tts' or 'text' to chat with llm, or 'chat' by using audio-preview (default: text)

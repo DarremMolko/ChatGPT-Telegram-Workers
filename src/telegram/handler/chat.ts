@@ -33,13 +33,11 @@ function getUserIdentifier(user?: Telegram.User): string | null {
     // Priority 1: username with @ prefix
     if (user.username) {
         identifier = `@${user.username}`;
-    }
-    // Priority 2: full name (first_name + last_name)
-    else if (user.last_name) {
+    } else if (user.last_name) {
+        // Priority 2: full name (first_name + last_name)
         identifier = `${user.first_name} ${user.last_name}`;
-    }
-    // Priority 3: first_name only
-    else {
+    } else {
+        // Priority 3: first_name only
         identifier = user.first_name;
     }
 
@@ -48,7 +46,7 @@ function getUserIdentifier(user?: Telegram.User): string | null {
 }
 
 async function messageInitialize(sender: MessageSender, context?: WorkerContext, message?: Telegram.Message): Promise<ChatStreamTextHandler> {
-    setTimeout(() => sendAction(sender.api.token, sender.context.chat_id, 'typing'), 0);
+    setTimeout(sendAction, 0, sender.api.token, sender.context.chat_id, 'typing');
     log.info(`send init message`);
     const streamSender = OnStreamHander(sender, context, message?.text || message?.caption || '');
     streamSender.send('...');
@@ -226,6 +224,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     let sentPromise = null as Promise<Response | undefined> | null;
     let nextEnableTime: number | null = null;
     const isMessageSender = sender instanceof MessageSender;
+    let streamTransport: 'auto' | 'draft' | 'message' = isMessageSender ? 'auto' : 'message';
     const sendInterval = isMessageSender ? ENV.TELEGRAM_MIN_STREAM_INTERVAL : ENV.INLINE_QUERY_SEND_INTERVAL;
     const isSendTelegraph = (text: string) => {
         return isMessageSender
@@ -318,6 +317,23 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
             const data = mergeLogMessages(text, context?.USER_CONFIG);
             expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
             log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
+            if (isMessageSender && streamTransport !== 'message') {
+                const draftResponse = await sender.sendDraftRichText(data, undefined, expandParams);
+                if (draftResponse) {
+                    streamTransport = 'draft';
+                    sentPromise = Promise.resolve(draftResponse);
+                    if (draftResponse.status === 429) {
+                        const retryAfter = Number.parseInt(draftResponse.headers.get('Retry-After') || '');
+                        if (retryAfter) {
+                            nextEnableTime = Date.now() + retryAfter * 1000;
+                        }
+                    }
+                    return;
+                }
+                streamTransport = 'message';
+                sender.resetDraftState();
+            }
+
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
             sentPromise = sender.sendRichText(data, undefined, 'chat', expandParams);
             const resp = await sentPromise as Response;
@@ -345,6 +361,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         log.info('--- start end ---');
         streamSender.clearHeartbeat();
         await sentPromise;
+        isMessageSender && sender.resetDraftState();
         if ((nextEnableTime || 0) > Date.now()) {
             log.info(`Need await: ${(nextEnableTime || 0) - Date.now()}ms`);
             await waitUntil(nextEnableTime! + 10);
@@ -432,7 +449,7 @@ async function sendTelegraph(sendContext: {
             return textSender.sendRichText(msg);
         }
         return resp;
-    } catch (error) {
+    } catch {
         if (isEnd) {
             return sendDocument(textSender as MessageSender, { question, answer: text, log: debug_info });
         }
@@ -519,7 +536,7 @@ async function handleTextToImage(
     params: LLMChatRequestParams,
     context: WorkerContext,
     streamSender: ChatStreamTextHandler,
-    handleKey: string,
+    _handleKey: string,
 ): Promise<Response> {
     streamSender.clearHeartbeat!();
     const agent = loadImageGen(context.USER_CONFIG);
@@ -624,7 +641,7 @@ export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: 
     return sender.sendMediaGroup(medias);
 }
 
-function injectHistory(context: WorkerContext, result: UnionData, nextType: string = 'text') {
+function _injectHistory(context: WorkerContext, result: UnionData, nextType: string = 'text') {
     if (context.MIDDLE_CONTEXT.history.at(-1)?.role === 'user' || nextType !== 'text')
         return;
     context.MIDDLE_CONTEXT.history.push({ role: 'user', content: result.text || '', ...(result.url && result.url.length > 0 && { images: result.url }) });

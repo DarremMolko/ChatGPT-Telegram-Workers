@@ -11,8 +11,8 @@
                 },
                 "lang": {
                     "type": "string",
-                    "description": "Language setting for the response. Based on the language used by the user. Example values: 'zh-hant', 'en', 'de'",
-                    "default": "zh-hans"
+                    "description": "Language setting for the response. Based on the language used by the user. Example values: 'en', 'de', 'fr'",
+                    "default": "en"
                 },
                 "unit": {
                     "type": "string",
@@ -26,7 +26,7 @@
         }
     },
     "payload": {
-        "url": "https://api.qweather.com/v7/weather/now?location={{location}}&lang={{lang=zh-hans}}&unit={{unit=m}}",
+        "url": "https://api.qweather.com/v7/weather/now?location={{location}}&lang={{lang=en}}&unit={{unit=m}}",
         "headers": {
             "X-QW-Api-Key": "{{QWEATHER_TOKEN}}",
             "Content-Type": "application/json"

@@ -2,259 +2,134 @@
 
 [![Build and Push Docker Image](https://github.com/SzeMeng76/ChatGPT-Telegram-Workers/actions/workflows/build-docker.yml/badge.svg)](https://github.com/SzeMeng76/ChatGPT-Telegram-Workers/actions/workflows/build-docker.yml)
 
-<p align="center">
-    <br> English | <a href="README_CN.md">中文</a>
-</p>
+Telegram bot for OpenAI and OpenAI-compatible APIs.
 
-<p align="center">
-    <em>A powerful multi-AI provider Telegram bot with flexible deployment options</em>
-</p>
+This repository has been simplified to:
 
-## 📚 Overview
+- English only
+- `openai` and `oailike` providers only
+- OpenAI built-in tools only
+- native Telegram draft streaming when Telegram supports it
 
-This is a significantly refactored ChatGPT Telegram bot project that supports multiple AI service providers, rich features, and flexible deployment options.
+## Features
 
-### 🌟 Key Features
+- Chat with `openai` or any OpenAI-compatible endpoint through `oailike`
+- Native Telegram streaming in private chats, with fallback to edit-based streaming
+- Image generation through OpenAI image APIs or OpenAI-compatible endpoints
+- Speech-to-text and text-to-speech through OpenAI or OpenAI-compatible endpoints
+- Internal tools, MCP integration, and per-user settings
+- Cloudflare Workers, local, Docker, and Vercel deployment options
 
-**🤖 Multi-AI Provider Support**
-- OpenAI (GPT-3.5, GPT-4, GPT-4o, etc.)
-- Azure OpenAI
-- Anthropic Claude
-- Google Gemini & Vertex AI
-- xAI Grok
-- Mistral AI
-- Cohere
-- Cloudflare Workers AI
-- And more OpenAI-compatible services
+## Supported Providers
 
-**🛠️ Powerful Capabilities**
-- **Server-Side Tools**: Native integration with AI provider tools
-  - **Anthropic**: webFetch, webSearch, codeExecution with tool streaming
-  - **xAI Grok**: webSearch with domain filtering, X/Twitter search, codeExecution
-  - **Google Gemini**: googleSearch, urlContext, codeExecution, googleMaps, fileSearch
-  - **OpenAI**: webSearch, codeInterpreter, fileSearch, imageGeneration, MCP
-- **Function Calling**: Built-in tool functions with support for custom functions via environment variables
-- **Image & Video Generation**:
-  - Images: DALL-E, Google Imagen, Kling AI, Vertex AI, Workers AI
-  - Videos: Google Veo 3.1 Fast (8-second videos with audio)
-- **Voice Processing**:
-  - TTS: OpenAI, Google, Fish Audio with multi-speaker support
-  - ASR: Automatic Speech Recognition from voice messages
-- **Real-time Streaming**: Optimized message sending with near-zero latency
-- **Intelligent Model Switching**: Automatically adjust AI models based on conversation context
-- **Inline Queries**: Support for Telegram inline message functionality
-- **Plugin System**: Customizable plugins with template interpolation
-- **MCP Support**: Model Context Protocol integration
-- **Web Crawler**: Pattern-based HTML extraction with dynamic content support
-- **Workflow System**: Multi-step AI processing with @key triggers
+- `openai`
+- `oailike`
 
-**💬 Chat Enhancements**
-- **Multi-language Support**: Chinese, English, Portuguese, etc.
-- **Custom Trigger Words**: Configurable bot response keywords
-- **Message Replacement**: Custom replacement rules to simplify environment variable management
-- **Long Text Processing**: Smart splitting with Telegraph article conversion and file output
-- **Quote Message Merging**: Automatic handling of reply messages with expandable content
-- **Group Management**: Smart group responses with @mention detection, per-user context, and speaker identification
-- **Group Message Listening Mode**: Cache group message history so AI can see full conversation context when triggered (configurable cache size and TTL)
-- **Telegraph Integration**: Auto-convert long messages to articles with configurable thresholds
-- **Social Media Search**: Built-in Xiaohongshu (Little Red Book) integration
-- **App Store IAP**: Cross-country in-app purchase price lookup
+Unsupported provider-specific settings from older versions were removed, including Google, Anthropic, xAI, Azure, Vertex, Workers AI, Mistral, Cohere, Kling, and Fish Audio.
 
-**🔧 Management Features**
-- **Multiple Commands**:
-  - `/set` - Advanced settings with mapping and workflow support
-  - `/settings` - Quick settings menu
-  - `/history` - Export full chat history as JSON
-  - `/model` - Switch AI models
-  - `/map` - Manage model alias mappings
-  - `/tts` - Text-to-Speech with voice customization
-  - `/kling` - KlingAI image/video generation
-  - `/inline` - Inline query functionality
-  - `/perplexity` - Perplexity AI integration
-  - `/block` / `/blocklist` - User blocking management
-  - `/redo` - Retry last message
-- **User Configuration**: Personalized settings with multi-user support
-- **Whitelist/Blacklist**: Fine-grained access control with user-level blocking
-- **Scheduled Message Deletion**: Automatic cleanup by message type with configurable TTL
-- **Usage Statistics**: Display model names, token usage, latency, and timing information
-- **Multi-Bot Support**: Manage multiple Telegram bots with per-bot configuration
+## Quick Start
 
-### 🚀 Deployment Options
+Set the required Telegram token plus one provider.
 
-Multiple deployment methods to suit different needs:
+### OpenAI
 
-#### Docker Deployment (Recommended)
-```bash
-# Using Docker Compose
-docker-compose up -d
-
-# Or directly with Docker
-docker run -d \
-  --name chatgpt-telegram-workers \
-  -p 8787:8787 \
-  -v ./config.json:/app/config.json:ro \
-  -v ./wrangler.toml:/app/config.toml:ro \
-  szemeng76/chatgpt-telegram-workers:latest
+```env
+TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+OPENAI_API_KEY=sk-...
 ```
 
-#### Cloudflare Workers
-```bash
-npm run build
-npm run deploy:dist
+### OpenAI-compatible
+
+```env
+TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+AI_CHAT_PROVIDER=oailike
+AI_IMAGE_PROVIDER=oailike
+AI_ASR_PROVIDER=oailike
+AI_TTS_PROVIDER=oailike
+OAILIKE_API_KEY=your-key
+OAILIKE_API_BASE=https://your-api.example.com/v1
 ```
 
-#### Vercel
-```bash
-npm run build:vercel
-npm run deploy:vercel
-```
+## Common Commands
 
-#### Local Development
+- `/new` starts a new conversation
+- `/redo` retries the last request
+- `/img <prompt>` generates an image
+- `/tts <text>` generates speech
+- `/set ...` applies temporary or stored config overrides
+- `/settings` opens inline settings
+- `/system` shows current runtime and provider info
+- `/history [n]` exports stored history
+
+## Main Configuration
+
+Important variables:
+
+- `OPENAI_API_KEY`
+- `OPENAI_API_BASE`
+- `OPENAI_CHAT_MODEL`
+- `OPENAI_VISION_MODEL`
+- `OPENAI_TTS_MODEL`
+- `OPENAI_STT_MODEL`
+- `OAILIKE_API_KEY`
+- `OAILIKE_API_BASE`
+- `OAILIKE_CHAT_MODEL`
+- `OAILIKE_VISION_MODEL`
+- `OAILIKE_IMAGE_MODEL`
+- `OAILIKE_TTS_MODEL`
+- `OAILIKE_STT_MODEL`
+- `AI_CHAT_PROVIDER`
+- `AI_IMAGE_PROVIDER`
+- `AI_ASR_PROVIDER`
+- `AI_TTS_PROVIDER`
+
+OpenAI Responses API tools remain supported through:
+
+- `USE_OPENAI_BUILDIN`
+- `OPENAI_ENABLE_WEB_SEARCH`
+- `OPENAI_ENABLE_CODE_INTERPRETER`
+- `OPENAI_ENABLE_FILE_SEARCH`
+- `OPENAI_ENABLE_IMAGE_GENERATION`
+- `OPENAI_ENABLE_MCP`
+
+See:
+
+- [Configuration](./doc/en/CONFIG.md)
+- [Cloudflare Workers Deployment](./doc/en/DEPLOY.md)
+- [Local Development and Docker](./doc/en/LOCAL.md)
+
+## Development
+
 ```bash
 npm install
+npm run lint
+npm run build
+```
+
+Local dev:
+
+```bash
 npm run start:local
 ```
 
-### 📦 Project Structure
+## Structure
 
-```
+```text
 src/
-├── adapter/          # Adapter layer (Vercel, Local, etc.)
-├── agent/           # AI service agents
-│   ├── openai.ts    # OpenAI integration
-│   ├── anthropic.ts # Anthropic integration
-│   ├── google.ts    # Google AI integration
-│   └── ...          # Other AI services
-├── config/          # Configuration management
-├── telegram/        # Telegram API handling
-│   ├── handler/     # Message handlers
-│   ├── command/     # Command processing
-│   └── utils/       # Utility functions
-├── tools/           # Tool function system
-│   ├── internal/    # Built-in tools
-│   └── external/    # External tool configurations
-├── plugins/         # Plugin system
-├── mcp/            # MCP protocol support
-└── utils/          # Common utilities
+├── agent/        # OpenAI and OpenAI-compatible integrations
+├── config/       # Environment and user configuration
+├── telegram/     # Telegram command, handler, and send logic
+├── tools/        # Internal, external, MCP, and local tools
+└── utils/        # Shared helpers
 ```
 
-### ⚙️ Configuration
+## Notes
 
-The project uses environment variables for configuration, supporting multiple configuration methods:
+- `LANGUAGE` is fixed to English in this simplified build.
+- Native Telegram draft streaming is used when available in private chats; unsupported chats fall back automatically.
+- Older configs that selected removed providers are normalized back to supported providers at runtime.
 
-1. **Environment Variables**: Direct environment variable settings
-2. **config.json**: Local configuration file
-3. **wrangler.toml**: Cloudflare Workers configuration
+## License
 
-Key configuration options:
-- `TELEGRAM_AVAILABLE_TOKENS`: Telegram bot tokens
-- `OPENAI_API_KEY`: OpenAI API key
-- `ANTHROPIC_API_KEY`: Anthropic API key
-- `GOOGLE_API_KEY`: Google API key
-- `XAI_API_KEY`: xAI Grok API key
+MIT
 
-**Advanced Configuration:**
-- **Server-Side Tools**:
-  - `USE_GOOGLE_BUILDIN`: Enable Google tools (googleSearch, urlContext, codeExecution, googleMaps)
-  - `USE_XAI_BUILDIN`: Enable xAI tools (webSearch, xSearch, codeExecution)
-  - `ANTHROPIC_WEB_FETCH_URLS`: Configure domains for Anthropic webFetch
-  - `OPENAI_MCP_SERVERS`: OpenAI MCP server configuration
-- **Workflow & Automation**:
-  - `WORKFLOW`: Multi-step AI workflow definitions with @key triggers
-  - `ENABLE_WORKFLOW`: Enable/disable workflow processing
-  - `ENABLE_ALIAS`: Enable model alias mapping
-- **Message Processing**:
-  - `TELEGRAPH_NUM_LIMIT`: Convert messages longer than N characters to Telegraph
-  - `TELEGRAPH_SCOPE`: Chat types for Telegraph (group/supergroup/private)
-  - `QUOTE_EXPANDABLE`: Make quoted messages expandable
-  - `ADD_QUOTE_LIMIT`: Quote folding threshold
-  - `SHOW_THINKING_TEXT`: Display AI reasoning/thinking process (default: true)
-  - `EXPANDABLE_THINKING`: Use collapsible blockquote for thinking text (default: true)
-- **Group Message Listening**:
-  - `GROUP_MESSAGE_LISTEN_MODE`: Enable group message listening mode (default: false)
-  - `GROUP_MESSAGE_CACHE_SIZE`: Number of cached group messages (default: 20)
-  - `GROUP_MESSAGE_CACHE_TTL`: Cache expiration time in seconds (default: 3600, 1 hour)
-  - `CHAT_TRIGGER_PREFIX`: Group message trigger prefix (e.g., `/bot`, leave empty to use @mention or reply only)
-- **Audio & Voice**:
-  - `FISH_TTS_VOICE`: Fish Audio TTS voice reference ID
-  - `GOOGLE_TTS_EXTRA_PARAMS`: Multi-speaker voice configuration
-  - `AUDIO_TEXT_FORMAT`: Audio transcription format (spoiler/bold/italic/code)
-- **Model Parameters**:
-  - `CHAT_TEMPERATURE`: Model temperature (0-2)
-  - `FUNCTION_CALL_TEMPERATURE`: Separate temperature for tool calls
-  - `MAX_STEPS`: Maximum tool execution steps (default: 5)
-  - `OPENAI_REASONING_EFFORT`: Effort level for o1 models (low/medium/high)
-  - `PARAMS_MODIFIER`: Per-model parameter overrides
-
-For more configurations, see [Configuration Documentation](./doc/en/CONFIG.md)
-
-### 🔍 Tech Stack
-
-- **Framework**: TypeScript + Vite
-- **AI SDK**: [@ai-sdk](https://www.npmjs.com/package/ai) for unified AI interfaces
-- **Deployment**: Cloudflare Workers / Vercel / Docker
-- **API**: Telegram Bot API
-- **Tools**: ESLint, Vitest
-
-### 🧰 Built-in Tools
-
-The bot comes with a rich set of built-in tools that can be called by AI models:
-
-**🔧 Utility Tools**
-- **web** - Web crawler with pattern-based HTML extraction
-- **duckduckgo** - DuckDuckGo web search integration
-- **think** - Reasoning/brainstorming for complex tasks
-- **command** - Execute Telegram commands from AI
-
-**🎨 Creative Tools**
-- **image_gen** - Multi-provider image generation (DALL-E, Google, Vertex, xAI, Kling, Workers)
-- **google_veo** - Google Veo 3.1 video generation (8-second videos with audio)
-- **kling** - KlingAI image/video generation with editing support
-
-**🔍 Search & Social**
-- **xiaohongshu** - Little Red Book (Chinese social platform) search
-- **app_iap** - App Store in-app purchase price lookup by country
-
-**⚙️ System Tools**
-- **scheduletask** - Automatic message deletion scheduling
-- **google_buildin** - Toggle Google Gemini built-in tools dynamically
-
-All tools are defined in `src/tools/internal/` and can be extended via environment variables.
-
-### 📖 Documentation
-
-- [Configuration Guide](./doc/en/CONFIG.md)
-- [Deployment Guide](./doc/en/DEPLOY.md)
-- [Local Development](./doc/en/LOCAL.md)
-- [Platform Deployment](./doc/en/PLATFORM.md)
-- [Server-Side Tools Guide](./SERVER_TOOLS.md) - Comprehensive guide for Anthropic, Google, xAI, and OpenAI server-side tools
-- [Image Editing Complete Guide](./IMAGE_EDITING_COMPLETE_GUIDE.md) - Full guide for AI image generation and editing features
-- [Changelog](./doc/en/CHANGELOG.md)
-
-### ⚠️ Important Notes
-
-- Due to the use of AI SDK, CPU time consumption is high, not suitable for Cloudflare Worker free tier (10ms limit)
-- Docker deployment with polling mode is recommended
-- Webhook mode has a maximum runtime of 60 seconds
-
-### 🤝 Contributing
-
-Issues and Pull Requests are welcome. Before contributing code, please ensure:
-
-1. Code follows project standards (`npm run lint`)
-2. All tests pass (`npm test`)
-3. Update relevant documentation
-
-### 📄 License
-
-This project is open-sourced under the [MIT License](LICENSE).
-
-### 🙏 Acknowledgments
-
-- Thanks to the original [ChatGPT-Telegram-Workers](https://github.com/adolphnov/ChatGPT-Telegram-Workers) project for the foundational architecture
-- Thanks to [JetBrains](https://www.jetbrains.com/?from=tbxark) for providing open-source development licenses
-- Thanks to all contributors for their support
-
----
-
-**If this project helps you, please give it a ⭐️!**

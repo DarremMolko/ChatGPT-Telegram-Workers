@@ -6,21 +6,12 @@ import { blockCommand } from '../telegram/command';
 import { initializeTools } from '../tools';
 import {
     AgentShareConfig,
-    AnthropicConfig,
-    AzureConfig,
-    CohereConfig,
     DalleAIConfig,
     DefineKeys,
     EnvironmentConfig,
     ExtraUserConfig,
-    FishConfig,
-    GeminiConfig,
-    MistralConfig,
     OpenAIConfig,
     OpenAILikeConfig,
-    VertexConfig,
-    WorkersConfig,
-    XAIConfig,
 } from './config';
 import { ConfigMerger } from './merger';
 
@@ -29,17 +20,8 @@ export type AgentUserConfig = Record<string, any>
     & AgentShareConfig
     & OpenAIConfig
     & DalleAIConfig
-    & AzureConfig
-    & WorkersConfig
-    & GeminiConfig
-    & MistralConfig
-    & CohereConfig
-    & AnthropicConfig
     & OpenAILikeConfig
-    & ExtraUserConfig
-    & VertexConfig
-    & XAIConfig
-    & FishConfig;
+    & ExtraUserConfig;
 
 function createAgentUserConfig(): AgentUserConfig {
     return Object.assign(
@@ -48,25 +30,21 @@ function createAgentUserConfig(): AgentUserConfig {
         new AgentShareConfig(),
         new OpenAIConfig(),
         new DalleAIConfig(),
-        new AzureConfig(),
-        new WorkersConfig(),
-        new GeminiConfig(),
-        new MistralConfig(),
-        new CohereConfig(),
-        new AnthropicConfig(),
         new OpenAILikeConfig(),
         new ExtraUserConfig(),
-        new VertexConfig(),
-        new XAIConfig(),
-        new FishConfig(),
     );
 }
 
 export const ENV_KEY_MAPPER: Record<string, string> = {
     CHAT_MODEL: 'OPENAI_CHAT_MODEL',
     API_KEY: 'OPENAI_API_KEY',
-    WORKERS_AI_MODEL: 'WORKERS_CHAT_MODEL',
 };
+
+const SUPPORTED_CHAT_PROVIDERS = new Set(['openai', 'oailike']);
+const SUPPORTED_IMAGE_PROVIDERS = new Set(['openai', 'oailike']);
+const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
+const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
+const SUPPORTED_RERANK_AGENTS = new Set(['openai', 'oailikeV1', 'oailikeV2']);
 
 class Environment extends EnvironmentConfig {
     // -- 版本数据 --
@@ -153,8 +131,9 @@ class Environment extends EnvironmentConfig {
 
         ConfigMerger.merge(this.USER_CONFIG, source);
         this.migrateOldEnv(source);
-        this.USER_CONFIG.DEFINE_KEYS = [];
-        this.I18N = loadI18n(this.LANGUAGE.toLowerCase());
+        this.normalizeConfig();
+        this.USER_CONFIG.DEFINE_KEYS = this.USER_CONFIG.DEFINE_KEYS.filter(key => Object.keys(this.USER_CONFIG).includes(key));
+        this.I18N = loadI18n('en');
 
         // 选择对应语言的SYSTEM_INIT_MESSAGE
         if (!this.USER_CONFIG.SYSTEM_INIT_MESSAGE) {
@@ -201,11 +180,6 @@ class Environment extends EnvironmentConfig {
             this.USER_CONFIG.OPENAI_API_BASE = `${source.OPENAI_API_DOMAIN}/v1`;
         }
 
-        // 兼容旧版 WORKERS_AI_MODEL
-        if (source.WORKERS_AI_MODEL && !this.USER_CONFIG.WORKERS_CHAT_MODEL) {
-            this.USER_CONFIG.WORKERS_CHAT_MODEL = source.WORKERS_AI_MODEL;
-        }
-
         // 兼容旧版API_KEY
         if (source.API_KEY && this.USER_CONFIG.OPENAI_API_KEY.length === 0) {
             this.USER_CONFIG.OPENAI_API_KEY = source.API_KEY.split(',');
@@ -216,37 +190,36 @@ class Environment extends EnvironmentConfig {
             this.USER_CONFIG.OPENAI_CHAT_MODEL = source.CHAT_MODEL;
         }
 
-        // 兼容旧版 GOOGLE_API_BASE
-        if (source.GOOGLE_API_BASE && !this.USER_CONFIG.GOOGLE_API_BASE) {
-            this.USER_CONFIG.GOOGLE_API_BASE = source.GOOGLE_API_BASE.replace(/\/models\/?$/, '');
-        }
-
-        if (source.GOOGLE_CHAT_MODEL && !this.USER_CONFIG.GOOGLE_CHAT_MODEL) {
-            this.USER_CONFIG.GOOGLE_CHAT_MODEL = source.GOOGLE_CHAT_MODEL;
-        }
-
-        // 兼容旧版 AZURE_COMPLETIONS_API
-        if (source.AZURE_COMPLETIONS_API && !this.USER_CONFIG.AZURE_CHAT_MODEL) {
-            const url = new URL(source.AZURE_COMPLETIONS_API);
-            this.USER_CONFIG.AZURE_RESOURCE_NAME = url.hostname.split('.').at(0) || null;
-            this.USER_CONFIG.AZURE_CHAT_MODEL = url.pathname.split('/').at(3) || null;
-            this.USER_CONFIG.AZURE_API_VERSION = url.searchParams.get('api-version') || '2024-06-01';
-        }
-        // 兼容旧版 AZURE_DALLE_API
-        if (source.AZURE_DALLE_API && !this.USER_CONFIG.AZURE_IMAGE_MODEL) {
-            const url = new URL(source.AZURE_DALLE_API);
-            this.USER_CONFIG.AZURE_RESOURCE_NAME = url.hostname.split('.').at(0) || null;
-            this.USER_CONFIG.AZURE_IMAGE_MODEL = url.pathname.split('/').at(3) || null;
-            this.USER_CONFIG.AZURE_API_VERSION = url.searchParams.get('api-version') || '2024-06-01';
-        }
-
-        // 兼容旧版 JINA_API_KEY
-        if (source.JINA_API_KEY) {
-            this.PLUGINS_ENV.JINA_API_KEY = source.JINA_API_KEY.split(',');
-        }
-        //  兼容旧的AI_PROVIDER
+        // 兼容旧的AI_PROVIDER
         if (source.AI_PROVIDER) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = source.AI_PROVIDER;
+        }
+    }
+
+    private normalizeConfig() {
+        this.LANGUAGE = 'en';
+
+        if (!SUPPORTED_CHAT_PROVIDERS.has(this.USER_CONFIG.AI_CHAT_PROVIDER)) {
+            this.USER_CONFIG.AI_CHAT_PROVIDER = 'openai';
+        }
+        if (!SUPPORTED_IMAGE_PROVIDERS.has(this.USER_CONFIG.AI_IMAGE_PROVIDER)) {
+            this.USER_CONFIG.AI_IMAGE_PROVIDER = 'openai';
+        }
+        if (!SUPPORTED_ASR_PROVIDERS.has(this.USER_CONFIG.AI_ASR_PROVIDER)) {
+            this.USER_CONFIG.AI_ASR_PROVIDER = 'openai';
+        }
+        if (!SUPPORTED_TTS_PROVIDERS.has(this.USER_CONFIG.AI_TTS_PROVIDER)) {
+            this.USER_CONFIG.AI_TTS_PROVIDER = 'openai';
+        }
+        if (!SUPPORTED_RERANK_AGENTS.has(this.USER_CONFIG.RERANK_AGENT)) {
+            this.USER_CONFIG.RERANK_AGENT = 'openai';
+        }
+
+        if (this.USER_CONFIG.OPENAI_API_KEY.length === 0 && this.USER_CONFIG.OAILIKE_API_KEY) {
+            this.USER_CONFIG.AI_CHAT_PROVIDER = 'oailike';
+            this.USER_CONFIG.AI_IMAGE_PROVIDER = 'oailike';
+            this.USER_CONFIG.AI_ASR_PROVIDER = 'oailike';
+            this.USER_CONFIG.AI_TTS_PROVIDER = 'oailike';
         }
     }
 
@@ -264,8 +237,12 @@ class Environment extends EnvironmentConfig {
     }
 
     private asyncInit() {
-        initializeTools().catch(console.error);
-        initializeMcp().catch(console.error);
+        initializeTools().catch((error) => {
+            console.error('[ERROR] Failed to initialize tools:', error);
+        });
+        initializeMcp().catch((error) => {
+            console.error('[ERROR] Failed to initialize MCP:', error);
+        });
     }
 }
 

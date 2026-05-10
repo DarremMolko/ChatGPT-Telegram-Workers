@@ -29,7 +29,7 @@ export function getGroupMessageCacheKey(chatId: number | string): string {
 /**
  * 保存群组消息到缓存
  */
-export async function cacheGroupMessage(message: Telegram.Message, context: WorkerContext): Promise<void> {
+export async function cacheGroupMessage(message: Telegram.Message, _context: WorkerContext): Promise<void> {
     if (!ENV.GROUP_MESSAGE_LISTEN_MODE || !isTelegramChatTypeGroup(message.chat.type)) {
         return;
     }

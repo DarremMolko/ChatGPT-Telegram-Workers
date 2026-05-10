@@ -110,8 +110,7 @@ export async function recordUserActivity(context: WorkerContextBase, message: an
         if (store.getStats().totalMessages % 100 === 0) {
             store.cleanOldDailyStats();
         }
-    }
-    catch (e) {
+    } catch (e) {
         // 统计失败不影响主要功能
         console.error('Stats recording error:', e);
     }
@@ -126,8 +125,7 @@ export function getStats(botId: string): StatsData {
     try {
         const store = getStatsStore(botId);
         return store.getStats();
-    }
-    catch (e) {
+    } catch (e) {
         console.error('Stats retrieval error:', e);
         return {
             totalUsers: 0,

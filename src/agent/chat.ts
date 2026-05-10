@@ -76,7 +76,7 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
     };
 
     // 裁剪历史记录
-    let trimmedHistory = trimer(history, context.USER_CONFIG.MAX_HISTORY_LENGTH);
+    const trimmedHistory = trimer(history, context.USER_CONFIG.MAX_HISTORY_LENGTH);
 
     // 注入群组缓存（如果存在）
     // 群组缓存应该在裁剪后注入，避免被 trimer 裁剪掉
@@ -125,7 +125,7 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
         }
         // When the last message is tool call message, delete it.
         for (const m of raw_messages.toReversed()) {
-            if (m.role === 'assistant' && Array.isArray(m.content) && m.content.find((i: any) => i.type === 'tool-call')) {
+            if (m.role === 'assistant' && Array.isArray(m.content) && m.content.some((i: any) => i.type === 'tool-call')) {
                 validEnd--;
                 continue;
             }

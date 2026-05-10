@@ -257,7 +257,7 @@ async function base64OrUrlToBlob(data: MediaToolResultContent[]): Promise<Blob[]
     if (mediaType === 'url') {
         return Promise.all(data.map(v => fetch(v.data as string).then(r => r.blob())));
     } else if (mediaType === 'base64') {
-        return Promise.all(data.map(v => {
+        return Promise.all(data.map((v) => {
             let base64Data = v.data as string;
             // Remove data URL prefix if present (e.g., "data:image/png;base64,")
             if (base64Data.includes(',')) {

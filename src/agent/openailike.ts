@@ -85,7 +85,7 @@ export class OpenAILikeASR extends OpenAILikeBase implements ASRAgent {
         formData.append('file', audio, 'audio.mp3');
         formData.append('model', context.OAILIKE_STT_MODEL);
         if (context.OAILIKE_STT_EXTRA_PARAMS) {
-            Object.entries(context.OAILIKE_STT_EXTRA_PARAMS as string).forEach(([k, v]) => {
+            Object.entries(context.OAILIKE_STT_EXTRA_PARAMS).forEach(([k, v]) => {
                 formData.append(k, v);
             });
         }

@@ -9,6 +9,14 @@ import md2node from './md2node';
 import { chunkDocument, escape } from './md2tgmd';
 import { waitUntil } from './tg_utils';
 
+interface SendMessageDraftParams {
+    chat_id: number;
+    draft_id: number;
+    text: string;
+    message_thread_id?: number;
+    parse_mode?: Telegram.ParseMode;
+}
+
 class MessageContext implements Record<string, any> {
     chat_id: number;
     message_id: number | null = null; // 当前发送的消息，用于后续编辑
@@ -48,6 +56,8 @@ class MessageContext implements Record<string, any> {
 export class MessageSender {
     api: TelegramBotAPI;
     context: MessageContext;
+    private nativeDraftSupported = true;
+    private draftId: number | null = null;
 
     constructor(token: string, context: MessageContext) {
         this.api = createTelegramBotAPI(token);
@@ -79,6 +89,47 @@ export class MessageSender {
             (this.context as any)[key] = (context as any)[key];
         }
         return this;
+    }
+
+    private nextDraftId(): number {
+        if (!this.draftId) {
+            this.draftId = Math.max(1, Math.floor(Date.now() + Math.random() * 1e6));
+        }
+        return this.draftId;
+    }
+
+    resetDraftState(): void {
+        this.draftId = null;
+    }
+
+    canUseNativeDraft(
+        message: string,
+        parseMode: Telegram.ParseMode | null = ENV.DEFAULT_PARSE_MODE as Telegram.ParseMode,
+        expandParams?: ExpandParams,
+    ): boolean {
+        if (this.context.chatType !== 'private' || !this.nativeDraftSupported) {
+            return false;
+        }
+        const rendered = renderMessage(parseMode, message, expandParams);
+        return rendered.length === 1 && rendered[0].trim() !== '';
+    }
+
+    async sendDraftRichText(
+        message: string,
+        parseMode: Telegram.ParseMode | null = ENV.DEFAULT_PARSE_MODE as Telegram.ParseMode,
+        expandParams?: ExpandParams,
+    ): Promise<Response | null> {
+        if (!this.context) {
+            throw new Error('Message context not set');
+        }
+        if (!this.canUseNativeDraft(message, parseMode, expandParams)) {
+            return null;
+        }
+        const [rendered] = renderMessage(parseMode, message, expandParams);
+        return this.sendMessageDraft(rendered, {
+            ...this.context,
+            parse_mode: parseMode,
+        });
     }
 
     private async sendMessage(message: string, context: MessageContext, retryCount = 0): Promise<Response> {
@@ -128,6 +179,35 @@ export class MessageSender {
             log.error(`Status 429, need wait: ${waitTime}s (retry ${retryCount + 1}/${maxRetries})`);
             await waitUntil(Date.now() + waitTime * 1000);
             return this.sendMessage(message, context, retryCount + 1);
+        }
+
+        return resp;
+    }
+
+    private async sendMessageDraft(message: string, context: MessageContext, retryCount = 0): Promise<Response | null> {
+        const maxRetries = 3;
+        const params: SendMessageDraftParams = {
+            chat_id: context.chat_id,
+            draft_id: this.nextDraftId(),
+            text: message,
+            message_thread_id: context.message_thread_id || undefined,
+            parse_mode: context.parse_mode || undefined,
+        };
+        const resp = await this.api.request('sendMessageDraft' as Telegram.BotMethod, params);
+
+        if (resp.status === 429 && retryCount < maxRetries) {
+            const waitTime = await extractRetryAfter(resp, 5);
+            log.error(`Status 429, need wait: ${waitTime}s (retry ${retryCount + 1}/${maxRetries})`);
+            await waitUntil(Date.now() + waitTime * 1000);
+            return this.sendMessageDraft(message, context, retryCount + 1);
+        }
+
+        if (!resp.ok) {
+            const description = await extractTelegramDescription(resp);
+            log.warn(`Native Telegram draft stream unavailable, falling back to editMessageText: ${resp.status} ${description}`);
+            this.nativeDraftSupported = false;
+            this.resetDraftState();
+            return null;
         }
 
         return resp;
@@ -447,6 +527,26 @@ export function sendAction(botToken: string, chat_id: number, action: Telegram.C
         chat_id,
         action,
     }).catch(console.error), 0);
+}
+
+async function extractRetryAfter(resp: Response, fallback = 5): Promise<number> {
+    try {
+        const errorBody = await resp.clone().json() as { parameters?: { retry_after?: number } };
+        const retryAfter = errorBody.parameters?.retry_after || resp.headers.get('Retry-After');
+        return retryAfter ? Number.parseInt(String(retryAfter)) : fallback;
+    } catch {
+        const retryAfter = resp.headers.get('Retry-After');
+        return retryAfter ? Number.parseInt(retryAfter) : fallback;
+    }
+}
+
+async function extractTelegramDescription(resp: Response): Promise<string> {
+    try {
+        const body = await resp.clone().json() as Telegram.ResponseError;
+        return body.description || resp.statusText;
+    } catch {
+        return resp.statusText;
+    }
 }
 
 export async function checkIsNeedTagIds(context: { chatType: string; message: Telegram.Message }, resp: Promise<Response>, msgType: 'tip' | 'chat') {

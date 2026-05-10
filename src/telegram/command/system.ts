@@ -2,7 +2,7 @@
 /* eslint-disable no-cond-assign */
 import type { UserModelMessage } from 'ai';
 import type * as Telegram from 'telegram-bot-api-types';
-import type { HistoryItem, ImageResult } from '../../agent/types';
+import type { HistoryItem } from '../../agent/types';
 import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
@@ -10,7 +10,6 @@ import type { CommandHandler, InlineItem, ScopeType } from './types';
 import { authChecker } from '.';
 import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadASRLLM, loadChatLLM, loadImageGen, loadTTSLLM, TTS_AGENTS } from '../../agent';
 import { loadHistory } from '../../agent/chat';
-import { KlingAI } from '../../agent/kling';
 import { updateModels } from '../../agent/models';
 import { ENV, ENV_KEY_MAPPER } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
@@ -18,12 +17,12 @@ import { getLogSingleton, log } from '../../log';
 import { updateMcp } from '../../mcp';
 import { getTools } from '../../tools';
 import { WssRequest } from '../../utils/others/wsrequest';
+import { getStats } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
 import { chatWithLLM, OnStreamHander, sendImages, tts } from '../handler/chat';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
 import { chunkArray, getTelegramFile, isCfWorker, isTelegramChatTypeGroup, UUIDv4 } from '../utils/tg_utils';
-import { getStats } from '../../utils/stats';
 
 export const COMMAND_AUTH_CHECKER = {
     default(chatType: string): string[] | null {
@@ -97,8 +96,7 @@ export class ImgCommandHandler implements CommandHandler {
         try {
             const agent = loadImageGen(context.USER_CONFIG);
             const extraParams: Record<string, any> = {};
-            // 支持图片编辑的 agents：google, vertex, openai (xai 暂不支持)
-            if (['google', 'vertex', 'openai'].includes(agent.name) && ['image', 'photo'].includes(context.MIDDLE_CONTEXT.messageInfo?.type) && (context.MIDDLE_CONTEXT.messageInfo?.id?.length || 0) > 0) {
+            if (agent.name === 'openai' && ['image', 'photo'].includes(context.MIDDLE_CONTEXT.messageInfo?.type) && (context.MIDDLE_CONTEXT.messageInfo?.id?.length || 0) > 0) {
                 extraParams.referenceImages = await getTelegramFile(context.MIDDLE_CONTEXT.messageInfo.id!, context.SHARE_CONTEXT.botToken, ENV.TELEGRAM_IMAGE_TRANSFER_MODE as any);
             }
             await sender.sendPlainText('Please wait a moment...');
@@ -129,16 +127,16 @@ export class HelpCommandHandler implements CommandHandler {
             if (k === 'summary') {
                 continue;
             }
-            helpMsg += `/${k}：${v}\n`;
+            helpMsg += `/${k}: ${v}\n`;
         }
         for (const [k, v] of Object.entries(ENV.CUSTOM_COMMAND)) {
             if (v.description) {
-                helpMsg += `${k}：${v.description}\n`;
+                helpMsg += `${k}: ${v.description}\n`;
             }
         }
         for (const [k, v] of Object.entries(ENV.PLUGINS_COMMAND)) {
             if (v.description) {
-                helpMsg += `${k}：${v.description}\n`;
+                helpMsg += `${k}: ${v.description}\n`;
             }
         }
         helpMsg = helpMsg.split('\n').map(line => `> ${line}`).join('\n');
@@ -333,15 +331,7 @@ export class SystemCommandHandler implements CommandHandler {
             const shareCtx = { ...context.SHARE_CONTEXT };
             shareCtx.botToken = '******';
             context.USER_CONFIG.OPENAI_API_KEY = ['******'];
-            context.USER_CONFIG.AZURE_API_KEY = '******';
-            context.USER_CONFIG.AZURE_COMPLETIONS_API = '******';
-            context.USER_CONFIG.AZURE_DALLE_API = '******';
-            context.USER_CONFIG.CLOUDFLARE_ACCOUNT_ID = '******';
-            context.USER_CONFIG.CLOUDFLARE_TOKEN = '******';
-            context.USER_CONFIG.GOOGLE_API_KEY = '******';
-            context.USER_CONFIG.MISTRAL_API_KEY = '******';
-            context.USER_CONFIG.COHERE_API_KEY = '******';
-            context.USER_CONFIG.ANTHROPIC_API_KEY = '******';
+            context.USER_CONFIG.OAILIKE_API_KEY = '******';
             const config = ConfigMerger.trim(context.USER_CONFIG, ENV.LOCK_USER_CONFIG_KEYS);
             msg = `${msg}\n`;
             msg += `USER_CONFIG: ${JSON.stringify(config, null, 2)}\n`;
@@ -411,7 +401,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
     ): Promise<Response | null> => {
         try {
             if (!subcommand) {
-                const detailSet = ENV.I18N.command?.detail?.set || 'Have no detailed information in the language';
+                const detailSet = ENV.I18N.command?.detail?.set || 'No detailed help is available for this language.';
                 return sender.sendRichText(`<pre>${detailSet}</pre>`, 'HTML');
             }
 
@@ -516,10 +506,23 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
                 break;
             case 'CHAT_MODEL':
             case 'VISION_MODEL':
-            case 'STT_MODEL':
-            case 'TTS_MODEL':
                 key = context.USER_CONFIG.AI_CHAT_PROVIDER
                     ? `${context.USER_CONFIG.AI_CHAT_PROVIDER.toUpperCase()}_${key}`
+                    : key;
+                break;
+            case 'IMAGE_MODEL':
+                key = context.USER_CONFIG.AI_IMAGE_PROVIDER
+                    ? `${context.USER_CONFIG.AI_IMAGE_PROVIDER.toUpperCase()}_${key}`
+                    : key;
+                break;
+            case 'STT_MODEL':
+                key = context.USER_CONFIG.AI_ASR_PROVIDER
+                    ? `${context.USER_CONFIG.AI_ASR_PROVIDER.toUpperCase()}_${key}`
+                    : key;
+                break;
+            case 'TTS_MODEL':
+                key = context.USER_CONFIG.AI_TTS_PROVIDER
+                    ? `${context.USER_CONFIG.AI_TTS_PROVIDER.toUpperCase()}_${key}`
                     : key;
                 break;
             case 'USE_TOOLS':
@@ -630,7 +633,7 @@ export class InlineCommandHandler implements CommandHandler {
         const settingMsg = this.settingsMessage(context.USER_CONFIG, defaultInlines, { callBack: '' });
         const headKeyboard = [
             {
-                text: '请选择配置的选项',
+                text: 'Select a setting',
                 callback_data: message.from!.id.toString(),
             },
         ];
@@ -655,9 +658,8 @@ export class InlineCommandHandler implements CommandHandler {
         const allImageAgents = IMAGE_AGENTS.map(agent => agent.name);
         const allTTSAgents = TTS_AGENTS.map(agent => agent.name);
         const allASRAgents = ASR_AGENTS.map(agent => agent.name);
-        const allRerankAgents = ['jina', 'openai', 'oailikeV1', 'oailikeV2', 'google'];
+        const allRerankAgents = ['openai', 'oailikeV1', 'oailikeV2'];
         const chatAgent = context.AI_CHAT_PROVIDER;
-        console.log(`[DEBUG] chatAgent=${chatAgent}, GOOGLE_BUILDIN=${context.GOOGLE_BUILDIN?.length}, ANTHROPIC_BUILDIN=${context.ANTHROPIC_BUILDIN?.length}, XAI_BUILDIN=${context.XAI_BUILDIN?.length}`);
         const configKeyHandler = (type: string) => {
             if (type === 'Tool') {
                 return 'TOOL_MODEL';
@@ -779,32 +781,6 @@ export class InlineCommandHandler implements CommandHandler {
             //     }),
             // },
         ];
-        // 添加 provider-specific tools
-        // 只在对应的 provider 激活时才添加到菜单
-        if (chatAgent === 'gemini' || chatAgent === 'google' || chatAgent === 'vertex') {
-            inlines.push({
-                label: 'Google Tools',
-                config_key: 'USE_GOOGLE_BUILDIN',
-                type: 'checkbox',
-                value: context.GOOGLE_BUILDIN,
-            });
-        }
-        if (chatAgent === 'anthropic') {
-            inlines.push({
-                label: 'Anthropic Tools',
-                config_key: 'USE_ANTHROPIC_BUILDIN',
-                type: 'checkbox',
-                value: context.ANTHROPIC_BUILDIN,
-            });
-        }
-        if (chatAgent === 'xai') {
-            inlines.push({
-                label: 'xAI Tools',
-                config_key: 'USE_XAI_BUILDIN',
-                type: 'checkbox',
-                value: context.XAI_BUILDIN,
-            });
-        }
         if (chatAgent === 'openai') {
             inlines.push({
                 label: 'OpenAI Tools',
@@ -813,22 +789,12 @@ export class InlineCommandHandler implements CommandHandler {
                 value: context.OPENAI_BUILDIN,
             });
         }
-        if (chatAgent === 'oailike') {
-            inlines.push({
-                label: 'Oailike Tools',
-                config_key: 'USE_OAILIKE_RELAY_TOOLS',
-                type: 'checkbox',
-                value: Object.values(context.OAILIKE_RELAY_TOOLS).flat(),
-            });
-        }
-        console.log(`[DEBUG] Before return, inlines.length=${inlines.length}, labels=${inlines.map(i => i.label).join(', ')}`);
         const result = (ENV.CALLBACK_MENU.length === 0 ? inlines.sort((a, b) => a.label.localeCompare(b.label)) : ENV.CALLBACK_MENU.map(key => inlines.find(inline => inline.config_key.endsWith(key))).filter(Boolean) as InlineItem[]);
-        console.log(`[DEBUG] After return, result.length=${result.length}, labels=${result.map(i => i.label).join(', ')}, CALLBACK_MENU.length=${ENV.CALLBACK_MENU.length}`);
         return result;
     };
 
     settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack }: { key?: string; callBack: string | InlineItem }) => {
-        let settingMsg = '当前配置:\n\n';
+        let settingMsg = 'Current configuration:\n\n';
         settingMsg += `${inlines.map(({ label, config_key }) => {
             return Object.hasOwn(context, config_key) ? `\`${label}: ${context[config_key] || 'Null'}\`` : '';
         }).filter(Boolean).join('\n')}`;
@@ -845,11 +811,11 @@ export class InlineCommandHandler implements CommandHandler {
         }
 
         if (key === 'ENVS' && typeof callBack === 'string') {
-            settingMsg += `\n\n当前选中的变量: \`${callBack || '空'}\``
-                + `\n\n当前值: \`${configValue ?? '空'}\``
-                + `\n\n**Tip: 选中需要配置的变量，并回复 配置值 给本条消息**\n`;
+            settingMsg += `\n\nSelected variable: \`${callBack || 'None'}\``
+                + `\n\nCurrent value: \`${configValue ?? 'None'}\``
+                + `\n\n**Tip: Select a variable and reply to this message with the new value.**\n`;
         } else if (key) {
-            settingMsg += `\n\n当前配置的选项为: \`${key}\`\n变数值为: \`${configValue}\``;
+            settingMsg += `\n\nSelected setting: \`${key}\`\nCurrent value: \`${configValue}\``;
         }
         return `${settingMsg.substring(0, 4000)}`;
     };
@@ -861,95 +827,6 @@ export class InlineCommandHandler implements CommandHandler {
         })) as Telegram.InlineKeyboardButton[];
 
         return chunkArray(inline_keyboard_list, 3);
-    };
-}
-
-export class KlingAICommandHandler implements CommandHandler {
-    command = '/kling';
-    needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
-    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<ImageResult | Response> => {
-        if (context.USER_CONFIG.KLINGAI_COOKIE.length === 0) {
-            return sender.sendPlainText('KlingAI token is not set');
-        }
-        if (subcommand.trim() === '') {
-            return sender.sendPlainText('Please input your prompt');
-        }
-        try {
-            let prompt = subcommand.trim();
-            let n = context.USER_CONFIG.KLINGAI_IMAGE_COUNT;
-            const match = /^\d+/.exec(prompt);
-            if (match) {
-                n = Number.parseInt(match[0]);
-                prompt = prompt.slice(match[0].length).trim();
-            }
-            const inputs = [];
-            const args = [];
-            let type = 'mmu_txt2img_aiweb';
-            if (['image', 'photo'].includes(context.MIDDLE_CONTEXT.messageInfo?.type) && context.MIDDLE_CONTEXT.messageInfo.id?.[0]) {
-                const COOKIES = context.USER_CONFIG.KLINGAI_COOKIE;
-                let cookie = '';
-                if (COOKIES.length > 0) {
-                    cookie = COOKIES[Math.floor(Math.random() * COOKIES.length)];
-                } else {
-                    throw new Error('No KlingAI cookie found');
-                }
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-                    'Cookie': cookie,
-                };
-                const img_id = context.MIDDLE_CONTEXT.messageInfo.id?.[0];
-                const img_url = await this.getFileUrl(img_id, context, headers);
-                inputs.push({ name: 'input', url: img_url, inputType: 'URL' });
-                args.push({ name: 'fidelity', value: 0.5 });
-                type = 'mmu_img2img_aiweb';
-            }
-            await sender.sendPlainText('Please wait a moment...');
-            const data = await new KlingAI().request(prompt, context.USER_CONFIG, { inputs, args, type, n });
-            return sendImages(data, ENV.SEND_IMAGE_AS_FILE, sender, context.USER_CONFIG);
-        } catch (e) {
-            return sender.sendRichText(`<pre><code class="language-error">${(e as Error).message}</code></pre>`, 'HTML', 'tip');
-        }
-    };
-
-    getFileUrl = async (file_id: string, context: WorkerContext, headers: Record<string, string>) => {
-        const img_blob = await getTelegramFile([file_id], context.SHARE_CONTEXT.botToken, 'blob') as Blob[];
-
-        const { token, domain } = await this.getUploadFileTokenAndEndpoint(headers);
-        await fetch(`https://${domain}/api/upload/fragment?upload_token=${token}&fragment_id=0`, {
-            method: 'POST',
-            headers: {
-                ...headers,
-                'Content-Type': 'application/octet-stream',
-            },
-            body: img_blob[0],
-        });
-
-        await fetch(`https://${domain}/api/upload/complete?fragment_count=1&upload_token=${token}`, {
-            method: 'POST',
-            headers,
-        });
-
-        const url_resp = await fetch(`https://klingai.com/api/upload/verify/token?token=${token}`, {
-            headers,
-        }).then(res => res.json());
-        if (!url_resp.data?.url) {
-            throw new Error(url_resp.data.message || 'Failed to get file url, see logs for more details');
-        }
-        return url_resp.data.url;
-    };
-
-    getUploadFileTokenAndEndpoint = async (headers: Record<string, string>) => {
-        const resp = await fetch(`https://klingai.com/api/upload/issue/token?filename=image.jpg`, {
-            headers,
-        }).then(res => res.json());
-        if (!resp.data.token || !resp.data?.httpEndpoints?.[0]) {
-            throw new Error(`Failed to upload file, see logs for more details`);
-        }
-        return {
-            token: resp.data.token,
-            domain: resp.data.httpEndpoints[0],
-        };
     };
 }
 
@@ -975,26 +852,26 @@ export class MapCommandHandler extends RenewConfig {
 
         const setKey = `MAPPING_${type.toUpperCase()}`;
         if (subcommand === '') {
-            const msg = '使用方法:\n'
-                + `- 添加映射: /map [type] +key:value (不带+时，默认新增; 设置多个映射时以空格分隔)\n`
-                + `- 删除映射: /map [type] -key\n`
-                + `- 查看映射: /map [type]\n`
-                + `- 清空映射: /map [type] clear\n\n`
-                + `type 可选值: key, value; 分别对应 MAPPING\\_KEY, MAPPING\\_VALUE; 不带type时，默认为${setKey}`;
+            const msg = 'Usage:\n'
+                + `- Add mappings: /map [type] +key:value (without + it also adds; separate multiple mappings with spaces)\n`
+                + `- Remove mappings: /map [type] -key\n`
+                + `- View mappings: /map [type]\n`
+                + `- Clear mappings: /map [type] clear\n\n`
+                + `Available type values: key, value. They map to MAPPING\\_KEY and MAPPING\\_VALUE. Without a type, the default is ${setKey}.`;
             return this.send(msg, sender);
         }
-        const mappedTip = (map: Map<string, string>) => `当前映射:\n${Array.from(map.entries()).map(([key, value]) => `- \`${key}\` -> \`${value}\``).join('\n')}`;
+        const mappedTip = (map: Map<string, string>) => `Current mappings:\n${Array.from(map.entries()).map(([key, value]) => `- \`${key}\` -> \`${value}\``).join('\n')}`;
 
         if (/^(?:key|value)$/.test(subcommand)) {
             subcommand = subcommand.replace(/^key|value/, '').trim();
             const map = this.getMaps(context.USER_CONFIG[setKey]);
-            const msg = map.size > 0 ? mappedTip(map) : `${setKey} 映射为空`;
+            const msg = map.size > 0 ? mappedTip(map) : `${setKey} is empty`;
             return this.send(msg, sender);
         }
         subcommand = subcommand.replace(/^key|value/, '').trim();
         if (subcommand === 'clear') {
             this.store({ [setKey]: '' }, context);
-            return this.send(`${setKey}映射已清空`, sender);
+            return this.send(`${setKey} was cleared`, sender);
         }
         const mapString = context.USER_CONFIG[setKey];
         const currentMap = this.getMaps(mapString);
@@ -1007,7 +884,7 @@ export class MapCommandHandler extends RenewConfig {
             }
         });
         this.store({ [setKey]: Array.from(currentMap.entries()).map(([key, value]) => `${key}:${value}`).join('|') }, context);
-        const msg = `${type} 映射更新成功\n${mappedTip(currentMap)}`;
+        const msg = `${type} mappings updated\n${mappedTip(currentMap)}`;
         return this.send(msg, sender);
     };
 
@@ -1039,16 +916,10 @@ export class TTSCommandHandler implements CommandHandler {
         if (remainingText === '') {
             return sender.sendPlainText('Please input your text');
         }
-        let agentName = context.USER_CONFIG.AI_TTS_PROVIDER;
-        if (agentName === 'openai-fm') {
-            agentName = 'openai';
-        }
+        const agentName = context.USER_CONFIG.AI_TTS_PROVIDER;
         for (const { flag, value } of flags) {
             if (flag === 'v') {
                 context.USER_CONFIG[`${agentName.toUpperCase()}_TTS_VOICE`] = value;
-            }
-            if (flag === 'p' && ['google', 'openai'].includes(agentName)) {
-                context.USER_CONFIG[`${agentName.toUpperCase()}_TTS_PROMPT`] = value;
             }
         }
         await sender.sendPlainText(`Using agent ${context.USER_CONFIG.AI_TTS_PROVIDER} to generate audio...`);

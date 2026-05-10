@@ -174,7 +174,7 @@ class LineDecoder {
         if (!text) {
             return [];
         }
-        const trailingNewline = LineDecoder.NEWLINE_CHARS.has(text[text.length - 1] || '');
+        const trailingNewline = LineDecoder.NEWLINE_CHARS.has(text.at(-1) || '');
         let lines = text.split(LineDecoder.NEWLINE_REGEXP);
         if (lines.length === 1 && !trailingNewline) {
             this.buffer.push(lines[0]);

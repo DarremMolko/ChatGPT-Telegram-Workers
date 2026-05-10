@@ -74,7 +74,7 @@ export class Dalle extends OpenAIBase implements ImageAgent {
         // - 生成模式：使用配置的模型
         const isEditMode = (referenceImages && referenceImages.length > 0) || mask;
         const actualModel = isEditMode
-            ? (modelId === 'dall-e-3' ? 'dall-e-2' : modelId)  // dall-e-3 不支持编辑，降级到 dall-e-2
+            ? (modelId === 'dall-e-3' ? 'dall-e-2' : modelId) // dall-e-3 不支持编辑，降级到 dall-e-2
             : modelId;
 
         // 如果是编辑模式，使用新的 AI SDK
@@ -140,7 +140,7 @@ export class OpenAIASR extends OpenAIBase implements ASRAgent {
         formData.append('file', audio, 'audio.ogg');
         formData.append('model', context.OPENAI_STT_MODEL);
         if (context.OPENAI_STT_EXTRA_PARAMS) {
-            Object.entries(context.OPENAI_STT_EXTRA_PARAMS as string).forEach(([k, v]) => {
+            Object.entries(context.OPENAI_STT_EXTRA_PARAMS).forEach(([k, v]) => {
                 formData.append(k, v);
             });
         }

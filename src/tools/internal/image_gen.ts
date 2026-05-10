@@ -15,7 +15,7 @@ export default {
                 agent: {
                     type: 'string',
                     description: 'The image agent to use. Default is "default".',
-                    enum: ['default', 'dalle', 'openai', 'workers', 'azure', 'vertex', 'oailike', 'kling', 'google', 'xai'],
+                    enum: ['default', 'dalle', 'openai', 'oailike'],
                     default: 'default',
                 },
                 prompts: {
@@ -49,11 +49,11 @@ export default {
                 referenceImages: {
                     type: 'array',
                     items: { type: 'string' },
-                    description: 'Reference images for image-to-image generation. Can be URLs or base64-encoded images. Supported by vertex and google agents.',
+                    description: 'Reference images for image-to-image generation. Can be URLs or base64-encoded images. Supported by the OpenAI image pipeline when the provider supports editing.',
                 },
                 mask: {
                     type: 'string',
-                    description: 'Mask image for inpainting (optional). Can be URL or base64-encoded image. Only supported by vertex agent.',
+                    description: 'Mask image for inpainting (optional). Can be URL or base64-encoded image. Supported by the OpenAI image pipeline when the selected model supports editing.',
                 },
                 editMode: {
                     type: 'string',
@@ -65,7 +65,7 @@ export default {
                         'EDIT_MODE_PRODUCT_IMAGE',
                         'EDIT_MODE_BGSWAP',
                     ],
-                    description: 'Edit mode for Vertex AI image editing. INPAINT_INSERTION: Insert objects/content into the image. INPAINT_REMOVAL: Remove objects from the image. OUTPAINT: Extend image boundaries. CONTROLLED_EDITING: Precise editing with fine control. PRODUCT_IMAGE: Product-focused editing. BGSWAP: Replace the background. Only supported by vertex agent.',
+                    description: 'Reserved edit mode field for providers that expose advanced edit controls.',
                 },
                 maskMode: {
                     type: 'string',
@@ -76,23 +76,23 @@ export default {
                         'MASK_MODE_CLOTHING_AREA',
                         'MASK_MODE_PARSED_PERSON',
                     ],
-                    description: 'Mask mode for Vertex AI. USER_PROVIDED: Use the provided mask image. DETECTION_BOX: Auto-detect bounding boxes. CLOTHING_AREA: Segment clothing areas. PARSED_PERSON: Parse person body/clothing. Only supported by vertex agent when mask is provided or editMode requires it.',
+                    description: 'Reserved mask mode field for providers that expose advanced edit controls.',
                 },
                 maskDilation: {
                     type: 'number',
                     minimum: 0,
                     maximum: 1,
-                    description: 'Mask dilation value (0-1). Controls how much to expand the mask area. Recommended: 0.01. Only supported by vertex agent.',
+                    description: 'Mask dilation value (0-1). Controls how much to expand the mask area when supported by the provider.',
                 },
                 negativePrompt: {
                     type: 'string',
-                    description: 'Negative prompt to exclude certain elements from the generated/edited image. Helps avoid unwanted features. Only supported by vertex agent.',
+                    description: 'Negative prompt to exclude certain elements from the generated or edited image when supported by the provider.',
                 },
                 baseSteps: {
                     type: 'integer',
                     minimum: 35,
                     maximum: 75,
-                    description: 'Number of base steps for image generation (35-75). Higher values produce better quality but take longer. Only supported by vertex agent.',
+                    description: 'Reserved quality control field for providers that expose generation step controls.',
                 },
             },
             required: ['prompts'],

@@ -1,4 +1,3 @@
-/* eslint-disable unused-imports/no-unused-vars */
 import type * as Telegram from 'telegram-bot-api-types';
 import type { ImageResult } from '../../agent/types';
 import type { WorkerContextBase } from '../../config/context';
@@ -8,13 +7,13 @@ import { WorkerContext } from '../../config/context';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
 import { Rerank } from '../../utils/data_calculation/rerank';
+import { recordUserActivity } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
 import { handleCommandMessage } from '../command';
 import { isAuthorized } from '../query';
 import { MessageSender } from '../utils/send';
 import { extractMessageInfo, isTelegramChatTypeGroup } from '../utils/tg_utils';
 import { HandleChunkMessage, HandleMediaGroupMessage, substituteMessage } from './msg_trimer';
-import { recordUserActivity } from '../../utils/stats';
 
 export class SaveLastMessage implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
@@ -327,7 +326,7 @@ export class ReplyInlineHandler implements MessageHandler<WorkerContext> {
         } else {
             return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
                 chat_id: message.chat.id,
-                text: '```Tip\n选中变量后再进行回复\n```',
+                text: '```Tip\nSelect a variable first, then reply.\n```',
                 parse_mode: 'MarkdownV2',
             });
         }

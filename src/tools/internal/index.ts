@@ -1,7 +1,5 @@
 import app_iap from './app_iap';
 import duckduckgo from './duckduckgo';
-import google_buildin from './google_buildin';
-import google_veo from './google_veo';
 import image_gen from './image_gen';
 import xiaohongshu from './xiaohongshu';
 
@@ -12,6 +10,4 @@ export default {
     image_gen,
     xiaohongshu,
     app_iap,
-    google_veo,
-    google_buildin,
 };

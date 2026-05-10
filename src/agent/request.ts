@@ -15,7 +15,7 @@ export interface SseChatCompatibleOptions {
     streamBuilder?: (resp: Response, controller: AbortController) => Stream;
     contentExtractor?: (data: object) => string | null;
     fullContentExtractor?: (data: object) => string | null;
-    functionCallExtractor?: (data: object, call_list: any[]) => void;
+    functionCallExtractor?: (data: object, callList: any[]) => void;
     fullFunctionCallExtractor?: (data: object) => OpenAIFuncCallData[] | null;
     errorExtractor?: (data: object) => string | null;
 }
@@ -33,7 +33,7 @@ function fixOpenAICompatibleOptions(options: SseChatCompatibleOptions | null): S
     };
     options.functionCallExtractor
         = options.functionCallExtractor
-            || function (d: any, call_list: OpenAIFuncCallData[]) {
+            || function (d: any, callList: OpenAIFuncCallData[]) {
                 const chunk = d?.choices?.[0]?.delta?.tool_calls;
                 if (!Array.isArray(chunk))
                     return;
@@ -42,9 +42,9 @@ function fixOpenAICompatibleOptions(options: SseChatCompatibleOptions | null): S
                         throw new Error(`The function chunk don't have index: ${JSON.stringify(chunk)}`);
                     }
                     if (a?.type === 'function') {
-                        call_list[a.index] = { id: a.id, type: a.type, function: a.function };
+                        callList[a.index] = { id: a.id, type: a.type, function: a.function };
                     } else {
-                        call_list[a.index].function.arguments += a.function.arguments;
+                        callList[a.index].function.arguments += a.function.arguments;
                     }
                 }
             };
@@ -66,12 +66,7 @@ export function isJsonResponse(resp: Response): boolean {
 export function isEventStreamResponse(resp: Response): boolean {
     const types = ['application/stream+json', 'text/event-stream'];
     const content = resp.headers.get('content-type') || '';
-    for (const type of types) {
-        if (content.includes(type)) {
-            return true;
-        }
-    }
-    return false;
+    return types.some(type => content.includes(type));
 }
 
 type OnResult = ((result: any) => Promise<any>) | null;
@@ -90,7 +85,6 @@ export async function requestChatCompletions(url: string, header: Record<string,
     }
 
     log.info('start request llm');
-
     log.debug('request url, headers, body', url, header, body);
     const resp = await fetch(url, {
         method: 'POST',
@@ -100,7 +94,6 @@ export async function requestChatCompletions(url: string, header: Record<string,
     });
 
     clearTimeoutID(timeoutID);
-
     options = fixOpenAICompatibleOptions(options);
 
     if (onStream && resp.ok && isEventStreamResponse(resp)) {
@@ -116,11 +109,9 @@ export async function requestChatCompletions(url: string, header: Record<string,
     }
 
     const result = await resp.json();
-
     if (!result) {
         throw new Error('Empty response');
     }
-
     if (options.errorExtractor?.(result)) {
         throw new Error(options.errorExtractor?.(result) || 'Unknown error');
     }
@@ -135,8 +126,9 @@ export async function requestChatCompletions(url: string, header: Record<string,
 }
 
 function clearTimeoutID(timeoutID: any) {
-    if (timeoutID)
+    if (timeoutID) {
         clearTimeout(timeoutID);
+    }
 }
 
 export async function streamHandler(stream: AsyncIterable<any>, contentExtractor: (data: any) => string | null, onStream: ChatStreamTextHandler, messageInfo: MessageInfo): Promise<string> {
@@ -150,7 +142,6 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             if (textPart === null || textPart === undefined || textPart === '') {
                 continue;
             }
-            // 已有delta + chunk的长度
             lengthDelta += textPart.length;
             messageInfo.content += textPart;
 
@@ -181,28 +172,21 @@ function appendStreamSources(content: string, sources: Array<{ url: string; titl
         return content;
     }
 
-    const maxSources = 10; // 限制显示数量，防止 Telegram 限流
-
-    // 创建 URL 到索引的映射
+    const maxSources = 10;
     const urlToIndex = new Map<string, number>();
     sources.slice(0, maxSources).forEach((source, i) => {
         urlToIndex.set(source.url, i + 1);
     });
 
-    // Google 风格：文本中只保留 [1] 标记，移除内联链接
-    // 将文本中的 [[N]](url) 替换为 [N]
     let cleanedContent = content;
     for (const [url, index] of urlToIndex) {
-        // 转义 URL 中的特殊字符用于正则表达式
         const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // 替换 [[任意数字]](url) 为 [index]
         cleanedContent = cleanedContent.replace(
             new RegExp(`\\[\\[\\d+\\]\\]\\(${escapedUrl}\\)`, 'g'),
-            `[${index}]`
+            `[${index}]`,
         );
     }
 
-    // 底部显示 [[1]](url) [[2]](url) 格式的完整链接
     const formattedSources = sources
         .slice(0, maxSources)
         .map((source, i) => `[[${i + 1}\\]](${source.url})`)
@@ -212,15 +196,13 @@ function appendStreamSources(content: string, sources: Array<{ url: string; titl
 }
 
 export async function requestChatCompletionsV2({ model, messages, tools, activeTools, toolChoice, context, cache }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[] }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
-    // DEBUG: Log messages before sending to SDK
-    log.info(`[requestChatCompletionsV2] messages before SDK: ${JSON.stringify(messages.map(m => {
+    log.info(`[requestChatCompletionsV2] messages before SDK: ${JSON.stringify(messages.map((m) => {
         if (m.role === 'user' && Array.isArray(m.content)) {
             return { role: m.role, content: m.content.map(c => c.type === 'file' ? { type: c.type, mediaType: (c as any).mediaType } : { type: c.type }) };
         }
         return { role: m.role };
     }))}`);
 
-    // 引入多轮对话 拼接提示
     const messageInfo: MessageInfo = {
         content: cache?.join() ?? '',
         occured_error: false,
@@ -234,26 +216,24 @@ export async function requestChatCompletionsV2({ model, messages, tools, activeT
         messageInfo,
     });
 
-    const handeredParams = await combineParams({ context, middleware, model, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk });
+    const handledParams = await combineParams({ context, middleware, model, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk });
 
     let responseMessages: ResponseMessage[] = [];
     let contentFull = '';
 
     if (onStream !== null) {
-        // const stream = streamText({ ...hander_params, ...mockParams(middleware) });
-        const stream = streamText(handeredParams);
+        const stream = streamText(handledParams);
         const dataExtractor = thinkingExtractor(messageInfo);
 
         contentFull = await streamHandler(stream.fullStream, dataExtractor, onStream, messageInfo);
         responseMessages = messageInfo.occured_error ? [{ role: 'assistant', content: contentFull }] : (await stream.response).messages;
         contentFull = messageInfo.occured_error ? contentFull : metaDataExtractor(await stream.providerMetadata, model.provider, contentFull);
 
-        // 附加 xAI sources (从 stream 收集的)
-        if ((model.provider === 'xai.chat' || model.provider === 'xai.responses') && (messageInfo as any).sources && (messageInfo as any).sources.length > 0) {
+        if ((messageInfo as any).sources?.length > 0) {
             contentFull = appendStreamSources(contentFull, (messageInfo as any).sources);
         }
     } else {
-        const result = await generateText(handeredParams);
+        const result = await generateText(handledParams);
         contentFull = `${result.reasoning ? `>\`Thought for several seconds\`\n>${(result.reasoningText ?? '').trim().replace(/\n/g, '\n>')}\n>✹\n` : ''}${result.text}`;
         responseMessages = result.response.messages;
         contentFull = metaDataExtractor(result.providerMetadata, model.provider, contentFull);
@@ -267,14 +247,12 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     let thinkingStartTime: undefined | number;
     let reasoningBuffer = '';
     let lastOutputTime = 0;
-    const thinkingTag = ENV.EXPANDABLE_THINKING ? '**>`Thinking\.\.\.`' : '>`Thinking\.\.\.`';
+    const thinkingTag = ENV.EXPANDABLE_THINKING ? '**>`Thinking\\.\\.\\.`' : '>`Thinking\\.\\.\\.`';
     const sources: Array<{ url: string; title: string }> = [];
 
-    // Track if we detected inline thought text (for AI models that output "thought" prefix in text-delta)
     let detectedInlineThought = false;
     let inlineThoughtBuffer = '';
 
-    // 存储 sources 到 messageInfo 以便后续处理
     (messageInfo as any).sources = sources;
 
     return (data: TextStreamPart<any>) => {
@@ -295,14 +273,11 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 if (!ENV.SHOW_THINKING_TEXT) {
                     return '';
                 }
-                // 积累思考文本
                 reasoningBuffer += data.text;
                 const now = Date.now();
-
-                // 当积累到足够长度、遇到句末标点、或距上次输出时间超过500ms时输出
-                if (reasoningBuffer.length >= 50 ||
-                    /[。！？.!?]\s*$/.test(reasoningBuffer.trim()) ||
-                    (now - lastOutputTime > 500 && reasoningBuffer.length >= 20)) {
+                if (reasoningBuffer.length >= 50
+                    || /[。！？.!?]\s*$/.test(reasoningBuffer.trim())
+                    || (now - lastOutputTime > 500 && reasoningBuffer.length >= 20)) {
                     const output = `\n>${reasoningBuffer.replace(/\n/g, '\n>')}`;
                     reasoningBuffer = '';
                     lastOutputTime = now;
@@ -313,7 +288,6 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 if (!ENV.SHOW_THINKING_TEXT) {
                     return '';
                 }
-                // 输出剩余的缓冲内容
                 let output = '';
                 if (reasoningBuffer.length > 0) {
                     output = `\n>${reasoningBuffer.replace(/\n/g, '\n>')}`;
@@ -322,15 +296,14 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 return output;
             case 'text-start':
                 log.info('[thinkingExtractor] text-start event');
-                if (!thinkingStart)
+                if (!thinkingStart) {
                     return '';
+                }
                 thinkingStart = false;
                 const thinkingTime = ((Date.now() - thinkingStartTime!) / 1e3).toFixed(1);
                 messageInfo.content = messageInfo.content
                     .replace(thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
-                    // remove trailing blank lines
                     .replace(/(\n>)*$/, '')
-                    // three or more newlines are trimmed to 2 newlines
                     .replace(/(\n>){3,}$/g, '\n>\n>');
                 return `\n>✹\n${SEGMENTATION_MARK}\n`;
             case 'text-delta':
@@ -340,17 +313,9 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     return data.text;
                 }
 
-                // WORKAROUND: Some AI models (particularly older Google Gemini versions)
-                // may output thought content directly in text-delta with "thought " prefix
-                // instead of using proper reasoning-start/delta/end events.
-                // This happens when the AI SDK version doesn't correctly parse the 'thought' field.
-
-                const isStartOfMessage = messageInfo.content.trim().length === 0 ||
-                                        messageInfo.content.endsWith(SEGMENTATION_MARK + '\n');
-
-                // Detect start of inline thought: patterns like "thought ", "thinking:", "reasoning:"
-                // at the beginning of response (case-insensitive)
-                const thoughtPatterns = /^(thought|thinking|reasoning)[\s:]+/i;
+                const isStartOfMessage = messageInfo.content.trim().length === 0
+                    || messageInfo.content.endsWith(`${SEGMENTATION_MARK}\n`);
+                const thoughtPatterns = /^(?:thought|thinking|reasoning)[\s:]+/i;
 
                 if (isStartOfMessage && thoughtPatterns.test(data.text)) {
                     detectedInlineThought = true;
@@ -359,25 +324,16 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     return `${thinkingTag}\n>${data.text.replace(/\n/g, '\n>')}`;
                 }
 
-                // Continue accumulating inline thought
                 if (detectedInlineThought) {
                     inlineThoughtBuffer += data.text;
-
-                    // Try to detect end of thought block with improved heuristics:
-                    // 1. Double newline indicates end of thought paragraph
-                    // 2. Sentence end followed by capitalized word (likely start of real response)
-                    // 3. Length threshold: if thought is very long (>500 chars), look for natural breaks
                     const hasDoubleNewline = /\n\s*\n/.test(inlineThoughtBuffer);
                     const endsWithSentenceThenCapital = /[.!?]\s+[A-Z]/.test(inlineThoughtBuffer.slice(-100));
                     const isVeryLong = inlineThoughtBuffer.length > 500;
-
-                    // More sophisticated end detection
-                    const shouldEndThought = hasDoubleNewline ||
-                                            (inlineThoughtBuffer.length > 200 && endsWithSentenceThenCapital) ||
-                                            (isVeryLong && /[.!?]\s*$/.test(inlineThoughtBuffer.trim()));
+                    const shouldEndThought = hasDoubleNewline
+                        || (inlineThoughtBuffer.length > 200 && endsWithSentenceThenCapital)
+                        || (isVeryLong && /[.!?]\s*$/.test(inlineThoughtBuffer.trim()));
 
                     if (shouldEndThought) {
-                        // End inline thought
                         detectedInlineThought = false;
                         const estimatedTime = (inlineThoughtBuffer.length / 100).toFixed(1);
                         messageInfo.content = messageInfo.content
@@ -385,10 +341,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                         inlineThoughtBuffer = '';
                         log.info('[thinkingExtractor] Inline thought block ended');
 
-                        // Handle the ending text properly:
-                        // If it ends with double newline, the current delta might be part of response
                         if (hasDoubleNewline) {
-                            // Split at double newline - first part is thought, rest is response
                             const lastNewlineMatch = data.text.match(/\n\s*\n/);
                             if (lastNewlineMatch) {
                                 const splitIndex = lastNewlineMatch.index! + lastNewlineMatch[0].length;
@@ -401,7 +354,6 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                         return `${data.text.replace(/\n/g, '\n>')}\n>✹\n${SEGMENTATION_MARK}\n`;
                     }
 
-                    // Continue thought block
                     return `\n>${data.text.replace(/\n/g, '\n>')}`;
                 }
 
@@ -409,7 +361,6 @@ function thinkingExtractor(messageInfo: MessageInfo) {
             case 'text-end':
                 return '';
             case 'source':
-                // xAI web_search/x_search sources
                 if (ENV.ENABLE_SEARCH_SOURCE && data.sourceType === 'url') {
                     sources.push({
                         url: data.url,
@@ -426,128 +377,10 @@ function thinkingExtractor(messageInfo: MessageInfo) {
 }
 
 async function combineParams({ context, middleware, model, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void }) {
-    // Build Anthropic provider options with cache control and tool streaming
-    const anthropicOptions: Record<string, any> = {
-        ...context.ANTHROPIC_PROVIDER_OPTIONS,
-    };
-
-    // Add tool streaming support for Anthropic
-    if (context.ANTHROPIC_ENABLE_TOOL_STREAMING !== undefined) {
-        anthropicOptions.toolStreaming = context.ANTHROPIC_ENABLE_TOOL_STREAMING;
-    }
-
-    // Add structured output mode for Anthropic
-    if (context.ANTHROPIC_STRUCTURED_OUTPUT_MODE && context.ANTHROPIC_STRUCTURED_OUTPUT_MODE !== 'auto') {
-        anthropicOptions.structuredOutputMode = context.ANTHROPIC_STRUCTURED_OUTPUT_MODE;
-    }
-
     const providerOptions = {
-        openai: context.OPENAI_PROVIDER_OPTIONS,
-        anthropic: anthropicOptions,
-        google: context.GOOGLE_PROVIDER_OPTIONS,
-        xai: context.XAI_PROVIDER_OPTIONS,
+        'openai': context.OPENAI_PROVIDER_OPTIONS,
         'oailike.chat': context.OAILIKE_PROVIDER_OPTIONS,
     };
-
-    // Add cache control and context management for Anthropic
-    if (model.provider === 'anthropic.messages') {
-        // Context Management - Clean up old tool calls to reduce context length
-        if (context.ANTHROPIC_ENABLE_CONTEXT_MANAGEMENT) {
-            const contextManagementConfig: any = {
-                edits: [],
-            };
-
-            // Clear old tool uses
-            const clearToolUsesConfig: any = {
-                type: 'clear_tool_uses_20250919',
-            };
-
-            // Trigger configuration
-            if (context.ANTHROPIC_CONTEXT_CLEAR_TRIGGER === 'auto') {
-                // Auto mode: trigger based on tool uses count
-                clearToolUsesConfig.trigger = {
-                    type: 'tool_uses',
-                    value: context.ANTHROPIC_CONTEXT_KEEP_RECENT + 2, // Trigger after N+2 tool uses
-                };
-            }
-            // Manual mode: no trigger (user controls when to clear)
-
-            // Keep recent tool uses
-            if (context.ANTHROPIC_CONTEXT_KEEP_RECENT > 0) {
-                clearToolUsesConfig.keep = {
-                    type: 'tool_uses',
-                    value: context.ANTHROPIC_CONTEXT_KEEP_RECENT,
-                };
-            }
-
-            // Clear at least N tokens
-            if (context.ANTHROPIC_CONTEXT_CLEAR_AT_LEAST > 0) {
-                clearToolUsesConfig.clearAtLeast = {
-                    type: 'input_tokens',
-                    value: context.ANTHROPIC_CONTEXT_CLEAR_AT_LEAST * 1000, // Convert to tokens (assume 1k tokens per unit)
-                };
-            }
-
-            // Clear tool inputs
-            if (context.ANTHROPIC_CONTEXT_CLEAR_TOOL_INPUTS) {
-                clearToolUsesConfig.clearToolInputs = true;
-            }
-
-            // Exclude tools
-            if (context.ANTHROPIC_CONTEXT_EXCLUDE_TOOLS.length > 0) {
-                clearToolUsesConfig.excludeTools = context.ANTHROPIC_CONTEXT_EXCLUDE_TOOLS;
-            }
-
-            contextManagementConfig.edits.push(clearToolUsesConfig);
-
-            // Clear old thinking content (for reasoning models)
-            if (context.ANTHROPIC_ENABLE_THINKING_CLEANUP && context.ANTHROPIC_THINKING_KEEP_RECENT > 0) {
-                contextManagementConfig.edits.push({
-                    type: 'clear_thinking_20250919',
-                    trigger: {
-                        type: 'tool_uses',
-                        value: context.ANTHROPIC_THINKING_KEEP_RECENT + 1,
-                    },
-                    keep: {
-                        type: 'tool_uses',
-                        value: context.ANTHROPIC_THINKING_KEEP_RECENT,
-                    },
-                });
-            }
-
-            anthropicOptions.contextManagement = contextManagementConfig;
-        }
-
-        // Cache Control - Mark messages and tools as cacheable
-        if (context.ANTHROPIC_ENABLE_CACHE_CONTROL) {
-            // Mark system message as cacheable
-            const systemMessage = messages.find(m => m.role === 'system');
-            if (systemMessage && !systemMessage.providerOptions) {
-                systemMessage.providerOptions = {
-                    anthropic: {
-                        cacheControl: { type: 'ephemeral' },
-                    },
-                };
-            }
-
-            // Mark tools as cacheable if tools exist
-            if (tools && Object.keys(tools).length > 0) {
-                // Get the last tool and mark it as cacheable
-                // This follows the AI SDK pattern of caching the last tool definition
-                const toolKeys = Object.keys(tools);
-                const lastToolKey = toolKeys[toolKeys.length - 1];
-                const lastTool = tools[lastToolKey];
-
-                if (lastTool && typeof lastTool === 'object' && !lastTool.providerOptions) {
-                    lastTool.providerOptions = {
-                        anthropic: {
-                            cacheControl: { type: 'ephemeral' },
-                        },
-                    };
-                }
-            }
-        }
-    }
 
     return {
         model: wrapLanguageModel({

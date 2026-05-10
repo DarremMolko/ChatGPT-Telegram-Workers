@@ -138,8 +138,8 @@ function markdownToTelegraphNodes(markdown: string): Node[] {
                 mergedNodes.push(nodes[i]);
                 continue;
             }
-            const lastNode = mergedNodes[mergedNodes.length - 1];
-            if (lastNode.tag === nodes[i].tag && lastNode.children) {
+            const lastNode = mergedNodes.at(-1);
+            if (lastNode && lastNode.tag === nodes[i].tag && lastNode.children) {
                 const children = nodes[i].children || [];
                 lastNode.children.push(...(['\n', ...children]));
             } else {
