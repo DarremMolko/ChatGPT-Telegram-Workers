@@ -90,9 +90,8 @@ Non-chat endpoints such as `/models`, `/images`, `/audio`, embeddings, and reran
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `USE_TOOLS` | Enabled internal or plugin tools. | `[]` |
 | `USE_MCP` | Enabled MCP tool groups. | `[]` |
-| `TOOL_MODEL` | Dedicated model for tool calls. Empty means use the chat model. | `''` |
+| `TOOL_MODEL` | Dedicated model for MCP or OpenAI built-in tool calls. Empty means use the chat model. | `''` |
 | `MAX_HISTORY_LENGTH` | Stored history window. | `10` |
 | `MAX_STEPS` | Maximum step count for chained tool use. | `5` |
 | `MAX_RETRIES` | AI SDK retry count. | `0` |
@@ -104,6 +103,44 @@ Non-chat endpoints such as `/models`, `/images`, `/audio`, embeddings, and reran
 | `AUDIO_HANDLE_TYPE` | `stt`, `audio`, or `chat`. | `stt` |
 | `AUDIO_OUTPUT` | `audio` or `text`. | `text` |
 | `RERANK_AGENT` | `openai`, `oailikeV1`, `oailikeV2` | `openai` |
+
+## Generic MCP
+
+Generic MCP servers are configured with env vars whose names start with `MCP_`.
+
+- The suffix after `MCP_` becomes the MCP group name
+- The value must be a JSON string
+- The same group name must appear in `USE_MCP`
+- Generic MCP only works in local or Docker mode, not workers
+
+Example:
+
+```toml
+[vars]
+USE_MCP = ["demo"]
+MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
+```
+
+This enables the MCP group `demo`.
+
+Supported transport payloads:
+
+```toml
+MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
+MCP_demo = "{\"type\":\"sse\",\"url\":\"http://127.0.0.1:3001/sse\"}"
+MCP_demo = "{\"type\":\"stdio\",\"command\":\"npx\",\"args\":[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/tmp\"]}"
+```
+
+With headers:
+
+```toml
+MCP_demo = "{\"type\":\"http\",\"url\":\"https://example.com/mcp\",\"headers\":{\"Authorization\":\"Bearer token\"}}"
+```
+
+Important:
+
+- `MCP_demo` must be JSON text, not a TOML inline table
+- `USE_MCP = ["demo"]` enables the server named by `MCP_demo`
 
 ## OpenAI Built-in Tools
 
@@ -171,6 +208,11 @@ OpenAI Responses API tools are still supported.
 | `OPENAI_MCP_REQUIRE_APPROVAL` | `always` or `never`. | `never` |
 | `OPENAI_MCP_APPROVAL_TOOL_NAMES` | Tool names that bypass default approval behavior. | `[]` |
 
+This `OPENAI_MCP_*` block is separate from generic `MCP_*`:
+
+- `MCP_*` configures the bot’s own generic MCP clients
+- `OPENAI_MCP_*` configures OpenAI Responses API built-in MCP support
+
 ## `/set` Shortcuts
 
 Default shortcut mapping:
@@ -186,7 +228,6 @@ Default shortcut mapping:
 -s:STT_MODEL
 -t:TTS_MODEL
 -tm:TOOL_MODEL
--tool:USE_TOOLS
 -as:AI_ASR_PROVIDER
 -at:AI_TTS_PROVIDER
 -ra:RERANK_AGENT

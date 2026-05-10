@@ -9,8 +9,6 @@ export class EnvironmentConfig {
     CHAT_COMPLETE_API_TIMEOUT = 0;
     // Total Duration Limit, scale: seconds, default 30 minutes
     CHAT_TOTAL_DURATION_LIMIT = 60 * 30;
-    // tool timeout, scale: seconds
-    TOOL_TIMEOUT = 0;
     // -- Telegram 相关 --
     //
     // Telegram API Domain
@@ -64,8 +62,6 @@ export class EnvironmentConfig {
     SHOW_REPLY_BUTTON = false;
     // 额外引用消息开关
     EXTRA_MESSAGE_CONTEXT = false;
-    // 禁用内置工具
-    BLOCK_TOOLS: string[] = [];
     // 禁用Agent
     BLOCK_AGENTS: string[] = [];
 
@@ -182,7 +178,7 @@ export class EnvironmentConfig {
     // otherwise, only the set variables will be shown.
     ENVS_VARIABLES = [];
     // callback menu, if it is empty, all options will be displayed.
-    // options: 'AI_CHAT_PROVIDER', 'AI_IMAGE_PROVIDER', 'AI_TTS_PROVIDER', 'AI_ASR_PROVIDER', 'USE_TOOLS', 'USE_MCP', 'CHAT_MODEL', 'IMAGE_MODEL', 'VISION_MODEL', 'TOOL_MODEL', 'ENVS', 'RERANK_AGENT'
+    // options: 'AI_CHAT_PROVIDER', 'AI_IMAGE_PROVIDER', 'AI_TTS_PROVIDER', 'AI_ASR_PROVIDER', 'USE_MCP', 'CHAT_MODEL', 'IMAGE_MODEL', 'VISION_MODEL', 'TOOL_MODEL', 'ENVS', 'RERANK_AGENT'
     CALLBACK_MENU = [];
 
     // Whether to transform  tool_call/tool_result message to user message
@@ -365,7 +361,7 @@ export class DefineKeys {
 }
 
 export class ExtraUserConfig {
-    MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-im:IMAGE_MODEL|-v:VISION_MODEL|-s:STT_MODEL|-t:TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-tool:USE_TOOLS|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-ra:RERANK_AGENT|-ew:ENABLE_WORKFLOW|-tp:CHAT_TEMPERATURE';
+    MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-im:IMAGE_MODEL|-v:VISION_MODEL|-s:STT_MODEL|-t:TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-ra:RERANK_AGENT|-ew:ENABLE_WORKFLOW|-tp:CHAT_TEMPERATURE';
     // /set command mapping value, separated by |, : separates multiple relationships
     MAPPING_VALUE = '';
     // MAPPING_VALUE = "cson:claude-3-5-sonnet-20240620|haiku:claude-3-haiku-20240307|g4m:gpt-4o-mini|g4:gpt-4o|rp+:command-r-plus";
@@ -373,11 +369,7 @@ export class ExtraUserConfig {
     ENABLE_SHOWINFO = false;
     // enable Show info, which parts to show, support model, model_time, token, tool, tool_time, first_chunk_time
     SHOW_PARTS = ['model', 'model_time', 'token', 'tool', 'tool_time'];
-    // Function to use, currently has duckduckgo, jina_reader, icloud_price, nf_price, iap_price, currency
-    //
-    USE_TOOLS: string[] = [];
     USE_MCP: string[] = [];
-    JINA_API_KEY: string[] = [];
     // if starts with '{agent}:' prefix, the specified agent corresponds to the chat model,
     // otherwise use the current agent and the specified model.
     // Keep empty to use the current agent chat model as function call model.

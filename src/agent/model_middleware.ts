@@ -4,7 +4,7 @@ import type { LanguageModelV3, LanguageModelV3CallOptions, LanguageModelV3Prompt
 import type { ModelMessage, StepResult, TextStreamPart, ToolCallPart, ToolResultPart } from 'ai';
 import type { AgentUserConfig } from '../config/env';
 import type { LogStruct } from '../log';
-import type { ToolResult } from '../tools/types';
+import type { ToolResult } from '../telegram/utils/tool_result';
 import type { ChatStreamTextHandler } from './types';
 import {
     extractReasoningMiddleware,
@@ -12,7 +12,8 @@ import {
 } from 'ai';
 import { ENV } from '../config/env';
 import { getLogSingleton, log } from '../log';
-import { getTools, sendToolResult, validTools } from '../tools';
+import { resolveMcpTools } from '../mcp/tools';
+import { sendToolResult } from '../telegram/utils/tool_result';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 
 type Writeable<T> = { -readonly [P in keyof T as P extends 'modelId' ? P : never]: T[P] };
@@ -27,7 +28,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     let step = 0;
     let rawSystemPrompt: string | undefined;
     const extractReasoning = extractReasoningMiddleware({ tagName: 'think' });
-    const tools = await getTools();
     let hasRecordFirstChunkTime = false;
     let record: LogStruct;
     let currentModel: LanguageModelV3;
@@ -68,14 +68,14 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             if (params.prompt.at(-1)?.role === 'tool') {
                 log.info('detect last message is tool result, handle tool result');
                 const toolResults = params.prompt.at(-1)?.content as unknown as ToolResultPart[];
-                await handleToolResult({ tools, toolResults, onStream, config });
+                await handleToolResult({ toolResults, onStream, config });
                 log.debug(`last tool result: ${JSON.stringify(toolResults, null, 2)}`);
             }
             if (!rawSystemPrompt) {
                 rawSystemPrompt = params.prompt.find((i: any) => i.role === 'system')?.content as string;
             }
             const isResponseApi = currentModel.provider.endsWith('.responses');
-            warpMessages(params, tools, activeTools, isResponseApi, rawSystemPrompt);
+            warpMessages(params, activeTools, isResponseApi, rawSystemPrompt);
             return params;
         },
 
@@ -104,7 +104,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 if (uniqueResults.length < toolResults.length) {
                     log.warn(`Deduplicated ${toolResults.length - uniqueResults.length} duplicate tool calls`);
                 }
-                await handleToolResult({ tools, toolResults: uniqueResults as any, onStream, config });
+                await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
             }
 
             if (toolResults.length > 0) {
@@ -175,22 +175,10 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     };
 }
 
-function warpMessages(params: LanguageModelV3CallOptions, allTools: Record<string, any>, activeTools: string[], isResponseApi: boolean, rawSystemPrompt: string | undefined) {
+function warpMessages(params: LanguageModelV3CallOptions, activeTools: string[], isResponseApi: boolean, rawSystemPrompt: string | undefined) {
     const { prompt: messages, tools } = params;
 
-    const getSystemContent = () => {
-        let systemContent = rawSystemPrompt ?? '';
-        const clientSideTools = activeTools.filter(name => !OPENAI_PROVIDER_TOOLS.has(name));
-
-        if (clientSideTools.length > 0) {
-            systemContent += `\nYou can consider using the following tools:\n${clientSideTools.map(name =>
-                `### ${name}\n- desc: ${allTools[name]?.schema?.description || ''} \n${allTools[name]?.prompt || ''}`,
-            ).join('\n\n')}`
-            + `\n\n${clientSideTools.map(name => allTools[name]?.prompt && `## For tool \`${name}\`, you should follow these rules:\n - ${allTools[name]?.prompt}`)
-                .join('\n')}`;
-        }
-        return systemContent || 'You are a helpful assistant';
-    };
+    const getSystemContent = () => rawSystemPrompt || 'You are a helpful assistant';
 
     const trimMessages = (promptMessages: ModelMessage[]) => {
         const modifiedMessages: any[] = [];
@@ -268,12 +256,11 @@ function warpModel(model: LanguageModelV3, config: AgentUserConfig, activeTools:
 }
 
 export async function warpLLMParams({ messages, model, cache }: { messages: ModelMessage[]; model: LanguageModelV3; cache?: string[] }, context: AgentUserConfig) {
-    const allTools = await getTools();
     const userMessage = messages.findLast(m => m.role === 'user')!;
     const userText = Array.isArray(userMessage.content) ? userMessage.content.find(c => c.type === 'text')?.text ?? '' : userMessage.content;
-    const { tools = {}, activeToolAlias = [] } = await validTools(context);
+    const { tools = {}, activeToolNames = [] } = await resolveMcpTools(context);
 
-    const activeTools = activeToolAlias.map((t: string) => allTools[t]?.schema?.name || t) || [];
+    const activeTools = [...activeToolNames];
     const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
@@ -404,8 +391,8 @@ export async function warpLLMParams({ messages, model, cache }: { messages: Mode
     }
 
     let toolChoice;
-    if (activeToolAlias.length > 0 && userText) {
-        const choiceResult = await wrapToolChoice(activeToolAlias, userText);
+    if (activeToolNames.length > 0 && userText) {
+        const choiceResult = await wrapToolChoice(activeToolNames, userText);
         if (Array.isArray(userMessage.content)) {
             userMessage.content.find(c => c.type === 'text')!.text = choiceResult.message;
         } else {
@@ -434,7 +421,6 @@ async function wrapToolChoice(activeToolAlias: string[], message: string): Promi
     toolChoices: ToolChoice[] | [];
 }> {
     const toolPrefix = '/t-';
-    const tools = await getTools();
     let text = message.trim();
     const choices = ['auto', 'none', 'required', ...activeToolAlias];
     const toolChoices = [];
@@ -444,7 +430,7 @@ async function wrapToolChoice(activeToolAlias: string[], message: string): Promi
             text = text.substring(toolPrefix.length + toolAlias.length).trim();
             const choice = ['auto', 'none', 'required'].includes(toolAlias)
                 ? { type: toolAlias as 'auto' | 'none' | 'required' }
-                : { type: 'tool', toolName: tools[toolAlias].schema.name };
+                : { type: 'tool', toolName: toolAlias };
             toolChoices.push(choice);
         } else {
             break;
@@ -506,13 +492,12 @@ export function metaDataExtractor(metadata: any, provider: string, content: stri
     }
 }
 
-async function handleToolResult({ tools, toolResults, onStream, config }: { tools: Record<string, any>; toolResults: ToolResultPart[]; onStream: ChatStreamTextHandler | null; config: AgentUserConfig }) {
-    const messageTool = Object.values(tools).filter(({ send_type }) => send_type === 'message').map(({ schema: { name } }) => name);
+async function handleToolResult({ toolResults, onStream, config }: { toolResults: ToolResultPart[]; onStream: ChatStreamTextHandler | null; config: AgentUserConfig }) {
     const providerMessageTools = ['image_generation', 'code_interpreter', 'mcp'];
 
     const needSendResult: ToolResult[] = [];
     for (const { output, toolName } of toolResults) {
-        const shouldSend = messageTool.includes(toolName) || providerMessageTools.includes(toolName);
+        const shouldSend = providerMessageTools.includes(toolName);
 
         if (shouldSend) {
             if ('value' in output && (output as any).value?.content) {
@@ -532,11 +517,11 @@ async function handleToolResult({ tools, toolResults, onStream, config }: { tool
     }
     if (needSendResult.length > 0) {
         const sender = onStream?.sender;
-        const toolNames = toolResults.map(i => i.toolName).filter(name => messageTool.includes(name) || providerMessageTools.includes(name));
+        const toolNames = toolResults.map(i => i.toolName).filter(name => providerMessageTools.includes(name));
         log.info(`start send tool result: ${toolNames.join(', ')}`);
         sender && await sendToolResult(needSendResult, sender, config);
         toolResults.forEach(({ toolName, output }) => {
-            const shouldModify = messageTool.includes(toolName) || providerMessageTools.includes(toolName);
+            const shouldModify = providerMessageTools.includes(toolName);
             const hasError = output.type !== 'execution-denied' && 'value' in output
                 && ((output.value as any)?.content ?? []).some((i: any) => i.type === 'error');
             if (shouldModify && !hasError) {

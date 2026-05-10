@@ -39,6 +39,8 @@ CHAT_WHITE_LIST = "123456789"
 UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
 OPENAI_API_KEY = "sk-..."
+# USE_MCP = ["demo"]
+# MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
 ```
 
 ## Local Development
@@ -109,6 +111,7 @@ docker compose up --build
 
 - `LANGUAGE` is English-only.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are required. Redis is the only supported database backend in this simplified build.
+- Generic MCP servers use `MCP_*` JSON-string env vars plus `USE_MCP`. This is the only repo-level custom tool integration now.
 - `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`.
 - `CHAT_WHITE_LIST` users can fully manage runtime bot settings, including API base URLs, through commands or `/settings`.
 - Unsupported provider envs from older versions are ignored by the runtime config normalizer and should be removed from your local config.

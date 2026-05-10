@@ -9,7 +9,7 @@ This repository has been simplified to:
 - English only
 - `openai` and `oailike` providers only
 - local and Docker deployment only
-- OpenAI built-in tools only
+- generic MCP and OpenAI built-in tools only
 - native Telegram draft streaming when Telegram supports it
 
 ## Features
@@ -18,7 +18,7 @@ This repository has been simplified to:
 - Native Telegram streaming in private chats, with fallback to edit-based streaming
 - Image generation through OpenAI image APIs or OpenAI-compatible endpoints
 - Speech-to-text and text-to-speech through OpenAI or OpenAI-compatible endpoints
-- Internal tools, MCP integration, and per-user settings
+- MCP integration, OpenAI Responses built-in tools, and per-user settings
 - local process and Docker deployment paths
 
 ## Supported Providers
@@ -104,6 +104,14 @@ OpenAI Responses API tools remain supported through:
 - `OPENAI_ENABLE_IMAGE_GENERATION`
 - `OPENAI_ENABLE_MCP`
 
+Generic MCP is also supported in local or Docker mode through `MCP_*` plus `USE_MCP`. Example:
+
+```toml
+[vars]
+USE_MCP = ["demo"]
+MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
+```
+
 Endpoint selection is configurable for both provider families:
 
 - `OPENAI_API_BASE=https://.../v1/responses` uses the Responses API
@@ -142,7 +150,7 @@ src/
 ├── agent/        # OpenAI and OpenAI-compatible integrations
 ├── config/       # Environment and user configuration
 ├── telegram/     # Telegram command, handler, and send logic
-├── tools/        # Internal, external, MCP, and local tools
+├── mcp/          # Generic MCP client integration
 └── utils/        # Shared helpers
 ```
 

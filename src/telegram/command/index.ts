@@ -1,13 +1,11 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import type { ImageResult } from '../../agent/types';
 import type { WorkerContext } from '../../config/context';
-import type { RequestTemplate } from '../../plugins/template';
 import type { UnionData } from '../utils/tg_utils';
 import type { CommandHandler } from './types';
 import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
-import { executeRequest, formatInput } from '../../plugins/template';
-import { MessageSender, sendAction } from '../utils/send';
+import { MessageSender } from '../utils/send';
 import { loadChatRoleWithContext } from './auth';
 import {
     BlocklistCommandHandler,
@@ -89,40 +87,6 @@ async function handleSystemCommand(message: Telegram.Message, raw: string, comma
     }
 }
 
-async function handlePluginCommand(message: Telegram.Message, command: string, raw: string, template: RequestTemplate, context: WorkerContext): Promise<Response> {
-    const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
-    try {
-        const subcommand = raw.substring(command.length).trim();
-        if (template.input?.required && !subcommand) {
-            throw new Error('Missing required input');
-        }
-        const DATA = formatInput(subcommand, template.input?.type);
-        const { type, content } = await executeRequest(template, {
-            DATA,
-            ENV: ENV.PLUGINS_ENV,
-        });
-        if (type === 'image') {
-            sendAction(context.SHARE_CONTEXT.botToken, message.chat.id, 'upload_photo');
-            return sender.sendPhoto(content);
-        }
-        sendAction(context.SHARE_CONTEXT.botToken, message.chat.id, 'typing');
-        switch (type) {
-            case 'html':
-                return sender.sendRichText(content, 'HTML');
-            case 'markdown':
-                return sender.sendRichText(content, 'Markdown');
-            case 'markdownV2':
-                return sender.sendRichText(content, 'MarkdownV2');
-            case 'text':
-            default:
-                return sender.sendPlainText(content);
-        }
-    } catch (e) {
-        const help = ENV.PLUGINS_COMMAND[command].description;
-        return sender.sendRichText(`<pre><code class="language-error">${(e as Error).message}${help ? `\n${help}` : ''}</code></pre>`, 'HTML', 'tip');
-    }
-}
-
 export async function handleCommandMessage(message: Telegram.Message, context: WorkerContext): Promise<Response | UnionData | ImageResult | null> {
     let text = (message.text || message.caption || '').trim();
 
@@ -137,22 +101,6 @@ export async function handleCommandMessage(message: Telegram.Message, context: W
     }
 
     // const SYSTEM_COMMANDS = SystemCommandGen();
-
-    // 查找插件命令
-    for (const key in ENV.PLUGINS_COMMAND) {
-        if (text === key || text.startsWith(`${key} `)) {
-            let template = ENV.PLUGINS_COMMAND[key].value.trim();
-            if (template.startsWith('http')) {
-                template = await fetch(template).then(r => r.text());
-            }
-            // 由于插值位置较多，直接检索整个模板是否包含占位符
-            if (key.trim() === text.trim() && (template.includes('{{DATA}}'))) {
-                const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
-                return sender.sendPlainText(`Tip: ${ENV.PLUGINS_COMMAND[key].description || 'Please input something'}`, 'tip');
-            }
-            return await handlePluginCommand(message, key, text, JSON.parse(template), context);
-        }
-    }
 
     // 查找系统命令
     for (const cmd of SYSTEM_COMMANDS) {
@@ -187,18 +135,16 @@ export function commandsBindScope(): Record<string, Telegram.SetMyCommandsParams
             }
         }
     }
-    for (const list of [ENV.CUSTOM_COMMAND, ENV.PLUGINS_COMMAND]) {
-        for (const [cmd, config] of Object.entries(list)) {
-            if (config.scope) {
-                for (const scope of config.scope) {
-                    if (!scopeCommandMap[scope]) {
-                        scopeCommandMap[scope] = [];
-                    }
-                    scopeCommandMap[scope].push({
-                        command: cmd,
-                        description: config.description || '',
-                    });
+    for (const [cmd, config] of Object.entries(ENV.CUSTOM_COMMAND)) {
+        if (config.scope) {
+            for (const scope of config.scope) {
+                if (!scopeCommandMap[scope]) {
+                    scopeCommandMap[scope] = [];
                 }
+                scopeCommandMap[scope].push({
+                    command: cmd,
+                    description: config.description || '',
+                });
             }
         }
     }

@@ -1,7 +1,6 @@
 import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ChatAgent, ImageAgent, TTSAgent } from './types';
 import { ENV } from '../config/env';
-import { getTools } from '../tools';
 import { Dalle, OpenAI, OpenAIASR, OpenAITTS } from './openai';
 import { OpenAILike, OpenAILikeASR, OpenAILikeImage, OpenAILikeTTS } from './openailike';
 
@@ -75,12 +74,12 @@ export function loadTTSLLM(context: AgentUserConfig) {
 
 export async function customInfo(config: AgentUserConfig): Promise<string> {
     const prompt = config.SYSTEM_INIT_MESSAGE || '';
-    const tools = await getTools();
     const otherInfo = {
         mode: config.CURRENT_MODE,
         prompt: prompt.length > 50 ? `${prompt.slice(0, 50)}...` : prompt,
-        USE_TOOLS: config.USE_TOOLS.join(','),
-        SUPPORT_PLUGINS: Object.keys({ ...ENV.PLUGINS_FUNCTION, ...tools }).join('|'),
+        USE_MCP: config.USE_MCP.join(','),
+        CONFIGURED_MCP: Object.keys(ENV.MCP_CONFIG).join('|'),
+        USE_OPENAI_BUILDIN: config.USE_OPENAI_BUILDIN.join(','),
         CHAT_TRIGGER_PREFIX: ENV.CHAT_TRIGGER_PREFIX,
         MAX_STEPS: config.MAX_STEPS,
         MAX_RETRIES: config.MAX_RETRIES,

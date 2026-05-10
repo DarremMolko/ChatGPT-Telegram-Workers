@@ -15,7 +15,6 @@ import { ENV, ENV_KEY_MAPPER } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
 import { getLogSingleton, log } from '../../log';
 import { updateMcp } from '../../mcp';
-import { getTools } from '../../tools';
 import { WssRequest } from '../../utils/others/wsrequest';
 import { getStats } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
@@ -144,11 +143,6 @@ export class HelpCommandHandler implements CommandHandler {
             helpMsg += `/${k}: ${v}\n`;
         }
         for (const [k, v] of Object.entries(ENV.CUSTOM_COMMAND)) {
-            if (v.description) {
-                helpMsg += `${k}: ${v.description}\n`;
-            }
-        }
-        for (const [k, v] of Object.entries(ENV.PLUGINS_COMMAND)) {
             if (v.description) {
                 helpMsg += `${k}: ${v.description}\n`;
             }
@@ -416,7 +410,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             await this.RelaxAuthCheck(message, context, updatedKeys, needUpdate);
             if (needUpdate && updatedKeys.length > 0 && context.SHARE_CONTEXT?.configStoreKey) {
                 await this.store({}, context);
-                const suffixWhiteList = ['_PROVIDER', '_MODEL', '_MODELS', '_TOOLS', '_TYPE', '_OUTPUT', '_AGENT', '_TEMPERATURE', 'MAPPING_KEY', 'MAPPING_VALUE'];
+                const suffixWhiteList = ['_PROVIDER', '_MODEL', '_MODELS', '_TOOLS', '_TYPE', '_OUTPUT', '_AGENT', '_TEMPERATURE', 'MAPPING_KEY', 'MAPPING_VALUE', 'USE_MCP', 'USE_OPENAI_BUILDIN'];
                 msg += `${updatedKeys
                     .filter(key => suffixWhiteList.some(suffix => key.endsWith(suffix)))
                     .map(key => `${key}: ${context.USER_CONFIG[key]}`)
@@ -511,14 +505,6 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
                 key = context.USER_CONFIG.AI_TTS_PROVIDER
                     ? `${context.USER_CONFIG.AI_TTS_PROVIDER.toUpperCase()}_${key}`
                     : key;
-                break;
-            case 'USE_TOOLS':
-                if (value === 'on') {
-                    const tools = await getTools();
-                    mappedValue = Object.keys(tools);
-                } else if (value === 'off') {
-                    mappedValue = [];
-                }
                 break;
             default:
                 break;
@@ -661,7 +647,6 @@ export class InlineCommandHandler implements CommandHandler {
             : ENV.ENVS_VARIABLES.length === 0
                 ? Object.keys(context).filter(key => !isSensitiveEnvKey(key))
                 : ENV.ENVS_VARIABLES;
-        const tools = await getTools();
         const inlines: InlineItem[] = [
             {
                 label: 'Chat Agent',
@@ -692,12 +677,6 @@ export class InlineCommandHandler implements CommandHandler {
                 config_key: 'RERANK_AGENT',
                 type: 'radio',
                 value: allRerankAgents,
-            },
-            {
-                label: 'Tools',
-                config_key: 'USE_TOOLS',
-                type: 'checkbox',
-                value: Object.keys({ ...ENV.PLUGINS_FUNCTION, ...tools }).sort(),
             },
             {
                 label: 'MCP',

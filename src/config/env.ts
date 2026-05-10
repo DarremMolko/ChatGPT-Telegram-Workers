@@ -3,7 +3,6 @@ import { blockAgent } from '../agent';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
 import { blockCommand } from '../telegram/command';
-import { initializeTools } from '../tools';
 import {
     AgentShareConfig,
     DalleAIConfig,
@@ -60,11 +59,8 @@ class Environment extends EnvironmentConfig {
 
     // -- 基础配置 --
     I18N = loadI18n();
-    readonly PLUGINS_ENV: Record<string, string> = {};
     readonly USER_CONFIG: AgentUserConfig = createAgentUserConfig();
     readonly CUSTOM_COMMAND: Record<string, CommandConfig> = {};
-    readonly PLUGINS_COMMAND: Record<string, CommandConfig> = {};
-    readonly PLUGINS_FUNCTION: Record<string, any> = {};
     readonly MCP_CONFIG: Record<string, MCPTransport> = {};
     DATABASE: KVNamespace = null as any;
     API_GUARD: APIGuard | null = null;
@@ -88,31 +84,6 @@ class Environment extends EnvironmentConfig {
             this.CUSTOM_COMMAND,
         );
 
-        // 绑定插件命令
-        this.mergeCommands(
-            'PLUGIN_COMMAND_',
-            'PLUGIN_DESCRIPTION_',
-            'PLUGIN_SCOPE_',
-            source,
-            this.PLUGINS_COMMAND,
-        );
-
-        // 绑定插件环境变量
-        const pluginEnvPrefix = 'PLUGIN_ENV_';
-        for (const key of Object.keys(source)) {
-            if (key.startsWith(pluginEnvPrefix)) {
-                const plugin = key.substring(pluginEnvPrefix.length);
-                this.PLUGINS_ENV[plugin] = source[key];
-            }
-        }
-
-        // 读取外部插件
-        for (const key of Object.keys(source)) {
-            if (key.startsWith('PLUGIN_FUNCTION_')) {
-                this.PLUGINS_FUNCTION[key.substring('PLUGIN_FUNCTION_'.length)] = source[key];
-            }
-        }
-
         // 读取MCP配置
         this.mergeMCP('MCP_', source, this.MCP_CONFIG);
 
@@ -121,10 +92,8 @@ class Environment extends EnvironmentConfig {
             'BUILD_TIMESTAMP',
             'BUILD_VERSION',
             'I18N',
-            'PLUGINS_ENV',
             'USER_CONFIG',
             'CUSTOM_COMMAND',
-            'PLUGINS_COMMAND',
             'DATABASE',
             'API_GUARD',
         ]);
@@ -144,7 +113,7 @@ class Environment extends EnvironmentConfig {
             this.ENVS_VARIABLES = this.ENVS_VARIABLES.filter((key: string) => Object.keys(this.USER_CONFIG).includes(key));
         }
 
-        // 异步初始化tools和mcp
+        // 异步初始化 mcp
         this.asyncInit();
 
         // block agents
@@ -237,9 +206,6 @@ class Environment extends EnvironmentConfig {
     }
 
     private asyncInit() {
-        initializeTools().catch((error) => {
-            console.error('[ERROR] Failed to initialize tools:', error);
-        });
         initializeMcp().catch((error) => {
             console.error('[ERROR] Failed to initialize MCP:', error);
         });
