@@ -1,8 +1,8 @@
 {
   "mode": "webhook",
   "database": {
-    "type": "sqlite",
-    "path": "./bot.db"
+    "type": "local",
+    "path": "./data/bot-state.json"
   },
   "server": {
     "hostname": "0.0.0.0",

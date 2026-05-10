@@ -144,6 +144,7 @@ src/
 
 - `LANGUAGE` is fixed to English in this simplified build.
 - The repository only keeps the local process and Docker deployment paths.
+- The local runtime uses an in-repo native server and file-backed state store by default; SQLite is no longer required.
 - Native Telegram draft streaming is used when available in private chats; unsupported chats fall back automatically.
 - Older configs that selected removed providers are normalized back to supported providers at runtime.
 

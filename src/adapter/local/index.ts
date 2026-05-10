@@ -1,15 +1,15 @@
 import type { GetUpdatesResponse } from 'telegram-bot-api-types';
 import type { TelegramBotAPI } from '../../telegram/api';
 import * as fs from 'node:fs';
-import { createCache } from 'cf-worker-adapter/cache';
-import { installFetchProxy } from 'cf-worker-adapter/proxy';
-import { defaultRequestBuilder, initEnv, startServerV2 } from 'cf-worker-adapter/serve';
 import { schedule } from 'node-cron';
 import worker from '../../';
 import { ENV } from '../../config/env';
 import { createRouter } from '../../route/index';
 import { createTelegramBotAPI } from '../../telegram/api';
 import { handleUpdate } from '../../telegram/handler';
+import { applyProxy, loadLocalEnv } from './env';
+import { createDatabase } from './kv';
+import { startLocalServer } from './server';
 
 const {
     CONFIG_PATH = '/app/config.json',
@@ -32,20 +32,6 @@ interface Config {
 
 // 读取配置文件
 const config: Config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-
-if (config.proxy) {
-    installFetchProxy(config.proxy);
-}
-
-// 初始化数据库
-const cache = createCache(config?.database?.type, {
-    uri: config.database.path || '',
-});
-console.log(`database: ${config?.database?.type} is ready`);
-
-// 初始化环境变量
-const env = initEnv(TOML_PATH, { DATABASE: cache });
-ENV.merge(env);
 
 // long polling 模式
 async function runPolling() {
@@ -91,30 +77,46 @@ async function runPolling() {
     });
 }
 
-try {
-    // 定时任务
-    if (env.EXPIRED_TIME > 0 && env.CRON_CHECK_TIME) {
-        try {
-            schedule(env.CRON_CHECK_TIME, async () => await worker.scheduled({} as Event, env, null));
-        } catch (e) {
-            console.error('Failed to schedule cron job:', e);
-        }
+async function main() {
+    if (config.proxy) {
+        applyProxy(config.proxy);
     }
-} catch (e) {
-    console.log(e);
-}
 
-// 启动服务
-if (config.mode === 'webhook' && config.server !== undefined) {
-    const router = createRouter();
-    startServerV2(
-        config.server.port || 8787,
-        config.server.hostname || '0.0.0.0',
-        env,
-        { baseURL: config.server.baseURL },
-        defaultRequestBuilder,
-        router.fetch.bind(router),
-    );
-} else {
+    const env = await loadLocalEnv(TOML_PATH);
+    const { database, label } = await createDatabase(config.database, env);
+    console.log(`database: ${label} is ready`);
+    ENV.merge({
+        ...env,
+        DATABASE: database,
+    });
+
+    try {
+        if (env.EXPIRED_TIME > 0 && env.CRON_CHECK_TIME) {
+            try {
+                schedule(env.CRON_CHECK_TIME, async () => await worker.scheduled({} as Event, {
+                    ...env,
+                    DATABASE: database,
+                }, null));
+            } catch (e) {
+                console.error('Failed to schedule cron job:', e);
+            }
+        }
+    } catch (e) {
+        console.log(e);
+    }
+
+    if (config.mode === 'webhook' && config.server !== undefined) {
+        const router = createRouter();
+        startLocalServer(
+            config.server.port || 8787,
+            config.server.hostname || '0.0.0.0',
+            config.server.baseURL,
+            router,
+        );
+        return;
+    }
+
     runPolling().catch(console.error);
 }
+
+main().catch(console.error);
