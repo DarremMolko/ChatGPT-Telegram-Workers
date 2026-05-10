@@ -95,8 +95,10 @@ async function defaultIndexAction(): Promise<Response> {
         commandsDocument().map(item => `<p><strong>${item.command}</strong> - ${item.description}</p>`).join('')
     }
     <br/>
-    <p>You can get bot information by visiting the following URL:</p>
-    <p><strong>/telegram/:token/bot</strong> - Get bot information</p>
+    <p>Runtime routes:</p>
+    <p><strong>/</strong> - Status page</p>
+    <p><strong>/init</strong> - Bind Telegram webhooks and command menus</p>
+    <p><strong>/telegram/:token/webhook</strong> - Telegram webhook endpoint</p>
     ${footer}
   `);
     return new Response(HTML, { status: 200, headers: { 'Content-Type': 'text/html' } });

@@ -19,7 +19,7 @@ Older releases document features and integrations that have since been removed f
 - Reduced the supported provider surface to `openai` and `oailike`
 - Reduced the supported deployment surface to local and Docker only
 - Made runtime state explicitly Redis-backed through Upstash Redis
-- Made `CHAT_WHITE_LIST` users full runtime config admins
+- Made `CHAT_WHITE_LIST` users admins for the stored per-chat user-config surface
 - Switched endpoint selection for `openai` and `oailike` to be driven by API base URLs
 - Removed the plugin system and repo-level internal/external tool system in favor of MCP-only custom integrations
 

@@ -18,6 +18,24 @@ OPENAI_STT_MODEL = "whisper-1"
 OPENAI_TTS_MODEL = "tts-1"
 OPENAI_TTS_VOICE = "alloy"
 
+# Optional: enable OpenAI provider-side tools when using the Responses API.
+# USE_OPENAI_BUILDIN = ["webSearch"]
+# OPENAI_WEB_SEARCH_CONTEXT_SIZE = "high"
+
+# Optional: use a dedicated model for MCP or built-in tool steps.
+# TOOL_MODEL = "gpt-4.1-mini"
+
+# Optional: change text/audio behavior.
+# TEXT_OUTPUT = "audio"
+# AUDIO_OUTPUT = "audio"
+
+# Optional: configure scheduled deletion in local mode.
+# EXPIRED_TIME = 60
+# CRON_CHECK_TIME = "*/5 * * * *"
+
+# Optional: enable direct Perplexity access through /pplx.
+# PPLX_COOKIE = "your-perplexity-cookie"
+
 # To enable a generic MCP server:
 # USE_MCP = ["demo"]
 # MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
@@ -42,3 +60,6 @@ OPENAI_TTS_VOICE = "alloy"
 # OAILIKE_IMAGE_MODEL = "your-image-model"
 # OAILIKE_STT_MODEL = "your-stt-model"
 # OAILIKE_TTS_MODEL = "your-tts-model"
+
+# Optional: force explicit endpoint mode.
+# OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
