@@ -2,10 +2,10 @@ services:
   chatgpt-telegram-workers:
     container_name: chatgpt-telegram-workers
     build: .
-    image: szemeng76/chatgpt-telegram-workers:latest
+    image: chatgpt-telegram-workers:latest
     ports:
       - "8787:8787"
     volumes:
       - ./config.json:/app/config.json:ro # change `./config.json` to your local path
-      - ./wrangler.toml:/app/config.toml:ro # change `./wrangler.toml` to your local path
+      - ./config.toml:/app/config.toml:ro # change `./config.toml` to your local path
       - ./tool:/app/tool:ro # change `./tool` to your local path

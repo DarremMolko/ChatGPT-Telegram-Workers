@@ -1,0 +1,12 @@
+{
+  "mode": "webhook",
+  "database": {
+    "type": "sqlite",
+    "path": "./bot.db"
+  },
+  "server": {
+    "hostname": "0.0.0.0",
+    "port": 8787,
+    "baseURL": "https://your-domain.example.com"
+  }
+}

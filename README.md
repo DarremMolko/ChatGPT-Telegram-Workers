@@ -8,6 +8,7 @@ This repository has been simplified to:
 
 - English only
 - `openai` and `oailike` providers only
+- local and Docker deployment only
 - OpenAI built-in tools only
 - native Telegram draft streaming when Telegram supports it
 
@@ -18,7 +19,7 @@ This repository has been simplified to:
 - Image generation through OpenAI image APIs or OpenAI-compatible endpoints
 - Speech-to-text and text-to-speech through OpenAI or OpenAI-compatible endpoints
 - Internal tools, MCP integration, and per-user settings
-- Cloudflare Workers, local, Docker, and Vercel deployment options
+- local process and Docker deployment paths
 
 ## Supported Providers
 
@@ -29,7 +30,12 @@ Unsupported provider-specific settings from older versions were removed, includi
 
 ## Quick Start
 
-Set the required Telegram token plus one provider.
+Copy the local config templates and set the required Telegram token plus one provider.
+
+```bash
+cp config.example.json config.json
+cp config.example.toml config.toml
+```
 
 ### OpenAI
 
@@ -107,7 +113,6 @@ If you keep the root `/v1` base instead of a full endpoint path, the defaults ar
 See:
 
 - [Configuration](./doc/en/CONFIG.md)
-- [Cloudflare Workers Deployment](./doc/en/DEPLOY.md)
 - [Local Development and Docker](./doc/en/LOCAL.md)
 
 ## Development
@@ -138,6 +143,7 @@ src/
 ## Notes
 
 - `LANGUAGE` is fixed to English in this simplified build.
+- The repository only keeps the local process and Docker deployment paths.
 - Native Telegram draft streaming is used when available in private chats; unsupported chats fall back automatically.
 - Older configs that selected removed providers are normalized back to supported providers at runtime.
 

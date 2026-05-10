@@ -8,14 +8,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    name: Deploy
+    name: Build
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install
+      - run: npm run lint
       - run: npm run build
-      - run: node ./dist/index.js
+      - run: test -f dist/index.js
+      - run: test -f dist/Dockerfile
+      - run: test -f dist/package.json

@@ -12,7 +12,7 @@ FROM node:20-alpine as prod
 
 WORKDIR /app
 COPY --from=builder /build/node_modules /app/node_modules
-COPY index.js package.json /app/
+COPY . /app/
 RUN apk add --no-cache sqlite
 EXPOSE 8787
 CMD ["node", "index.js"]

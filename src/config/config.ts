@@ -5,8 +5,6 @@ import prompts_default from '../utils/others/prompt';
 export class EnvironmentConfig {
     // 多语言支持
     LANGUAGE = 'en';
-    // 检查更新的分支
-    UPDATE_BRANCH = 'master';
     // Chat Complete API Timeout, scale: seconds
     CHAT_COMPLETE_API_TIMEOUT = 0;
     // Total Duration Limit, scale: seconds, default 30 minutes

@@ -145,11 +145,9 @@ out
 
 .idea
 .vscode
-.vercel
 .wrangler
 /config.json
-/wrangler-test.toml
-**/wrangler.toml
+/config.toml
 /dist/index.cjs
 /dist/index.d.ts
 .cursorignore

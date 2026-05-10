@@ -1,9 +1,47 @@
 # Local Development And Docker
 
-This simplified build supports:
+This simplified build only supports:
 
+- local process deployment
+- Docker deployment
 - `openai`
 - `oailike`
+
+## Config Files
+
+Copy the included examples:
+
+```bash
+cp config.example.json config.json
+cp config.example.toml config.toml
+```
+
+`config.json` controls the local runtime:
+
+```json
+{
+  "mode": "webhook",
+  "database": {
+    "type": "sqlite",
+    "path": "./bot.db"
+  },
+  "server": {
+    "hostname": "0.0.0.0",
+    "port": 8787,
+    "baseURL": "https://your-domain.example.com"
+  }
+}
+```
+
+`config.toml` contains the bot environment variables:
+
+```toml
+[vars]
+LANGUAGE = "en"
+TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
+CHAT_WHITE_LIST = "123456789"
+OPENAI_API_KEY = "sk-..."
+```
 
 ## Local Development
 
@@ -19,46 +57,37 @@ Run the local adapter:
 npm run start:local
 ```
 
-Minimal local config:
+The server reads:
 
-```env
-LANGUAGE=en
-TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
-OPENAI_API_KEY=sk-...
-```
-
-OpenAI-compatible local config:
-
-```env
-LANGUAGE=en
-TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
-AI_CHAT_PROVIDER=oailike
-AI_IMAGE_PROVIDER=oailike
-AI_ASR_PROVIDER=oailike
-AI_TTS_PROVIDER=oailike
-OAILIKE_API_KEY=your-key
-OAILIKE_API_BASE=https://your-api.example.com/v1
-```
+- `./config.json`
+- `./config.toml`
 
 ## Build
 
+Build the local runtime bundle and Docker context:
+
 ```bash
-npm run lint
 npm run build
 ```
 
+This generates:
+
+- `dist/index.js`
+- `dist/Dockerfile`
+- `dist/package.json`
+
 ## Docker
 
-Build the image:
+Build the image from the generated runtime bundle:
 
 ```bash
 npm run build:docker
 ```
 
-Or build locally:
+Or use the root Dockerfile directly:
 
 ```bash
-docker build -t chatgpt-telegram-workers:latest dist
+docker build -t chatgpt-telegram-workers:latest .
 ```
 
 Run the container:
@@ -67,14 +96,20 @@ Run the container:
 docker run -d \
   --name chatgpt-telegram-workers \
   -p 8787:8787 \
-  -e TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token \
-  -e OPENAI_API_KEY=sk-... \
+  -v $(pwd)/config.json:/app/config.json:ro \
+  -v $(pwd)/config.toml:/app/config.toml:ro \
   chatgpt-telegram-workers:latest
+```
+
+Or use Compose:
+
+```bash
+docker compose up --build
 ```
 
 ## Notes
 
 - `LANGUAGE` is English-only.
-- Unsupported provider envs from older versions are ignored by the runtime config normalizer and should be removed from your deployment config.
 - `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`.
 - `CHAT_WHITE_LIST` users can fully manage runtime bot settings, including API base URLs, through commands or `/settings`.
+- Unsupported provider envs from older versions are ignored by the runtime config normalizer and should be removed from your local config.

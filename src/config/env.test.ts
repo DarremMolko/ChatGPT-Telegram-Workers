@@ -3,7 +3,7 @@ import { parse } from 'toml';
 import { ENV } from './env';
 
 {
-    const toml = readFileSync('./wrangler.toml', 'utf8');
+    const toml = readFileSync('./config.example.toml', 'utf8');
     const config = parse(toml);
     ENV.merge({
         ...config.vars,

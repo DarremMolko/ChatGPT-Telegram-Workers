@@ -302,7 +302,7 @@ This release represents a complete architectural overhaul with modern technologi
 
 ### Upgrading from v1.x to v2.0.0
 
-This is a major release with breaking changes. Please follow our [Migration Guide](MIGRATION.md) for detailed upgrade instructions.
+This is a major release with breaking changes. Review your local configuration carefully before upgrading.
 
 **Key Steps:**
 1. Backup your current configuration

@@ -7,7 +7,7 @@ import { handleUpdate } from '../telegram/handler';
 import { Router } from '../utils/router';
 import { errorToString, makeResponse200, renderHTML } from './utils';
 
-const helpLink = 'https://github.com/TBXark/ChatGPT-Telegram-Workers/blob/master/doc/en/DEPLOY.md';
+const helpLink = 'https://github.com/TBXark/ChatGPT-Telegram-Workers/blob/master/doc/en/LOCAL.md';
 const issueLink = 'https://github.com/TBXark/ChatGPT-Telegram-Workers/issues';
 const initLink = './init';
 const footer = `
@@ -35,7 +35,7 @@ async function bindWebHookAction(request: RouterRequest): Promise<Response> {
     let html = `<h1>ChatGPT-Telegram-Workers</h1>`;
     html += `<h2>${domain}</h2>`;
     if (ENV.TELEGRAM_AVAILABLE_TOKENS.length === 0) {
-        html += `<p style="color: red">Please set the <strong> TELEGRAM_AVAILABLE_TOKENS </strong> environment variable in Cloudflare Workers.</p> `;
+        html += `<p style="color: red">Please set the <strong>TELEGRAM_AVAILABLE_TOKENS</strong> value in your local <strong>config.toml</strong>.</p>`;
     } else {
         for (const [key, res] of Object.entries(result)) {
             html += `<h3>Bot: ${`${key.slice(0, 2)}***${key.slice(-2)}`}</h3>`;
@@ -86,8 +86,8 @@ async function defaultIndexAction(): Promise<Response> {
     const HTML = renderHTML(`
     <h1>ChatGPT-Telegram-Workers</h1>
     <br/>
-    <p>Deployed Successfully!</p>
-    <p> Version (ts:${ENV.BUILD_TIMESTAMP},sha:${ENV.BUILD_VERSION})</p>
+    <p>Local or Docker deployment is ready.</p>
+    <p>Version (ts:${ENV.BUILD_TIMESTAMP}, sha:${ENV.BUILD_VERSION})</p>
     <br/>
     <p>You must <strong><a href="${initLink}"> >>>>> click here <<<<< </a></strong> to bind the webhook.</p>
     <br/>
