@@ -1,5 +1,6 @@
 import type { AgentUserConfig } from '../../config/env';
 import { cosineSimilarity } from 'ai';
+import { buildProviderApiUrl } from '../../agent/api_base';
 import { OpenaiEmbedding, OpenAILikeEmbedding } from './embedding';
 
 interface RerankResult {
@@ -36,7 +37,7 @@ export class Rerank {
     };
 
     readonly oailikeV2 = async (context: AgentUserConfig, data: string[], topN: number): Promise<RerankResult[]> => {
-        const url = `${context.OAILIKE_API_BASE}/rerank`;
+        const url = buildProviderApiUrl('oailike', context, '/rerank');
         const result = await fetch(url, {
             method: 'POST',
             headers: {

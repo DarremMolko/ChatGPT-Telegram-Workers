@@ -35,12 +35,6 @@ export class EnvironmentConfig {
     I_AM_A_GENEROUS_PERSON = false;
     // 白名单
     CHAT_WHITE_LIST: string[] = [];
-    // 用户配置
-    LOCK_USER_CONFIG_KEYS = [
-        // 默认为API BASE 防止被替换导致token 泄露
-        'OPENAI_API_BASE',
-        'OAILIKE_API_BASE',
-    ];
 
     // -- 群组相关 --
     //
@@ -245,7 +239,7 @@ export class OpenAIConfig {
     OPENAI_API_KEY: string[] = [];
     // OpenAI Model
     OPENAI_CHAT_MODEL = 'gpt-4o-mini';
-    // OpenAI API BASE ``
+    // OpenAI API base. Accepts either the root `/v1` base or a full LLM endpoint such as `/v1/responses` or `/v1/chat/completions`.
     OPENAI_API_BASE = 'https://api.openai.com/v1';
     // OpenAI API Extra Params, key is model name prefix, separated by commas; value is extra Params, support path(camelCase), split by '.'
     // for example: OPENAI_API_EXTRA_PARAMS = { 'gpt-4o-mini,gpt-4o-2024-08-06': { 'temperature': 0.5 } };
@@ -277,9 +271,6 @@ export class OpenAIConfig {
     OPENAI_MODELS = [];
     OPENAI_MODELS_API = '/models';
     OPENAI_TTS_PROMPT = '';
-    // Response api.
-    // Set the model id that needs to use the response api. When * is included, it means to always use the response api.
-    OPENAI_RESPONSE_MODELS = ['*'];
     // The API_EXTRA_PARAMS variable will override this option.
     OPENAI_PROVIDER_OPTIONS = {
         // metadata: {},
@@ -358,7 +349,7 @@ export class DalleAIConfig {
 export class OpenAILikeConfig {
     // oailike api key
     OAILIKE_API_KEY: string | null = null;
-    // oailike api base
+    // oailike api base. Accepts either the root `/v1` base or a full LLM endpoint such as `/v1/responses` or `/v1/chat/completions`.
     OAILIKE_API_BASE = 'https://api.openai.com/v1';
     // oailike api model
     OAILIKE_CHAT_MODEL = 'gpt-4o-mini';

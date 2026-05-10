@@ -137,7 +137,7 @@ export class WorkerContext implements WorkerContextBase {
             if (userConfig.AI_PROVIDER) {
                 USER_CONFIG.AI_CHAT_PROVIDER = userConfig.AI_PROVIDER;
             }
-            ConfigMerger.merge(USER_CONFIG, ConfigMerger.trim(userConfig, ENV.LOCK_USER_CONFIG_KEYS) || {});
+            ConfigMerger.merge(USER_CONFIG, ConfigMerger.trim(userConfig) || {});
         } catch (e) {
             console.warn(e);
         }

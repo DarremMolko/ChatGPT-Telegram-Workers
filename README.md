@@ -92,6 +92,18 @@ OpenAI Responses API tools remain supported through:
 - `OPENAI_ENABLE_IMAGE_GENERATION`
 - `OPENAI_ENABLE_MCP`
 
+Endpoint selection is configurable for both provider families:
+
+- `OPENAI_API_BASE=https://.../v1/responses` uses the Responses API
+- `OPENAI_API_BASE=https://.../v1/chat/completions` uses Chat Completions
+- `OAILIKE_API_BASE=https://.../v1/responses` uses the Responses API
+- `OAILIKE_API_BASE=https://.../v1/chat/completions` uses Chat Completions
+
+If you keep the root `/v1` base instead of a full endpoint path, the defaults are:
+
+- `openai` -> `/v1/responses`
+- `oailike` -> `/v1/chat/completions`
+
 See:
 
 - [Configuration](./doc/en/CONFIG.md)
@@ -132,4 +144,3 @@ src/
 ## License
 
 MIT
-

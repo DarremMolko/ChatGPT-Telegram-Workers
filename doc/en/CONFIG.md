@@ -13,6 +13,7 @@ Older provider-specific settings for Google, Anthropic, xAI, Azure, Vertex, Work
 | --- | --- | --- |
 | `LANGUAGE` | Interface language. Fixed to English in this simplified build. | `en` |
 | `TELEGRAM_AVAILABLE_TOKENS` | Comma-separated Telegram bot tokens. | `[]` |
+| `CHAT_WHITE_LIST` | User IDs that can use the bot and fully manage runtime configuration. | `[]` |
 | `OPENAI_API_KEY` | OpenAI API key list. Comma-separated in env form. | `[]` |
 | `OAILIKE_API_KEY` | OpenAI-compatible API key. | `null` |
 | `AI_CHAT_PROVIDER` | Chat provider. | `openai` |
@@ -24,7 +25,7 @@ Older provider-specific settings for Google, Anthropic, xAI, Azure, Vertex, Work
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `OPENAI_API_BASE` | OpenAI base URL. | `https://api.openai.com/v1` |
+| `OPENAI_API_BASE` | OpenAI base URL. Accepts the root `/v1` base or a full LLM endpoint such as `/v1/responses` or `/v1/chat/completions`. | `https://api.openai.com/v1` |
 | `OPENAI_CHAT_MODEL` | Default chat model. | `gpt-4o-mini` |
 | `OPENAI_VISION_MODEL` | Model used when the last user message contains an image. | `gpt-4o-mini` |
 | `OPENAI_IMAGE_MODEL` | Model for OpenAI image generation tool. | `gpt-image-1` |
@@ -36,13 +37,12 @@ Older provider-specific settings for Google, Anthropic, xAI, Azure, Vertex, Work
 | `OPENAI_API_EXTRA_PARAMS` | Per-model request overrides. | `{}` |
 | `OPENAI_STT_EXTRA_PARAMS` | Extra multipart STT params. | `{}` |
 | `OPENAI_TTS_EXTRA_PARAMS` | Extra TTS params. | `{}` |
-| `OPENAI_RESPONSE_MODELS` | Models that should use the Responses API. `*` means always. | `['*']` |
 
 ## OpenAI-compatible
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `OAILIKE_API_BASE` | Base URL for the compatible endpoint. | `https://api.openai.com/v1` |
+| `OAILIKE_API_BASE` | Base URL for the compatible endpoint. Accepts the root `/v1` base or a full LLM endpoint such as `/v1/responses` or `/v1/chat/completions`. | `https://api.openai.com/v1` |
 | `OAILIKE_CHAT_MODEL` | Default chat model. | `gpt-4o-mini` |
 | `OAILIKE_VISION_MODEL` | Vision-capable chat model. | `gpt-4o-mini` |
 | `OAILIKE_IMAGE_MODEL` | Image model for `/img`. | `dall-e-3` |
@@ -68,6 +68,21 @@ These settings control which provider family is used by each capability:
 | `AI_TTS_PROVIDER` | `openai`, `oailike` |
 
 If an unsupported legacy provider is loaded from stored config, the runtime normalizes it back to a supported provider.
+
+## LLM Endpoint Selection
+
+The LLM endpoint is selected from `OPENAI_API_BASE` or `OAILIKE_API_BASE`:
+
+- Set the value to a root API base like `https://api.openai.com/v1` to use the provider default
+- Set the value to `.../v1/responses` to force the Responses API
+- Set the value to `.../v1/chat/completions` to force Chat Completions
+
+Provider defaults when a root `/v1` base is used:
+
+- `openai` defaults to `/v1/responses`
+- `oailike` defaults to `/v1/chat/completions`
+
+Non-chat endpoints such as `/models`, `/images`, `/audio`, embeddings, and rerank still use the stripped root API base automatically.
 
 ## User Runtime Settings
 
@@ -178,13 +193,13 @@ Default shortcut mapping:
 
 These shortcuts are stored in `MAPPING_KEY` and can be customized.
 
-## Locked Keys
+## Runtime Admins
 
-These keys are intentionally locked from user-level overrides:
+Users listed in `CHAT_WHITE_LIST` are treated as bot admins for configuration:
 
-```env
-LOCK_USER_CONFIG_KEYS=OPENAI_API_BASE,OAILIKE_API_BASE
-```
+- `/set`, `/setenv`, `/setenvs`, `/delenv`, and `/settings` can modify any supported runtime key
+- The inline settings UI exposes the full env list for whitelisted users
+- No separate locked-key allowlist is used in this simplified build
 
 ## Example: OpenAI-only
 
@@ -213,4 +228,3 @@ OAILIKE_IMAGE_MODEL=your-image-model
 OAILIKE_STT_MODEL=your-stt-model
 OAILIKE_TTS_MODEL=your-tts-model
 ```
-

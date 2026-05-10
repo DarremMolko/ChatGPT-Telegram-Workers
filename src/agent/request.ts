@@ -8,6 +8,7 @@ import { generateText, stepCountIs, streamText, TypeValidationError, wrapLanguag
 import { ENV } from '../config/env';
 import { log } from '../log';
 import { SEGMENTATION_MARK } from '../telegram/utils/md2tgmd';
+import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { Stream } from './stream';
 
@@ -377,10 +378,19 @@ function thinkingExtractor(messageInfo: MessageInfo) {
 }
 
 async function combineParams({ context, middleware, model, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void }) {
-    const providerOptions = {
-        'openai': context.OPENAI_PROVIDER_OPTIONS,
-        'oailike.chat': context.OAILIKE_PROVIDER_OPTIONS,
-    };
+    const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
+        ? resolveLlmTarget(context.TOOL_MODEL, context)
+        : {
+                agent: getAgentProvider(model),
+                modelId: model.modelId,
+                useResponsesApi: model.provider.endsWith('.responses'),
+            };
+    const providerOptions: Record<string, any> = {};
+    if (effectiveTarget.agent === 'oailike' && !effectiveTarget.useResponsesApi) {
+        providerOptions['oailike.chat'] = context.OAILIKE_PROVIDER_OPTIONS;
+    } else {
+        providerOptions.openai = effectiveTarget.agent === 'oailike' ? context.OAILIKE_PROVIDER_OPTIONS : context.OPENAI_PROVIDER_OPTIONS;
+    }
 
     return {
         model: wrapLanguageModel({

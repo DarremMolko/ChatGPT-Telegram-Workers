@@ -76,9 +76,5 @@ docker run -d \
 
 - `LANGUAGE` is English-only.
 - Unsupported provider envs from older versions are ignored by the runtime config normalizer and should be removed from your deployment config.
-- Locked user config keys are now:
-
-```env
-LOCK_USER_CONFIG_KEYS=OPENAI_API_BASE,OAILIKE_API_BASE
-```
-
+- `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`.
+- `CHAT_WHITE_LIST` users can fully manage runtime bot settings, including API base URLs, through commands or `/settings`.

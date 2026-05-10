@@ -46,6 +46,20 @@ export const COMMAND_AUTH_CHECKER = {
     },
 };
 
+function isWhitelistAdmin(userId?: number): boolean {
+    return userId !== undefined && ENV.CHAT_WHITE_LIST.includes(userId.toString());
+}
+
+function isSensitiveEnvKey(key: string): boolean {
+    return key.endsWith('KEY')
+        || key.endsWith('TOKEN')
+        || key.endsWith('SECRET')
+        || key.endsWith('COOKIE')
+        || key.endsWith('ID')
+        || key.endsWith('API')
+        || key.endsWith('CREDENTIALS');
+}
+
 abstract class RenewConfig implements CommandHandler {
     abstract command: string;
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
@@ -60,7 +74,7 @@ abstract class RenewConfig implements CommandHandler {
         if (isStore) {
             await ENV.DATABASE.put(
                 context.SHARE_CONTEXT.configStoreKey,
-                JSON.stringify(ConfigMerger.trim(context.USER_CONFIG, ENV.LOCK_USER_CONFIG_KEYS)),
+                JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
             );
         }
     };
@@ -198,9 +212,6 @@ export class SetEnvCommandHandler extends RenewConfig {
         let key = subcommand.slice(0, kv);
         const value = subcommand.slice(kv + 1);
         key = ENV_KEY_MAPPER[key] || key;
-        if (ENV.LOCK_USER_CONFIG_KEYS.includes(key)) {
-            return sender.sendPlainText(`Key ${key} is locked`);
-        }
         if (!Object.keys(context.USER_CONFIG).includes(key)) {
             return sender.sendPlainText(`Key ${key} not found`);
         }
@@ -224,9 +235,6 @@ export class SetEnvsCommandHandler extends RenewConfig {
             for (const ent of Object.entries(values)) {
                 let [key, value] = ent;
                 key = ENV_KEY_MAPPER[key] || key;
-                if (ENV.LOCK_USER_CONFIG_KEYS.includes(key)) {
-                    return sender.sendPlainText(`Key ${key} is locked`);
-                }
                 if (!configKeys.includes(key)) {
                     return sender.sendPlainText(`Key ${key} not found`);
                 }
@@ -245,10 +253,6 @@ export class DelEnvCommandHandler extends RenewConfig {
     command = '/delenv';
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
-        if (ENV.LOCK_USER_CONFIG_KEYS.includes(subcommand)) {
-            const msg = `Key ${subcommand} is locked`;
-            return sender.sendPlainText(msg);
-        }
         try {
             context.USER_CONFIG[subcommand] = null;
             context.USER_CONFIG.DEFINE_KEYS = context.USER_CONFIG.DEFINE_KEYS.filter(key => key !== subcommand);
@@ -332,7 +336,7 @@ export class SystemCommandHandler implements CommandHandler {
             shareCtx.botToken = '******';
             context.USER_CONFIG.OPENAI_API_KEY = ['******'];
             context.USER_CONFIG.OAILIKE_API_KEY = '******';
-            const config = ConfigMerger.trim(context.USER_CONFIG, ENV.LOCK_USER_CONFIG_KEYS);
+            const config = ConfigMerger.trim(context.USER_CONFIG);
             msg = `${msg}\n`;
             msg += `USER_CONFIG: ${JSON.stringify(config, null, 2)}\n`;
             msg += `CHAT_CONTEXT: ${JSON.stringify(sender.context || {}, null, 2)}\n`;
@@ -492,10 +496,6 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             throw new Error(`Mapping Key ${flag} not found`);
         }
 
-        if (ENV.LOCK_USER_CONFIG_KEYS.includes(key) && sender) {
-            return sender.sendPlainText(`Key ${key} is locked`);
-        }
-
         switch (key) {
             // 兼容旧版命令
             case 'AI_PROVIDER':
@@ -629,8 +629,9 @@ export class InlineCommandHandler implements CommandHandler {
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
     needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender?: MessageSender): Promise<Response> => {
-        const defaultInlines = await this.defaultInlines(context.USER_CONFIG);
-        const settingMsg = this.settingsMessage(context.USER_CONFIG, defaultInlines, { callBack: '' });
+        const showAllEnvs = isWhitelistAdmin(message.from?.id);
+        const defaultInlines = await this.defaultInlines(context.USER_CONFIG, { showAllEnvs });
+        const settingMsg = this.settingsMessage(context.USER_CONFIG, defaultInlines, { callBack: '', showSensitiveValues: showAllEnvs });
         const headKeyboard = [
             {
                 text: 'Select a setting',
@@ -653,13 +654,14 @@ export class InlineCommandHandler implements CommandHandler {
         });
     };
 
-    defaultInlines = async (context: AgentUserConfig): Promise<InlineItem[]> => {
+    defaultInlines = async (context: AgentUserConfig, options: { showAllEnvs?: boolean } = {}): Promise<InlineItem[]> => {
         const allChatAgents = CHAT_AGENTS.map(agent => agent.name);
         const allImageAgents = IMAGE_AGENTS.map(agent => agent.name);
         const allTTSAgents = TTS_AGENTS.map(agent => agent.name);
         const allASRAgents = ASR_AGENTS.map(agent => agent.name);
         const allRerankAgents = ['openai', 'oailikeV1', 'oailikeV2'];
         const chatAgent = context.AI_CHAT_PROVIDER;
+        const { showAllEnvs = false } = options;
         const configKeyHandler = (type: string) => {
             if (type === 'Tool') {
                 return 'TOOL_MODEL';
@@ -667,11 +669,11 @@ export class InlineCommandHandler implements CommandHandler {
             const agent = context[`AI_${(type === 'Image' ? 'IMAGE' : 'CHAT')}_PROVIDER`];
             return `${agent.toUpperCase()}_${type.toUpperCase()}_MODEL`;
         };
-        const envs = ENV.ENVS_VARIABLES.length === 0
-            ? Object.keys(context).filter((key) => {
-                    return !ENV.LOCK_USER_CONFIG_KEYS.includes(key) && !key.endsWith('KEY');
-                })
-            : ENV.ENVS_VARIABLES;
+        const envs = showAllEnvs
+            ? Object.keys(context)
+            : ENV.ENVS_VARIABLES.length === 0
+                ? Object.keys(context).filter(key => !isSensitiveEnvKey(key))
+                : ENV.ENVS_VARIABLES;
         const tools = await getTools();
         const inlines: InlineItem[] = [
             {
@@ -793,7 +795,7 @@ export class InlineCommandHandler implements CommandHandler {
         return result;
     };
 
-    settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack }: { key?: string; callBack: string | InlineItem }) => {
+    settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack, showSensitiveValues = false }: { key?: string; callBack: string | InlineItem; showSensitiveValues?: boolean }) => {
         let settingMsg = 'Current configuration:\n\n';
         settingMsg += `${inlines.map(({ label, config_key }) => {
             return Object.hasOwn(context, config_key) ? `\`${label}: ${context[config_key] || 'Null'}\`` : '';
@@ -803,9 +805,9 @@ export class InlineCommandHandler implements CommandHandler {
             const newKey = key === 'ENVS' ? callBack : key;
             configValue = context[newKey] || '';
             (typeof configValue !== 'string') && (configValue = JSON.stringify(configValue));
-            if (newKey.endsWith('KEY') || newKey.endsWith('TOKEN') || newKey.endsWith('SECRET') || newKey.endsWith('COOKIE') || newKey.endsWith('ID') || newKey.endsWith('API') || newKey.endsWith('CREDENTIALS')) {
+            if (!showSensitiveValues && isSensitiveEnvKey(newKey)) {
                 configValue = `${configValue.slice(0, 5)}********${configValue.slice(-2)}`;
-            } else if (newKey.endsWith('URL') || newKey.endsWith('BASE')) {
+            } else if (!showSensitiveValues && (newKey.endsWith('URL') || newKey.endsWith('BASE'))) {
                 configValue = `${configValue.slice(0, 12)}********${configValue.slice(-3)}`;
             }
         }
@@ -974,7 +976,7 @@ export class BlockUserCommandHandler implements CommandHandler {
         context.USER_CONFIG.DEFINE_KEYS = Array.from(new Set(context.USER_CONFIG.DEFINE_KEYS));
         await ENV.DATABASE.put(
             context.SHARE_CONTEXT.configStoreKey,
-            JSON.stringify(ConfigMerger.trim(context.USER_CONFIG, ENV.LOCK_USER_CONFIG_KEYS)),
+            JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
         );
         return sender.sendRichText(`${op === '+' ? 'Blocked' : 'Unblocked'} user ${replyId ?? message.reply_to_message!.from!.first_name ?? ''}, id: \`${blockedId}\``, 'MarkdownV2', 'tip');
     };
@@ -991,7 +993,7 @@ export class BlocklistCommandHandler implements CommandHandler {
             context.USER_CONFIG.BLOCKLIST = [];
             await ENV.DATABASE.put(
                 context.SHARE_CONTEXT.configStoreKey,
-                JSON.stringify(ConfigMerger.trim(context.USER_CONFIG, ENV.LOCK_USER_CONFIG_KEYS)),
+                JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
             );
             return sender.sendRichText(`Blocked users cleared`, 'MarkdownV2', 'tip');
         }

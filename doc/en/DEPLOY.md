@@ -72,9 +72,5 @@ https://your-worker-name.your-subdomain.workers.dev/init
 
 - `LANGUAGE` is effectively English-only in this build.
 - Removed provider envs such as `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `AZURE_*`, and `VERTEX_*` are no longer used.
-- Locked user config keys are now:
-
-```env
-LOCK_USER_CONFIG_KEYS=OPENAI_API_BASE,OAILIKE_API_BASE
-```
-
+- `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`.
+- `CHAT_WHITE_LIST` users can fully manage runtime bot settings, including API base URLs, through commands or `/settings`.

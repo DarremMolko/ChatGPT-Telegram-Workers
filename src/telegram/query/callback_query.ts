@@ -6,6 +6,7 @@ import type { MessageHandler } from '../handler/types';
 import type { CallbackQueryHandler } from './types';
 import { WorkerContextBase } from '../../config/context';
 import { ENV } from '../../config/env';
+import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log/logger';
 import { createTelegramBotAPI } from '../api';
 import { InlineCommandHandler } from '../command/system';
@@ -43,7 +44,8 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         const pageLength = row * col;
         console.log(`[DEBUG] CALLBACK_QUERY_RC=${ENV.CALLBACK_QUERY_RC}, row=${row}, col=${col}, pageLength=${pageLength}`);
         const queryHandler = new InlineCommandHandler();
-        const defaltData = await queryHandler.defaultInlines(context.USER_CONFIG);
+        const showSensitiveValues = ENV.CHAT_WHITE_LIST.includes(query.from.id.toString());
+        const defaltData = await queryHandler.defaultInlines(context.USER_CONFIG, { showAllEnvs: showSensitiveValues });
         console.log(`[DEBUG] defaltData.length=${defaltData.length}, callbackData=${query.data}`);
         const pageIndexData = keyboard.flat().find(i => i.callback_data?.startsWith('PAGE_INDEX:'))?.callback_data?.replace('PAGE_INDEX:', '');
         console.log(`[DEBUG] pageIndexData=${pageIndexData}`);
@@ -81,10 +83,11 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
                 callback,
             },
         );
-        const newData = await queryHandler.defaultInlines(context.USER_CONFIG);
+        const newData = await queryHandler.defaultInlines(context.USER_CONFIG, { showAllEnvs: showSensitiveValues });
         const settingMessage = queryHandler.settingsMessage(context.USER_CONFIG, newData, {
             key: configKey,
             callBack: typeof newCallBackData === 'number' ? data[newCallBackData] : '',
+            showSensitiveValues,
         });
 
         return this.sendCallBackMessage(api, message, settingMessage, inlineKeyboard);
@@ -132,7 +135,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
             context.USER_CONFIG.DEFINE_KEYS.push(configKey);
         }
         log.info(`[CALLBACK QUERY] Update config: ${configKey} = ${context.USER_CONFIG[configKey]}`);
-        await ENV.DATABASE.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(context.USER_CONFIG)).catch(console.error);
+        await ENV.DATABASE.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(ConfigMerger.trim(context.USER_CONFIG))).catch(console.error);
         this.sendAlert(api, context.query_id, '✅ Data update successful', false);
     }
 

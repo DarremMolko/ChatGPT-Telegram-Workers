@@ -1,6 +1,7 @@
 import type { AgentUserConfig } from '../../config/env';
 import { createOpenAI } from '@ai-sdk/openai';
 import { embedMany } from 'ai';
+import { resolveProviderApiBase } from '../../agent/api_base';
 import { OpenAIBase } from '../../agent/openai';
 import { OpenAILikeBase } from '../../agent/openailike';
 
@@ -8,7 +9,7 @@ export class OpenaiEmbedding extends OpenAIBase {
     readonly request = async (data: string[], context: AgentUserConfig): Promise<Array<{ embed: number[]; value: string }>> => {
         const { embeddings, values } = await embedMany({
             model: createOpenAI({
-                baseURL: context.OPENAI_API_BASE,
+                baseURL: resolveProviderApiBase('openai', context).rootURL,
                 apiKey: this.apikey(context),
             }).embedding(context.OPENAI_EMBEDDING_MODEL),
             values: data,
@@ -22,7 +23,7 @@ export class OpenAILikeEmbedding extends OpenAILikeBase {
     readonly request = async (data: string[], context: AgentUserConfig): Promise<Array<{ embed: number[]; value: string }>> => {
         const { embeddings, values } = await embedMany({
             model: createOpenAI({
-                baseURL: context.OAILIKE_API_BASE,
+                baseURL: resolveProviderApiBase('oailike', context).rootURL,
                 apiKey: context.OAILIKE_API_KEY || undefined,
             }).embedding(context.OAILIKE_EMBEDDING_MODEL),
             values: data,

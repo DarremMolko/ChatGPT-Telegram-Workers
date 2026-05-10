@@ -6,6 +6,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
 import { log, Logger } from '../log';
 import { base64StringToBlob } from '../utils';
+import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
@@ -76,6 +77,7 @@ export class Dalle extends OpenAIBase implements ImageAgent {
         const actualModel = isEditMode
             ? (modelId === 'dall-e-3' ? 'dall-e-2' : modelId) // dall-e-3 不支持编辑，降级到 dall-e-2
             : modelId;
+        const openaiApiBase = resolveProviderApiBase('openai', context).rootURL;
 
         // 如果是编辑模式，使用新的 AI SDK
         if (isEditMode) {
@@ -87,7 +89,7 @@ export class Dalle extends OpenAIBase implements ImageAgent {
             const { images } = await generateImage({
                 model: createOpenAI({
                     apiKey: this.apikey(context),
-                    baseURL: context.OPENAI_API_BASE,
+                    baseURL: openaiApiBase,
                 }).image(actualModel) as unknown as ImageModelV3,
                 prompt: generatePrompt,
                 n,
@@ -101,7 +103,7 @@ export class Dalle extends OpenAIBase implements ImageAgent {
         }
 
         // 纯生成模式：保持原有实现
-        const url = `${context.OPENAI_API_BASE}/images/generations`;
+        const url = buildProviderApiUrl('openai', context, '/images/generations');
         const header = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${this.apikey(context)}`,
@@ -131,7 +133,7 @@ export class OpenAIASR extends OpenAIBase implements ASRAgent {
 
     @Logger
     request = async (audio: Blob, context: AgentUserConfig): Promise<string> => {
-        const url = `${context.OPENAI_API_BASE}/audio/transcriptions`;
+        const url = buildProviderApiUrl('openai', context, '/audio/transcriptions');
         const header = {
             Authorization: `Bearer ${this.apikey(context)}`,
             Accept: 'application/json',
@@ -169,7 +171,7 @@ export class OpenAITTS extends OpenAIBase implements TTSAgent {
     };
 
     request = async (text: string, context: AgentUserConfig): Promise<Blob> => {
-        const url = `${context.OPENAI_API_BASE}/audio/speech`;
+        const url = buildProviderApiUrl('openai', context, '/audio/speech');
         const headers = {
             'Authorization': `Bearer ${this.apikey(context)}`,
             'Content-Type': 'application/json',

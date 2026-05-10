@@ -13,7 +13,7 @@ import {
 import { ENV } from '../config/env';
 import { getLogSingleton, log } from '../log';
 import { getTools, sendToolResult, validTools } from '../tools';
-import { createLlmModel } from './llm';
+import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 
 type Writeable<T> = { -readonly [P in keyof T as P extends 'modelId' ? P : never]: T[P] };
 export interface MessageInfo {
@@ -274,8 +274,15 @@ export async function warpLLMParams({ messages, model, cache }: { messages: Mode
     const { tools = {}, activeToolAlias = [] } = await validTools(context);
 
     const activeTools = activeToolAlias.map((t: string) => allTools[t]?.schema?.name || t) || [];
+    const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
+        ? resolveLlmTarget(context.TOOL_MODEL, context)
+        : {
+                agent: getAgentProvider(model),
+                modelId: model.modelId,
+                useResponsesApi: model.provider.endsWith('.responses'),
+            };
 
-    if (model.provider === 'openai.responses') {
+    if (effectiveTarget.agent === 'openai' && effectiveTarget.useResponsesApi) {
         const { openai } = await import('@ai-sdk/openai');
         const openaiTools = openai.tools;
 

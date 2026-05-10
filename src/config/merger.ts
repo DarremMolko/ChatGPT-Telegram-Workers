@@ -16,10 +16,10 @@ export class ConfigMerger {
         return raw.split(',');
     }
 
-    static trim(source: AgentUserConfig, lock: string[]): Record<string, any> {
+    static trim(source: AgentUserConfig, exclude: string[] = []): Record<string, any> {
         const config: Record<string, any> = { ...source };
         const keysSet = new Set<string>(source?.DEFINE_KEYS || []);
-        for (const key of lock) {
+        for (const key of exclude) {
             keysSet.delete(key);
         }
         keysSet.add('DEFINE_KEYS');

@@ -2,6 +2,7 @@ import type { AgentUserConfig } from '../config/types';
 import type { CallbackQueryContext } from '../telegram/query';
 import { loadChatLLM } from '.';
 import { ENV } from '../config/env';
+import { resolveProviderApiBase } from './api_base';
 
 export async function getModels(context: AgentUserConfig, agent: string) {
     const configKey = `${agent}_MODELS_API`;
@@ -10,7 +11,7 @@ export async function getModels(context: AgentUserConfig, agent: string) {
         throw new Error(`${agent} models api not found`);
     }
     if (!url.startsWith('http')) {
-        url = `${context[`${agent}_API_BASE`]}${url}`;
+        url = `${resolveProviderApiBase(agent.toLowerCase() as 'openai' | 'oailike', context).rootURL}${url}`;
     }
 
     const headers: Record<string, string> = {};

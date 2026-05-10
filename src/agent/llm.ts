@@ -2,13 +2,35 @@
 import type { MetadataExtractor } from '@ai-sdk/openai-compatible';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import type { AgentUserConfig } from '../config/types';
+import type { AgentProvider } from './api_base';
 import { createOpenAI } from '@ai-sdk/openai';
 import { OpenAICompatibleChatLanguageModel } from '@ai-sdk/openai-compatible';
+import { resolveProviderApiBase } from './api_base';
 
-export async function createLlmModel(model: string, context: AgentUserConfig): Promise<LanguageModelV3> {
+export type { AgentProvider } from './api_base';
+
+type TaggedLanguageModel = LanguageModelV3 & {
+    __agentProvider?: AgentProvider;
+};
+
+const AVAILABLE_AGENTS = new Set<AgentProvider>(['openai', 'oailike']);
+
+export function getAgentProvider(model: LanguageModelV3): AgentProvider {
+    const taggedProvider = (model as TaggedLanguageModel).__agentProvider;
+    if (taggedProvider) {
+        return taggedProvider;
+    }
+    return model.provider.startsWith('oailike') ? 'oailike' : 'openai';
+}
+
+function tagAgentProvider<T extends LanguageModelV3>(model: T, agent: AgentProvider): T {
+    (model as TaggedLanguageModel).__agentProvider = agent;
+    return model;
+}
+
+export function resolveLlmTarget(model: string, context: AgentUserConfig): { agent: AgentProvider; modelId: string; useResponsesApi: boolean } {
     let [agent, modelId] = model.includes(':') ? model.trim().split(':') : [context.AI_CHAT_PROVIDER, model];
-    const availableAgents = ['openai', 'oailike'];
-    if (!availableAgents.includes(agent)) {
+    if (!AVAILABLE_AGENTS.has(agent as AgentProvider)) {
         modelId = model;
         agent = context.AI_CHAT_PROVIDER;
     }
@@ -20,27 +42,47 @@ export async function createLlmModel(model: string, context: AgentUserConfig): P
         }
     }
 
+    const responseMode = resolveProviderApiBase(agent as AgentProvider, context).llmMode;
+    return {
+        agent: agent as AgentProvider,
+        modelId,
+        useResponsesApi: responseMode === 'responses',
+    };
+}
+
+export async function createLlmModel(model: string, context: AgentUserConfig): Promise<LanguageModelV3> {
+    const { agent, modelId, useResponsesApi } = resolveLlmTarget(model, context);
+    const apiBase = resolveProviderApiBase(agent, context);
+
     switch (agent) {
-        case 'openai':
-            const isResponseApi = context.OPENAI_RESPONSE_MODELS.includes('*') || context.OPENAI_RESPONSE_MODELS.includes(modelId);
+        case 'openai': {
             const provider = createOpenAI({
-                baseURL: context.OPENAI_API_BASE,
+                baseURL: apiBase.rootURL,
                 apiKey: context.OPENAI_API_KEY[Math.floor(Math.random() * context.OPENAI_API_KEY.length)],
                 fetch: mockFetch(modelId, context, agent),
             });
-            return isResponseApi ? provider.responses(modelId) : provider.languageModel(modelId);
+            return tagAgentProvider(useResponsesApi ? provider.responses(modelId) : provider.chat(modelId), agent);
+        }
         case 'oailike':
         default:
-            return new OpenAICompatibleChatLanguageModel(modelId, {
+            if (useResponsesApi) {
+                const provider = createOpenAI({
+                    baseURL: apiBase.rootURL,
+                    apiKey: context.OAILIKE_API_KEY || undefined,
+                    fetch: mockFetch(modelId, context, agent),
+                });
+                return tagAgentProvider(provider.responses(modelId), agent);
+            }
+            return tagAgentProvider(new OpenAICompatibleChatLanguageModel(modelId, {
                 provider: 'oailike',
-                url: ({ path }: { path: string }) => `${context.OAILIKE_API_BASE}${path}`,
+                url: () => apiBase.llmURL,
                 headers: () => ({
                     Authorization: `Bearer ${context.OAILIKE_API_KEY}`,
                 }),
                 includeUsage: true,
                 metadataExtractor: extraMetadataExtractor(modelId),
                 fetch: mockFetch(modelId, context, 'oailike'),
-            });
+            }), agent);
     }
 }
 
