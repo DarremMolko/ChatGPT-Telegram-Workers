@@ -188,7 +188,10 @@ export function chunkDocument(text: string, chunkSize: number = 4000): string[] 
                 const lastLineIsCodeStart = chunks[chunkIndex - 1].at(-1)?.trimStart()?.startsWith('```');
                 lastLineIsCodeStart && chunks[chunkIndex - 1].pop();
                 // 插入结尾标记
-                chunks[chunkIndex - 1].push(...new Array<string>(lastLineIsCodeStart ? codeStack.length - 1 : codeStack.length).fill('```'));
+                const closingFenceCount = lastLineIsCodeStart ? codeStack.length - 1 : codeStack.length;
+                for (let i = 0; i < closingFenceCount; i++) {
+                    chunks[chunkIndex - 1].push('```');
+                }
 
                 if (line.trim() === '```') {
                     codeStack.pop();
