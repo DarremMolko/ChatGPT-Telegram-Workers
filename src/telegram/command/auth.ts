@@ -14,7 +14,7 @@ export async function loadChatRoleWithContext(message: Telegram.Message, context
 
     let groupAdmin: Telegram.ChatMember[] | null = null;
     try {
-        groupAdmin = JSON.parse(await ENV.DATABASE.get(groupAdminsKey));
+        groupAdmin = JSON.parse(await ENV.REDIS.get(groupAdminsKey));
     } catch (e) {
         console.error(e);
     }
@@ -26,7 +26,7 @@ export async function loadChatRoleWithContext(message: Telegram.Message, context
         }
         groupAdmin = result.result;
         // 缓存120s
-        await ENV.DATABASE.put(
+        await ENV.REDIS.put(
             groupAdminsKey,
             JSON.stringify(groupAdmin),
             { expiration: (Date.now() / 1000) + 120 },

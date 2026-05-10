@@ -21,7 +21,7 @@ export class SaveLastMessage implements MessageHandler<WorkerContextBase> {
             return null;
         }
         const lastMessageKey = `last_message:${context.SHARE_CONTEXT.chatHistoryKey}`;
-        await ENV.DATABASE.put(lastMessageKey, JSON.stringify(message));
+        await ENV.REDIS.put(lastMessageKey, JSON.stringify(message));
         return null;
     };
 }
@@ -33,7 +33,7 @@ export class OldMessageFilter implements MessageHandler<WorkerContextBase> {
         }
         let idList = [];
         try {
-            idList = JSON.parse(await ENV.DATABASE.get(context.SHARE_CONTEXT.lastMessageKey).catch(() => '[]')) || [];
+            idList = JSON.parse(await ENV.REDIS.get(context.SHARE_CONTEXT.lastMessageKey).catch(() => '[]')) || [];
         } catch (e) {
             console.error(e);
         }
@@ -45,7 +45,7 @@ export class OldMessageFilter implements MessageHandler<WorkerContextBase> {
             if (idList.length > 100) {
                 idList.shift();
             }
-            await ENV.DATABASE.put(context.SHARE_CONTEXT.lastMessageKey, JSON.stringify(idList));
+            await ENV.REDIS.put(context.SHARE_CONTEXT.lastMessageKey, JSON.stringify(idList));
         }
         return null;
     };
@@ -53,10 +53,10 @@ export class OldMessageFilter implements MessageHandler<WorkerContextBase> {
 
 export class EnvChecker implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
-        if (!ENV.DATABASE) {
+        if (!ENV.REDIS) {
             return MessageSender
                 .from(context.SHARE_CONTEXT.botToken, message)
-                .sendPlainText('DATABASE Not Set');
+                .sendPlainText('Redis is not configured');
         }
         return null;
     };
@@ -165,7 +165,7 @@ export class TagNeedDelete implements MessageHandler<WorkerContext> {
 
         const chatId = message.chat.id;
         const scheduleDeteleKey = context.SHARE_CONTEXT.scheduleDeteleKey;
-        const scheduledData = JSON.parse((await ENV.DATABASE.get(scheduleDeteleKey)) || '{}');
+        const scheduledData = JSON.parse((await ENV.REDIS.get(scheduleDeteleKey)) || '{}');
         if (!scheduledData[botName]) {
             scheduledData[botName] = {};
         }
@@ -178,7 +178,7 @@ export class TagNeedDelete implements MessageHandler<WorkerContext> {
             ttl: Date.now() + offsetInMillisenconds,
         });
 
-        await ENV.DATABASE.put(scheduleDeteleKey, JSON.stringify(scheduledData));
+        await ENV.REDIS.put(scheduleDeteleKey, JSON.stringify(scheduledData));
         log.info(`[TAG MESSAGE] Record chat ${chatId}, message ids: ${[...(tagMessageIds.get(message) || [])]}`);
         return null;
     };

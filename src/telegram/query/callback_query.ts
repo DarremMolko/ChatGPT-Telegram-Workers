@@ -135,7 +135,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
             context.USER_CONFIG.DEFINE_KEYS.push(configKey);
         }
         log.info(`[CALLBACK QUERY] Update config: ${configKey} = ${context.USER_CONFIG[configKey]}`);
-        await ENV.DATABASE.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(ConfigMerger.trim(context.USER_CONFIG))).catch(console.error);
+        await ENV.REDIS.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(ConfigMerger.trim(context.USER_CONFIG))).catch(console.error);
         this.sendAlert(api, context.query_id, '✅ Data update successful', false);
     }
 

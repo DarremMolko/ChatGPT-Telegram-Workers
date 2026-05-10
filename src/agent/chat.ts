@@ -11,7 +11,7 @@ export async function loadHistory(key: string, length: number): Promise<HistoryI
     // 加载历史记录
     let history = [];
     try {
-        history = JSON.parse(await ENV.DATABASE.get(key));
+        history = JSON.parse(await ENV.REDIS.get(key));
     } catch (e) {
         console.error(e);
     }
@@ -121,7 +121,7 @@ export async function storeHistory(history: ModelMessage[], context: WorkerConte
     if (ENV.HISTORY_IMAGE_PLACEHOLDER && Array.isArray(userMessage?.content) && userMessage.content.length > 0) {
         userMessage.content = userMessage.content.map((c: any) => c.type === 'text' ? c.text : `[${c.type}]`).join('\n');
     }
-    await ENV.DATABASE.put(historyKey, JSON.stringify(history)).catch(console.error);
+    await ENV.REDIS.put(historyKey, JSON.stringify(history)).catch(console.error);
     log.info(`[STORE HISTORY] DONE`);
 }
 

@@ -1,4 +1,4 @@
-import type { APIGuard, CommandConfig, KVNamespace, MCPTransport } from './types';
+import type { APIGuard, CommandConfig, MCPTransport, RedisStorage } from './types';
 import { blockAgent } from '../agent';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
@@ -62,7 +62,7 @@ class Environment extends EnvironmentConfig {
     readonly USER_CONFIG: AgentUserConfig = createAgentUserConfig();
     readonly CUSTOM_COMMAND: Record<string, CommandConfig> = {};
     readonly MCP_CONFIG: Record<string, MCPTransport> = {};
-    DATABASE: KVNamespace = null as any;
+    REDIS: RedisStorage = null as any;
     API_GUARD: APIGuard | null = null;
 
     constructor() {
@@ -72,7 +72,7 @@ class Environment extends EnvironmentConfig {
 
     merge(source: any) {
         // 全局对象
-        this.DATABASE = source.DATABASE;
+        this.REDIS = source.REDIS;
         this.API_GUARD = source.API_GUARD;
 
         // 绑定自定义命令
@@ -94,7 +94,7 @@ class Environment extends EnvironmentConfig {
             'I18N',
             'USER_CONFIG',
             'CUSTOM_COMMAND',
-            'DATABASE',
+            'REDIS',
             'API_GUARD',
         ]);
 

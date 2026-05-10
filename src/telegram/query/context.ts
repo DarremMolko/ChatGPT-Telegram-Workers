@@ -76,7 +76,7 @@ export class ChosenInlineWorkerContext {
             userConfigKey += `:${botId}`;
         }
         try {
-            const userConfig: AgentUserConfig = JSON.parse(await ENV.DATABASE.get(userConfigKey));
+            const userConfig: AgentUserConfig = JSON.parse(await ENV.REDIS.get(userConfigKey));
             ConfigMerger.merge(USER_CONFIG, ConfigMerger.trim(userConfig) || {});
             USER_CONFIG.ENABLE_SHOWINFO = ENV.INLINE_QUERY_SHOW_INFO;
             // 过于频繁的请求不会被Telegram接受

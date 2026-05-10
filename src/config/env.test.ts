@@ -7,7 +7,7 @@ import { ENV } from './env';
     const config = parse(toml);
     ENV.merge({
         ...config.vars,
-        DATABASE: {},
+        REDIS: {},
     });
     console.log(JSON.stringify(ENV, null, 2));
 }

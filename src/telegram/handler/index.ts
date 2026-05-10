@@ -53,7 +53,7 @@ export async function handleUpdate(token: string, update: Telegram.Update): Prom
 async function handleMessage(token: string, message: Telegram.Message) {
     // 消息处理中间件
     const SHARE_HANDLER: MessageHandler<any>[] = [
-        // 检查环境是否准备好: DATABASE
+        // 检查环境是否准备好: REDIS
         new EnvChecker(),
         // 过滤非白名单群组/用户, 提前过滤减少KV消耗
         new WhiteListFilter(),

@@ -71,7 +71,7 @@ abstract class RenewConfig implements CommandHandler {
         context.USER_CONFIG.DEFINE_KEYS = Array.from(new Set(context.USER_CONFIG.DEFINE_KEYS));
         ConfigMerger.merge(context.USER_CONFIG, data);
         if (isStore) {
-            await ENV.DATABASE.put(
+            await ENV.REDIS.put(
                 context.SHARE_CONTEXT.configStoreKey,
                 JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
             );
@@ -154,7 +154,7 @@ export class HelpCommandHandler implements CommandHandler {
 
 class BaseNewCommandHandler {
     static async handle(showID: boolean, message: Telegram.Message, subcommand: string, context: WorkerContext): Promise<Response> {
-        await ENV.DATABASE.delete(context.SHARE_CONTEXT.chatHistoryKey);
+        await ENV.REDIS.delete(context.SHARE_CONTEXT.chatHistoryKey);
         const text = ENV.I18N.command.new.new_chat_start + (showID ? `(${message.chat.id})` : '');
         const params: Telegram.SendMessageParams = {
             chat_id: message.chat.id,
@@ -263,7 +263,7 @@ export class ClearEnvCommandHandler extends RenewConfig {
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
         try {
-            await ENV.DATABASE.put(
+            await ENV.REDIS.put(
                 context.SHARE_CONTEXT.configStoreKey,
                 JSON.stringify({}),
             );
@@ -940,7 +940,7 @@ export class BlockUserCommandHandler implements CommandHandler {
         }
         context.USER_CONFIG.DEFINE_KEYS.push('BLOCKLIST');
         context.USER_CONFIG.DEFINE_KEYS = Array.from(new Set(context.USER_CONFIG.DEFINE_KEYS));
-        await ENV.DATABASE.put(
+        await ENV.REDIS.put(
             context.SHARE_CONTEXT.configStoreKey,
             JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
         );
@@ -957,7 +957,7 @@ export class BlocklistCommandHandler implements CommandHandler {
         const isClear = subcommand.trim() === 'clear';
         if (isClear) {
             context.USER_CONFIG.BLOCKLIST = [];
-            await ENV.DATABASE.put(
+            await ENV.REDIS.put(
                 context.SHARE_CONTEXT.configStoreKey,
                 JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
             );

@@ -2,18 +2,18 @@
 import { ENV } from './config/env';
 import { createRouter } from './route';
 import { tasks } from './schedule';
-import { UpstashRedis } from './utils/cache/upstash';
+import { createRedisStorage } from './utils/cache/redis_store';
 
-function DBMerge(env: any) {
+function attachRedis(env: any) {
     if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-        env.DATABASE = new UpstashRedis(env.UPSTASH_REDIS_REST_URL, env.UPSTASH_REDIS_REST_TOKEN);
+        env.REDIS = createRedisStorage(env).redis;
     }
 }
 
 export default {
     async fetch(request: Request, env: any): Promise<Response> {
         try {
-            DBMerge(env);
+            attachRedis(env);
             ENV.merge(env);
             return createRouter().fetch(request);
         } catch (e) {
@@ -26,7 +26,7 @@ export default {
     },
     async scheduled(event: Event, env: any, ctx: any) {
         try {
-            DBMerge(env);
+            attachRedis(env);
             const promises = [];
             for (const task of Object.values(tasks)) {
                 promises.push(task(env));

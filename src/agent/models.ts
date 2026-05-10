@@ -42,6 +42,6 @@ export async function updateModels(context: CallbackQueryContext, modelKey: stri
     if (!context.USER_CONFIG.DEFINE_KEYS.includes(targetModelKey)) {
         context.USER_CONFIG.DEFINE_KEYS.push(targetModelKey);
     }
-    await ENV.DATABASE.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(context.USER_CONFIG)).catch(console.error);
+    await ENV.REDIS.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(context.USER_CONFIG)).catch(console.error);
     return models;
 }

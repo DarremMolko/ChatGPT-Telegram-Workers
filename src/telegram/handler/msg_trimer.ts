@@ -33,12 +33,12 @@ class Lock {
     static quireLock = async (lockKey: string) => {
         let retry = 0;
         // 移除异常情况下未释放的锁
-        // const lock = await ENV.DATABASE.get(this.lockKey);
+        // const lock = await ENV.REDIS.get(this.lockKey);
         // if (lock && lock.expiration < Math.floor(Date.now() / 1000)) {
-        //     await ENV.DATABASE.delete(this.lockKey);
+        //     await ENV.REDIS.delete(this.lockKey);
         // }
         while (retry < 24) {
-            const lock = await ENV.DATABASE.put(lockKey, '1', { expirationTtl: 1, condition: 'NX' });
+            const lock = await ENV.REDIS.put(lockKey, '1', { expirationTtl: 1, condition: 'NX' });
             if (lock === true || lock === undefined) {
                 log.info(`Lock success, key: ${lockKey}, retry: ${retry}`);
                 return;
@@ -51,7 +51,7 @@ class Lock {
     };
 
     static releaseLock = async (lockKey: string) => {
-        await ENV.DATABASE.delete(lockKey);
+        await ENV.REDIS.delete(lockKey);
     };
 }
 
@@ -71,7 +71,7 @@ export class HandleMediaGroupMessage {
                 // Wait 3 seconds for potentially delayed images
                 await new Promise(resolve => setTimeout(resolve, 3000));
 
-                const data: Record<string, string[]> = JSON.parse(await ENV.DATABASE.get(storeMediaMessageKey) || '{}');
+                const data: Record<string, string[]> = JSON.parse(await ENV.REDIS.get(storeMediaMessageKey) || '{}');
                 const fileIds = data[message.media_group_id];
                 if (fileIds && fileIds.length > 0) {
                     context.MIDDLE_CONTEXT.messageInfo.id = fileIds;
@@ -93,7 +93,7 @@ export class HandleMediaGroupMessage {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             // Check how many images we have now
-            const data: Record<string, string[]> = JSON.parse(await ENV.DATABASE.get(storeMediaMessageKey) || '{}');
+            const data: Record<string, string[]> = JSON.parse(await ENV.REDIS.get(storeMediaMessageKey) || '{}');
             const fileIds = data[message.media_group_id];
 
             // Check if more images were added after this one
@@ -113,7 +113,7 @@ export class HandleMediaGroupMessage {
             log.info(`[MEDIA GROUP] Skipping image ${currentImageIndex + 1}/${fileIds?.length}, waiting for more`);
             return new Response('ok');
         } else if (message.reply_to_message?.media_group_id) {
-            const data: Record<string, string[]> = JSON.parse(await ENV.DATABASE.get(storeMediaMessageKey) || '{}');
+            const data: Record<string, string[]> = JSON.parse(await ENV.REDIS.get(storeMediaMessageKey) || '{}');
             const fileIds = data[message.reply_to_message.media_group_id];
             if (fileIds) {
                 context.MIDDLE_CONTEXT.messageInfo.id = fileIds;
@@ -127,7 +127,7 @@ export class HandleMediaGroupMessage {
     static storeMediaMessage = async (lockKey: string, storeMediaMessageKey: string, msgInfo: UnionData) => {
         const maxMediaGroupNum = 12;
         await Lock.quireLock(lockKey);
-        const data: Record<string, string[]> = JSON.parse(await ENV.DATABASE.get(storeMediaMessageKey) || '{}');
+        const data: Record<string, string[]> = JSON.parse(await ENV.REDIS.get(storeMediaMessageKey) || '{}');
         console.debug(`current data length: ${data?.[msgInfo.media_group_id!]?.length ?? 0}`);
         if (!data[msgInfo.media_group_id!]) {
             data[msgInfo.media_group_id!] = [];
@@ -144,7 +144,7 @@ export class HandleMediaGroupMessage {
                 delete data[key];
             });
         }
-        await ENV.DATABASE.put(storeMediaMessageKey, JSON.stringify(data));
+        await ENV.REDIS.put(storeMediaMessageKey, JSON.stringify(data));
         await Lock.releaseLock(`${storeMediaMessageKey}:lock`);
         log.info(`[CHUNK] Store message media, group_id: ${msgInfo.media_group_id}, id: ${msgInfo.id}`);
         return new Response('ok');
@@ -168,7 +168,7 @@ export class HandleChunkMessage {
         // polling会同时接收多条消息 等待50ms
         log.info(`[CHUNK] start handle chunk text, key: ${chunkMessageKey}`);
         await new Promise(resolve => setTimeout(resolve, 50));
-        const chunks = JSON.parse(await ENV.DATABASE.get(chunkMessageKey) || '[]');
+        const chunks = JSON.parse(await ENV.REDIS.get(chunkMessageKey) || '[]');
         if (chunks.length > 0) {
             message.text = chunks
                 .sort((a: { message_id: number }, b: { message_id: number }) => a.message_id - b.message_id)
@@ -176,20 +176,20 @@ export class HandleChunkMessage {
                 .join('\n') + message.text;
             log.info(`[CHUNK] Merged message chunk, chunks length: ${chunks?.length}, text length: ${message.text?.length}`);
             // 读取后立即删除
-            await ENV.DATABASE.delete(chunkMessageKey);
+            await ENV.REDIS.delete(chunkMessageKey);
         }
         return null;
     };
 
     static chunkMessageStore = async (message: Message, chunkMessageKey: string) => {
         log.info(`[CHUNK] Stored message chunk, message_id: ${message.message_id} key: ${chunkMessageKey}`);
-        const data = JSON.parse(await ENV.DATABASE.get(chunkMessageKey) || '[]');
+        const data = JSON.parse(await ENV.REDIS.get(chunkMessageKey) || '[]');
         data.push({
             message_id: message.message_id,
             text: message.text,
         });
         console.log(`chunk size: ${data.length}, current chunk message length: ${message.text?.length}`);
         // 60s后删除
-        return ENV.DATABASE.put(chunkMessageKey, JSON.stringify(data), { expirationTtl: 60 });
+        return ENV.REDIS.put(chunkMessageKey, JSON.stringify(data), { expirationTtl: 60 });
     };
 }

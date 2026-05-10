@@ -40,7 +40,7 @@ const scheduleResp: ScheduleRespType = (ok, reason = '') => {
 export async function schedule_detele_message(env: any) {
     try {
         log.info('- Start task: schedule_detele_message');
-        checkDATABASE(env);
+        checkRedis(env);
         const botTokens: string[] = extractArrayData(env.TELEGRAM_AVAILABLE_TOKENS);
         const botNames: string[] = extractArrayData(env.TELEGRAM_BOT_NAME);
         const scheduleDeteleKey = 'schedule_detele_message';
@@ -100,11 +100,11 @@ function extractArrayData(data: string[] | string): string[] {
 }
 
 async function getData<T>(env: any, key: string): Promise<T> {
-    return JSON.parse((await env.DATABASE.get(key)) || '{}');
+    return JSON.parse((await env.REDIS.get(key)) || '{}');
 }
 
 async function setData<T>(env: any, key: string, data: T): Promise<void> {
-    await env.DATABASE.put(key, JSON.stringify(data));
+    await env.REDIS.put(key, JSON.stringify(data));
 }
 
 function sortDeleteMessages(chats: Chat): SortMessagesType {
@@ -126,8 +126,8 @@ function sortDeleteMessages(chats: Chat): SortMessagesType {
     return sortedMessages;
 }
 
-function checkDATABASE(env: any) {
-    if (!env.DATABASE) {
-        throw new Error('DATABASE is not found');
+function checkRedis(env: any) {
+    if (!env.REDIS) {
+        throw new Error('REDIS is not configured');
     }
 }

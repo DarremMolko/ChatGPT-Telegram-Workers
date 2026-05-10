@@ -7,8 +7,8 @@ import { ENV } from '../../config/env';
 import { createRouter } from '../../route/index';
 import { createTelegramBotAPI } from '../../telegram/api';
 import { handleUpdate } from '../../telegram/handler';
+import { createRedisStorage } from '../../utils/cache/redis_store';
 import { applyProxy, loadLocalEnv } from './env';
-import { createDatabase } from './kv';
 import { startLocalServer } from './server';
 
 const {
@@ -79,11 +79,11 @@ async function main() {
     }
 
     const env = await loadLocalEnv(TOML_PATH);
-    const { database, label } = await createDatabase(env);
-    console.log(`database: ${label} is ready`);
+    const { redis, label } = createRedisStorage(env);
+    console.log(`redis: ${label} is ready`);
     ENV.merge({
         ...env,
-        DATABASE: database,
+        REDIS: redis,
     });
 
     try {
@@ -91,7 +91,7 @@ async function main() {
             try {
                 schedule(env.CRON_CHECK_TIME, async () => await worker.scheduled({} as Event, {
                     ...env,
-                    DATABASE: database,
+                    REDIS: redis,
                 }, null));
             } catch (e) {
                 console.error('Failed to schedule cron job:', e);

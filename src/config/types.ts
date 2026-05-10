@@ -1,10 +1,9 @@
 // import type { StreamableHTTPClientTransportOptions } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-export interface KVNamespace {
+export interface RedisStorage {
     get: (key: string | string[]) => Promise<string | any>;
     put: (key: string, value: string, info?: { expirationTtl?: number; expiration?: number; condition?: 'NX' | 'XX' }) => Promise<any>;
-    delete: (key: string) => Promise<void>;
-    list: (prefix?: string) => Promise<string[]>;
+    delete: (key: string | string[]) => Promise<any>;
 }
 
 export interface APIGuard {

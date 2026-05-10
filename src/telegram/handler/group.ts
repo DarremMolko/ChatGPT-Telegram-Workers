@@ -120,7 +120,7 @@ export class GroupMention implements MessageHandler {
         if (!isMention && message.media_group_id) {
             const storeMediaMessageKey = context.SHARE_CONTEXT?.storeMediaMessageKey;
             if (storeMediaMessageKey) {
-                const data: Record<string, string[]> = JSON.parse(await ENV.DATABASE.get(storeMediaMessageKey) || '{}');
+                const data: Record<string, string[]> = JSON.parse(await ENV.REDIS.get(storeMediaMessageKey) || '{}');
                 // If this media_group_id already has stored images, it means a triggered message already passed
                 if (data[message.media_group_id] && data[message.media_group_id].length > 0) {
                     log.info(`[GROUP MENTION] Allowing media group ${message.media_group_id} image without trigger (part of triggered group)`);
@@ -149,41 +149,3 @@ export class GroupMention implements MessageHandler {
         return null;
     };
 }
-
-// async function chunkMessageCheck(message: Telegram.Message, context: WorkerContext, isMention: boolean) {
-//     const chunkMessageKeyPrefix = context.SHARE_CONTEXT?.chunkMessageKeyPrefix;
-//     if (!chunkMessageKeyPrefix) {
-//         return isMention;
-//     }
-
-//     const textFragmentThreshold = 4000;
-//     // 第一条消息直接缓存
-//     if (isMention && (message.text || '')?.length > textFragmentThreshold) {
-//         return chunkMessageStore(message, chunkMessageKeyPrefix);
-//     }
-//     // polling模式下同时接收多条消息 等待100ms后读取
-//     await new Promise(resolve => setTimeout(resolve, 50));
-//     const checkAnyChunkMessage = await ENV.DATABASE.list(`${chunkMessageKeyPrefix}:*`);
-//     if (checkAnyChunkMessage.length > 0) {
-//         if ((message.text || '')?.length > textFragmentThreshold) {
-//             return chunkMessageStore(message, chunkMessageKeyPrefix);
-//         }
-//         // 防止过快读取
-//         await new Promise(resolve => setTimeout(resolve, 100));
-//         const messageKeys = await ENV.DATABASE.list(`${chunkMessageKeyPrefix}:*`);
-//         if (messageKeys.length > 0) {
-//             const chunks = await ENV.DATABASE.get(messageKeys.sort());
-//             if (chunks.length > 0) {
-//                 message.text = chunks.join('') + message.text;
-//                 log.info(`[CHUNK MESSAGE] Merged message chunk, text: ${message.text}`);
-//             }
-//         }
-//         return true;
-//     }
-//     return isMention;
-
-//     async function chunkMessageStore(message: Telegram.Message, chunkMessageKeyPrefix: string) {
-//         log.info(`[CHUNK MESSAGE] Stored message chunk, message_id: ${message.message_id}`);
-//         return ENV.DATABASE.put(`${chunkMessageKeyPrefix}:${message.message_id}`, message.text!, { expirationTtl: 5 });
-//     }
-// }

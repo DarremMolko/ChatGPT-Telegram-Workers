@@ -486,10 +486,10 @@ export class TelegraphSender {
     async send(title: string, content: string, raw?: string): Promise<Response> {
         let endPoint = 'https://api.telegra.ph/editPage';
         if (!this.telegraphAccessToken) {
-            this.telegraphAccessToken = await ENV.DATABASE.get(this.telegraphAccessTokenKey);
+            this.telegraphAccessToken = await ENV.REDIS.get(this.telegraphAccessTokenKey);
             if (!this.telegraphAccessToken) {
                 this.telegraphAccessToken = await this.createAccount();
-                await ENV.DATABASE.put(this.telegraphAccessTokenKey, this.telegraphAccessToken).catch(console.error);
+                await ENV.REDIS.put(this.telegraphAccessTokenKey, this.telegraphAccessToken).catch(console.error);
             }
         }
 

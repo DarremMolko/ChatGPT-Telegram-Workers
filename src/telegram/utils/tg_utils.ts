@@ -149,7 +149,7 @@ export async function getTelegramFile(fileIds: string[], botToken: string, type:
 //     if (!media_group_id || !context.storeMediaMessageKey) {
 //         return [];
 //     }
-//     const fileIds = JSON.parse(await ENV.DATABASE.get(context.storeMediaMessageKey) || '{}');
+//     const fileIds = JSON.parse(await ENV.REDIS.get(context.storeMediaMessageKey) || '{}');
 //     return fileIds[media_group_id] || [];
 // }
 
