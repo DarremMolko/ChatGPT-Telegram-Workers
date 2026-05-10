@@ -14,6 +14,8 @@ Older provider-specific settings for Google, Anthropic, xAI, Azure, Vertex, Work
 | `LANGUAGE` | Interface language. Fixed to English in this simplified build. | `en` |
 | `TELEGRAM_AVAILABLE_TOKENS` | Comma-separated Telegram bot tokens. | `[]` |
 | `CHAT_WHITE_LIST` | User IDs that can use the bot and fully manage runtime configuration. | `[]` |
+| `UPSTASH_REDIS_REST_URL` | Required Redis REST endpoint for history and bot state. | `''` |
+| `UPSTASH_REDIS_REST_TOKEN` | Required Redis REST token for history and bot state. | `''` |
 | `OPENAI_API_KEY` | OpenAI API key list. Comma-separated in env form. | `[]` |
 | `OAILIKE_API_KEY` | OpenAI-compatible API key. | `null` |
 | `AI_CHAT_PROVIDER` | Chat provider. | `openai` |

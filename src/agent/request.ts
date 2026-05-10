@@ -248,7 +248,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     let thinkingStartTime: undefined | number;
     let reasoningBuffer = '';
     let lastOutputTime = 0;
-    const thinkingTag = ENV.EXPANDABLE_THINKING ? '**>`Thinking\\.\\.\\.`' : '>`Thinking\\.\\.\\.`';
+    const thinkingTag = '**>`Thinking\\.\\.\\.`';
     const sources: Array<{ url: string; title: string }> = [];
 
     let detectedInlineThought = false;

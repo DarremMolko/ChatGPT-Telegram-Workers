@@ -7,7 +7,6 @@ import { ChatHandler } from './chat';
 import { GroupMention } from './group';
 import {
     BlocklistFilter,
-    CheckForwarding,
     ChunkMessageHandler,
     CommandHandler,
     EnvChecker,
@@ -24,10 +23,10 @@ import {
     WhiteListFilter,
 } from './handlers';
 
-function loadMessage(body: Telegram.Update, isForwarding: boolean) {
+function loadMessage(body: Telegram.Update) {
     switch (true) {
         case !!body.message:
-            return (token: string) => handleMessage(token, body.message!, isForwarding);
+            return (token: string) => handleMessage(token, body.message!);
         case !!body.inline_query:
             return (token: string) => handleInlineQuery(token, body.inline_query!);
         case !!body.callback_query:
@@ -45,14 +44,13 @@ function loadMessage(body: Telegram.Update, isForwarding: boolean) {
 
 const exitHanders: MessageHandler<any>[] = [new TagNeedDelete()];
 
-export async function handleUpdate(token: string, update: Telegram.Update, headers?: Headers): Promise<Response | null> {
+export async function handleUpdate(token: string, update: Telegram.Update): Promise<Response | null> {
     log.debug(`handleUpdate`, update.message?.chat ?? `callback_query: ${JSON.stringify(update.callback_query?.from, null, 2)}`);
-    const isForwarding = headers?.get('User-Agent') === 'Upstash-QStash';
-    const messageHandler = loadMessage(update, isForwarding);
+    const messageHandler = loadMessage(update);
     return messageHandler ? messageHandler(token) : null;
 }
 
-async function handleMessage(token: string, message: Telegram.Message, isForwarding: boolean) {
+async function handleMessage(token: string, message: Telegram.Message) {
     // 消息处理中间件
     const SHARE_HANDLER: MessageHandler<any>[] = [
         // 检查环境是否准备好: DATABASE
@@ -85,14 +83,11 @@ async function handleMessage(token: string, message: Telegram.Message, isForward
         new IntelligentModelProcess(),
         // 处理命令消息
         new CommandHandler(),
-        // 检查是否是转发消息
-        new CheckForwarding(),
         // 与llm聊天
         new ChatHandler(),
     ];
     // 延迟初始化用户配置
     const context = new WorkerContextBase(token, message);
-    context.SHARE_CONTEXT.isForwarding = isForwarding;
     try {
         for (const handler of SHARE_HANDLER) {
             const result = await handler.handle(message, context);

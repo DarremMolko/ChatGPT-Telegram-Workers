@@ -46,12 +46,6 @@ export class EnvironmentConfig {
     GROUP_CHAT_BOT_SHARE_MODE = true;
     // 在群聊消息中包含用户名，帮助AI识别不同发言者
     GROUP_INCLUDE_USERNAME = false;
-    // 群组消息监听模式：启用后会缓存所有群组消息，AI被触发时能看到完整上下文
-    GROUP_MESSAGE_LISTEN_MODE = false;
-    // 群组消息缓存数量：缓存最近N条群组消息（默认20条）
-    GROUP_MESSAGE_CACHE_SIZE = 20;
-    // 群组消息缓存过期时间：缓存消息的生存时间，单位：秒（默认1小时）
-    GROUP_MESSAGE_CACHE_TTL = 3600;
 
     // -- 历史记录相关 --
     //
@@ -156,17 +150,6 @@ export class EnvironmentConfig {
     // 开发模式
     DEV_MODE = false;
 
-    QSTASH_URL = 'https://qstash.upstash.io';
-    // qstash token
-    QSTASH_TOKEN = '';
-    // qstash callback url, your telegram bot webhook domain
-    QSTASH_PUBLISH_URL = '';
-    // qstash trigger prefix
-    QSTASH_TRIGGER_PREFIX = '';
-    // qstash timeout
-    // free account max timeout 15m
-    QSTASH_TIMEOUT = '15m';
-
     // Only relax /set command temporarily modifies permissions
     RELAX_AUTH_KEYS: string[] = [];
     // inline query send interval
@@ -208,8 +191,6 @@ export class EnvironmentConfig {
     ENABLE_SEARCH_SOURCE = true;
     // Whether to show thinking text
     SHOW_THINKING_TEXT = true;
-    // Whether to use expandable blockquote for thinking text (collapsible by default)
-    EXPANDABLE_THINKING = true;
 
     // TODO: override command auth, key is command, value is auth role, support: 'creator', 'administrator', null
     // COMMAND_AUTH_OVERRIDE: Record<string, string[]> = {

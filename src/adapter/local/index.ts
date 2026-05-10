@@ -17,10 +17,6 @@ const {
 } = process.env;
 
 interface Config {
-    database: {
-        type: 'memory' | 'local' | 'sqlite' | 'redis';
-        path?: string;
-    };
     server?: {
         hostname?: string;
         port?: number;
@@ -83,7 +79,7 @@ async function main() {
     }
 
     const env = await loadLocalEnv(TOML_PATH);
-    const { database, label } = await createDatabase(config.database, env);
+    const { database, label } = await createDatabase(env);
     console.log(`database: ${label} is ready`);
     ENV.merge({
         ...env,

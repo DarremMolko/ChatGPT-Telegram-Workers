@@ -2,6 +2,8 @@
 LANGUAGE = "en"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
+UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
+UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
 
 AI_CHAT_PROVIDER = "openai"
 AI_IMAGE_PROVIDER = "openai"

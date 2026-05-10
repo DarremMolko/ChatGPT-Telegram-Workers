@@ -17,7 +17,6 @@ import { createTelegramBotAPI } from '../api';
 import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
-import { formatGroupCacheAsContext, loadGroupMessageCache } from './group';
 
 /**
  * Get user identifier with fallback logic
@@ -104,7 +103,7 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         const streamSender = await messageInitialize(sender, context, message);
         try {
             log.info(`message type: ${context.MIDDLE_CONTEXT.messageInfo.type}`);
-            await this.initializeHistory(context, message);
+            await this.initializeHistory(context);
 
             // 处理原始消息
             const params = await this.processOriginalMessage(message, context);
@@ -123,7 +122,7 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         }
     };
 
-    private async initializeHistory(context: WorkerContext, message: Telegram.Message): Promise<void> {
+    private async initializeHistory(context: WorkerContext): Promise<void> {
         // 初始化历史消息
         const historyKey = context.SHARE_CONTEXT.chatHistoryKey;
         if (!historyKey) {
@@ -131,22 +130,6 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         }
         if (ENV.STORE_HISTORY_LENGTH > 0) {
             context.MIDDLE_CONTEXT.history = await loadHistory(historyKey, ENV.STORE_HISTORY_LENGTH);
-        }
-
-        // 如果启用了群组消息监听模式，且当前在群组中，加载群组消息缓存
-        // 注意：这里只加载缓存，不注入到 history，避免被 trimer 裁剪掉
-        // 实际注入会在 requestCompletionsFromLLM 的 trimer 之后进行
-        if (ENV.GROUP_MESSAGE_LISTEN_MODE && isTelegramChatTypeGroup(message.chat.type)) {
-            const chatId = message.chat.id;
-            const cachedMessages = await loadGroupMessageCache(chatId);
-
-            if (cachedMessages.length > 0) {
-                // 将缓存的群组消息格式化并保存到 context 中
-                const groupContext = formatGroupCacheAsContext(cachedMessages);
-                // 使用 MIDDLE_CONTEXT 保存群组缓存，稍后在发送给 LLM 前注入
-                (context.MIDDLE_CONTEXT as any).groupChatCache = groupContext;
-                log.info(`[GROUP CACHE] Loaded ${cachedMessages.length} cached messages, will inject after history trimming`);
-            }
         }
     }
 
@@ -158,9 +141,8 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         let messageText = message.text || message.caption || '';
 
         // Get user identifier for group chats
-        // Skip if GROUP_MESSAGE_LISTEN_MODE is active (user info already in cache context)
         let userPrefix = '';
-        if (ENV.GROUP_INCLUDE_USERNAME && !ENV.GROUP_MESSAGE_LISTEN_MODE && isTelegramChatTypeGroup(message.chat.type)) {
+        if (ENV.GROUP_INCLUDE_USERNAME && isTelegramChatTypeGroup(message.chat.type)) {
             const userIdentifier = getUserIdentifier(message.from);
             if (userIdentifier) {
                 userPrefix = `${userIdentifier}: `;

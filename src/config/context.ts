@@ -22,7 +22,6 @@ export class ShareContext {
     chunkMessageKey?: string;
     // mediaMessageLock?: string;
     // chunkMessageLock?: string;
-    isForwarding: boolean = false;
 
     constructor(token: string, message: Telegram.Message) {
         const botId = Number.parseInt(token.split(':')[0]);

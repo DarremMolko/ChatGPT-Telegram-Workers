@@ -41,6 +41,8 @@ cp config.example.toml config.toml
 
 ```env
 TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+UPSTASH_REDIS_REST_URL=https://your-redis.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-upstash-rest-token
 OPENAI_API_KEY=sk-...
 ```
 
@@ -54,6 +56,8 @@ AI_ASR_PROVIDER=oailike
 AI_TTS_PROVIDER=oailike
 OAILIKE_API_KEY=your-key
 OAILIKE_API_BASE=https://your-api.example.com/v1
+UPSTASH_REDIS_REST_URL=https://your-redis.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-upstash-rest-token
 ```
 
 ## Common Commands
@@ -88,6 +92,8 @@ Important variables:
 - `AI_IMAGE_PROVIDER`
 - `AI_ASR_PROVIDER`
 - `AI_TTS_PROVIDER`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
 OpenAI Responses API tools remain supported through:
 
@@ -144,7 +150,7 @@ src/
 
 - `LANGUAGE` is fixed to English in this simplified build.
 - The repository only keeps the local process and Docker deployment paths.
-- The local runtime uses an in-repo native server and file-backed state store by default; SQLite is no longer required.
+- The local runtime requires Upstash Redis; file-backed, SQLite, and in-memory storage paths were removed.
 - Native Telegram draft streaming is used when available in private chats; unsupported chats fall back automatically.
 - Older configs that selected removed providers are normalized back to supported providers at runtime.
 

@@ -21,10 +21,6 @@ cp config.example.toml config.toml
 ```json
 {
   "mode": "webhook",
-  "database": {
-    "type": "local",
-    "path": "./data/bot-state.json"
-  },
   "server": {
     "hostname": "0.0.0.0",
     "port": 8787,
@@ -40,6 +36,8 @@ cp config.example.toml config.toml
 LANGUAGE = "en"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
+UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
+UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
 OPENAI_API_KEY = "sk-..."
 ```
 
@@ -110,8 +108,7 @@ docker compose up --build
 ## Notes
 
 - `LANGUAGE` is English-only.
-- `database.type = "local"` stores bot state in a JSON file. `sqlite` is still accepted as a compatibility alias, but it now uses the same file-backed store and no longer requires SQLite.
-- `database.type = "redis"` uses `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from `config.toml` or the process environment.
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are required. Redis is the only supported database backend in this simplified build.
 - `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`.
 - `CHAT_WHITE_LIST` users can fully manage runtime bot settings, including API base URLs, through commands or `/settings`.
 - Unsupported provider envs from older versions are ignored by the runtime config normalizer and should be removed from your local config.
