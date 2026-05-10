@@ -1,32 +1,31 @@
 ---
-name: BUG反馈
-about: 详细填写这个表格让我们更好的修复BUG
+name: Bug Report
+about: Fill out this template so the issue can be reproduced and fixed quickly
 title: "[BUG]"
 labels: bug
 assignees: ''
 
 ---
 
-**版本号**
-> 你可以在代码编辑器中前几行找到, 它们分别是`BUILD_TIMESTAMP`和`BUILD_VERSION`, 这俩个数据对于我们定位问题非常重要]
+**Version**
+> Include `BUILD_TIMESTAMP` and `BUILD_VERSION`. They are important for locating the exact build.
 - ts: `BUILD_TIMESTAMP `
 - sha: `BUILD_VERSION`
-- branch: `当前代码所在的分支`
+- branch: `current branch name`
 
-**描述问题**
-简要而清晰地解释问题。
+**Problem**
+Explain the issue clearly and briefly.
 
-**复现问题**
-重现问题的步骤：
-1. 进入“...”
-2. 点击“...”
-3. 发送到“...”
+**Steps To Reproduce**
+1. Go to `...`
+2. Click `...`
+3. Send `...`
 
-**预期行为**
-简要而清晰地说明预期的行为。
+**Expected Behavior**
+Describe what should have happened.
 
-**截图**
-如适用，包括截图以帮助说明问题。
+**Screenshots**
+Include screenshots if they help explain the problem.
 
-**其他信息**
-提供与问题相关的任何其他信息。
+**Additional Context**
+Add any other information relevant to the issue.

@@ -5,30 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Current repository scope is intentionally narrower than some historical entries below.
+Older releases document features and integrations that have since been removed from the simplified local/Docker build.
+
 ## [Unreleased]
 
 ### Added
-- **🎬 Google Veo 3.0 Support**: Upgraded video generation with native audio capabilities
-  - Native audio generation with synchronized sound effects, dialogue, and music
-  - Enhanced video quality with 8-second 720p generation
-  - Support for negative prompts to exclude unwanted elements
-  - Fast generation mode with `veo-3.0-fast-generate-preview`
-- Enhanced documentation with comprehensive guides
-- Advanced deployment configurations
-- Performance monitoring and analytics integration
+- Native Telegram draft streaming in private chats, with fallback to edit-based streaming
+- Generic MCP configuration for local and Docker deployments
+- OpenAI Responses API built-in tool support alongside generic MCP support
 
 ### Changed
-- **Google Veo API**: Updated from Veo 2.0 to Veo 3.0 Fast
-  - Fixed `personGeneration` parameter for text-to-video compatibility
-  - Removed `durationSeconds` parameter (fixed 8-second videos)
-  - Improved API request structure and error handling
-- Improved error handling and logging
-- Enhanced security practices documentation
+- Reduced the supported provider surface to `openai` and `oailike`
+- Reduced the supported deployment surface to local and Docker only
+- Made runtime state explicitly Redis-backed through Upstash Redis
+- Made `CHAT_WHITE_LIST` users full runtime config admins
+- Switched endpoint selection for `openai` and `oailike` to be driven by API base URLs
+- Removed the plugin system and repo-level internal/external tool system in favor of MCP-only custom integrations
 
 ### Fixed
-- **AI SDK Compatibility**: Resolved conflicts with latest AI SDK versions
-- **Veo 3.0 Parameters**: Fixed unsupported parameter issues
-- **Request Processing**: Enhanced TypeScript type safety for streaming responses
+- TypeScript build compatibility issues in Telegram markdown conversion
+- Docker and GitHub Actions workflow drift in the local/Docker-only build
+- Dependency and runtime issues caused by deprecated local runtime packages
 
 ---
 
