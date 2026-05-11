@@ -12,6 +12,7 @@ import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { Stream } from './stream';
+import { renderThinkingTag } from './thinking_format';
 
 export interface SseChatCompatibleOptions {
     streamBuilder?: (resp: Response, controller: AbortController) => Stream;
@@ -280,7 +281,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     reasoningBuffer = '';
                     lastOutputTime = Date.now();
                     hasEmittedReasoningText = false;
-                    return thinkingTag;
+                    return renderThinkingTag(messageInfo.content, thinkingTag);
                 }
                 return '';
             case 'reasoning-delta':
