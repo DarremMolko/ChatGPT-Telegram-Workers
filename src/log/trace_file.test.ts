@@ -41,4 +41,14 @@ describe('sanitizeForDebugLog', () => {
         expect(result).toContain('/bot[REDACTED]/');
         expect(result).not.toContain('123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789');
     });
+
+    it('does not redact non-secret token counters like max_tokens', () => {
+        const result = sanitizeForDebugLog({
+            max_tokens: 1024,
+            access_token: 'secret',
+        }) as Record<string, any>;
+
+        expect(result.max_tokens).toBe(1024);
+        expect(result.access_token).toBe('[REDACTED]');
+    });
 });

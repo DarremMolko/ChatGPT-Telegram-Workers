@@ -20,8 +20,6 @@ export class EnvironmentConfig {
     // 图片尺寸偏移 0为第一位，-1为最后一位, 越靠后的图片越大。PS: 图片过大可能导致token消耗过多，或者workers超时或内存不足
     // 默认选择次高质量的图片
     TELEGRAM_PHOTO_SIZE_OFFSET = -2;
-    // 向LLM优先传递图片方式：url, base64
-    TELEGRAM_IMAGE_TRANSFER_MODE = 'url';
     // Max Telegram file size to download and ingest, in bytes. Set <= 0 to disable the limit.
     TELEGRAM_FILE_DOWNLOAD_MAX_SIZE = 20 * 1024 * 1024;
 

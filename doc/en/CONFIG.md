@@ -133,7 +133,6 @@ This creates `/fast`.
 | Variable | Description | Default |
 | --- | --- | --- |
 | `SUPPORT_FORMAT` | Allowed incoming content types. Default covers text, images, voice, audio, and supported Telegram documents. | `['text', 'photo', 'voice', 'audio', 'image', 'document']` |
-| `TELEGRAM_IMAGE_TRANSFER_MODE` | Send Telegram images to the model as `url` or `base64`. | `url` |
 | `TELEGRAM_FILE_DOWNLOAD_MAX_SIZE` | Max Telegram attachment size to download and ingest, in bytes. Set `<= 0` to disable the limit. | `20971520` |
 | `TELEGRAM_PHOTO_SIZE_OFFSET` | Chooses which Telegram photo size to use. `-1` means largest. | `-2` |
 | `ENABLE_REPLY_TO_MENTION` | In group chats, prefer the replied message as the trigger target when available. | `false` |
@@ -153,6 +152,7 @@ This creates `/fast`.
 
 Telegram document notes:
 
+- Telegram image attachments are downloaded by the bot and forwarded to the model as inline image data, not as upstream-fetchable URLs
 - `text/*` documents are read as text and appended to the user prompt
 - `application/pdf` documents are sent to the chat model as PDF file parts
 - document uploads with unsupported MIME types are ignored by the message filter

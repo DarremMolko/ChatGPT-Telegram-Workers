@@ -697,10 +697,6 @@ function getMediaType(url: string, defaultType: string): string {
     return mimeType;
 }
 
-function hasSensitiveTelegramFileUrl(url: string): boolean {
-    return /\/file\/bot\d{6,}:[\w-]{20,}\//.test(url);
-}
-
 // v5: Breaking change in file type extraction logic.
 // Manual download and explicit MIME type specification are now required.
 async function fileUrlToBase64Message({
@@ -753,23 +749,13 @@ async function fileUrlToBase64Message({
         case 'photo':
         case 'sticker':
         {
-            const isUrl = ENV.TELEGRAM_IMAGE_TRANSFER_MODE === 'url' && urls.every(url => !hasSensitiveTelegramFileUrl(url));
-            if (isUrl) {
-                (params.content as any[]).push(...urls.map((url) => {
-                    const format = url.split('?')[0].split('.').pop()?.toLowerCase();
-                    const partType = format === 'webm' ? 'file' : 'image';
-                    const mediaTypePrefix = format === 'webm' ? 'video' : 'image';
-                    return { type: partType, [format === 'webm' ? 'data' : 'image']: url, mediaType: getMediaType(url, mediaTypePrefix) } as unknown as FilePart | ImagePart;
-                }));
-            } else {
-                const images = await Promise.all(urls.map(async (url) => {
-                    const format = url.split('?')[0].split('.').pop()?.toLowerCase();
-                    const mediaTypePrefix = format === 'webm' ? 'video' : 'image';
-                    const parts = await urlToBase64Message(mediaTypePrefix, [url]);
-                    return parts;
-                }));
-                (params.content as any[]).push(...images.flat());
-            }
+            const images = await Promise.all(urls.map(async (url) => {
+                const format = url.split('?')[0].split('.').pop()?.toLowerCase();
+                const mediaTypePrefix = format === 'webm' ? 'video' : 'image';
+                const parts = await urlToBase64Message(mediaTypePrefix, [url]);
+                return parts;
+            }));
+            (params.content as any[]).push(...images.flat());
             break;
         }
         case 'video':

@@ -6,7 +6,7 @@ const DEFAULT_DEBUG_LOG_FILE = resolve(process.cwd(), 'logs', 'chatgpt-telegram-
 const MAX_DEPTH = 8;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OBJECT_KEYS = 100;
-const SENSITIVE_KEY_PATTERN = /authorization|api[-_]?key|password|secret|cookie|session|(?:^|[_-])tokens?(?:$|[_-])|(?:api|access|refresh|bearer|bot|auth|id)Token/i;
+const SENSITIVE_KEY_PATTERN = /authorization|api[-_]?key|password|secret|cookie|session|(?:^|[_-])token(?:$|[_-])|(?:^|[_-])(?:access|refresh|bearer|bot|auth|id)[_-]?tokens?(?:$|[_-])|(?:api|access|refresh|bearer|bot|auth|id)Token/i;
 const TELEGRAM_BOT_TOKEN_PATTERN = /\b\d{6,}:[\w-]{20,}\b/g;
 const TELEGRAM_BOT_TOKEN_URL_PATTERN = /\/bot\d{6,}:[\w-]{20,}\//g;
 
