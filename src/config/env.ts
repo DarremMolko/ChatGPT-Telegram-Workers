@@ -1,4 +1,5 @@
 import type { APIGuard, CommandConfig, MCPTransport, RedisStorage } from './types';
+import { execSync } from 'node:child_process';
 import { blockAgent } from '../agent';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
@@ -37,17 +38,47 @@ const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_RERANK_AGENTS = new Set(['openai', 'oailikeV1', 'oailikeV2']);
 
+function resolveRuntimeBuildInfo(): { sha: string; timestamp: number } {
+    const envSha = process.env.BUILD_VERSION?.trim();
+    const envTimestamp = Number.parseInt(process.env.BUILD_TIMESTAMP || '', 10);
+    if (envSha && Number.isFinite(envTimestamp) && envTimestamp > 0) {
+        return {
+            sha: envSha,
+            timestamp: envTimestamp,
+        };
+    }
+
+    try {
+        const sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        const timestamp = Number.parseInt(
+            execSync('git log -1 --format=%ct', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(),
+            10,
+        );
+        return {
+            sha: sha || 'unknown',
+            timestamp: Number.isFinite(timestamp) ? timestamp : 0,
+        };
+    } catch {
+        return {
+            sha: 'unknown',
+            timestamp: 0,
+        };
+    }
+}
+
+const runtimeBuildInfo = resolveRuntimeBuildInfo();
+
 class Environment extends EnvironmentConfig {
     // -- 版本数据 --
     //
     // 当前版本
     // eslint-disable-next-line ts/ban-ts-comment
     // @ts-expect-error
-    BUILD_TIMESTAMP = typeof __BUILD_TIMESTAMP__ === 'number' ? __BUILD_TIMESTAMP__ : 0;
+    BUILD_TIMESTAMP = typeof __BUILD_TIMESTAMP__ === 'number' ? __BUILD_TIMESTAMP__ : runtimeBuildInfo.timestamp;
     // 当前版本 commit id
     // eslint-disable-next-line ts/ban-ts-comment
     // @ts-expect-error
-    BUILD_VERSION = typeof __BUILD_VERSION__ === 'string' ? __BUILD_VERSION__ : 'unknown';
+    BUILD_VERSION = typeof __BUILD_VERSION__ === 'string' ? __BUILD_VERSION__ : runtimeBuildInfo.sha;
 
     // -- 基础配置 --
     I18N = loadI18n();

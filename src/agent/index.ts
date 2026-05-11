@@ -72,7 +72,10 @@ export function loadTTSLLM(context: AgentUserConfig) {
     throw new Error(`TTS agent not found: ${context.AI_TTS_PROVIDER}\nAvailable: ${TTS_AGENTS.map(i => i.name).join(', ')}`);
 }
 
-export async function customInfo(config: AgentUserConfig): Promise<string> {
+export async function customInfo(
+    config: AgentUserConfig,
+    { format = 'markdown' }: { format?: 'markdown' | 'plain' | 'object' } = {},
+): Promise<string | Record<string, any>> {
     const prompt = config.SYSTEM_INIT_MESSAGE || '';
     const otherInfo = {
         mode: config.CURRENT_MODE,
@@ -95,7 +98,14 @@ export async function customInfo(config: AgentUserConfig): Promise<string> {
         PARAMS_MODIFIER: config.PARAMS_MODIFIER.join('|'),
         MESSAGE_REPLACER: Object.keys(config.MESSAGE_REPLACER).join('|'),
     };
-    return JSON.stringify(otherInfo, null, 2).split('\n').map(line => `\`${line}\``).join('\n');
+    if (format === 'object') {
+        return otherInfo;
+    }
+    const plain = JSON.stringify(otherInfo, null, 2);
+    if (format === 'plain') {
+        return plain;
+    }
+    return plain.split('\n').map(line => `\`${line}\``).join('\n');
 }
 
 export function blockAgent() {

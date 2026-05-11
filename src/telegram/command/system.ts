@@ -8,7 +8,7 @@ import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
 import type { CommandHandler, InlineItem, ScopeType } from './types';
 import { authChecker } from '.';
-import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadASRLLM, loadChatLLM, loadImageGen, loadTTSLLM, TTS_AGENTS } from '../../agent';
+import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadImageGen, TTS_AGENTS } from '../../agent';
 import { loadHistory } from '../../agent/chat';
 import { updateModels } from '../../agent/models';
 import { ENV } from '../../config/env';
@@ -44,6 +44,41 @@ export const COMMAND_AUTH_CHECKER = {
         return ['whitelist'];
     },
 };
+
+function escapeHtml(text: string): string {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('\'', '&#39;');
+}
+
+function describeAgentConfig(
+    providerName: string | undefined,
+    context: WorkerContext,
+    agents: Array<{ name: string; modelKey: string; model: (ctx: AgentUserConfig) => string; enable: (ctx: AgentUserConfig) => boolean }>,
+) {
+    const provider = providerName || 'unknown';
+    const agent = agents.find(item => item.name === provider);
+    const modelKey = agent?.modelKey || `${provider.toUpperCase()}_MODEL`;
+    let model = context.USER_CONFIG[modelKey] || 'not configured';
+    let enabled = false;
+    if (agent) {
+        enabled = agent.enable(context.USER_CONFIG);
+        try {
+            model = agent.model(context.USER_CONFIG);
+        } catch (error) {
+            model = `ERROR: ${(error as Error).message}`;
+        }
+    }
+    return {
+        provider,
+        modelKey,
+        model,
+        enabled,
+    };
+}
 
 function isWhitelistAdmin(userId?: number): boolean {
     return userId !== undefined && ENV.CHAT_WHITE_LIST.includes(userId.toString());
@@ -293,38 +328,48 @@ export class SystemCommandHandler implements CommandHandler {
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
     needAuth = COMMAND_AUTH_CHECKER.default;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
         const stats = getStats(String(context.SHARE_CONTEXT.botId));
-        const chatAgent = loadChatLLM(context.USER_CONFIG);
-        const imageAgent = loadImageGen(context.USER_CONFIG);
-        const asrAgent = loadASRLLM(context.USER_CONFIG);
-        const ttsAgent = loadTTSLLM(context.USER_CONFIG);
+        const chatAgent = describeAgentConfig(context.USER_CONFIG.AI_CHAT_PROVIDER, context, CHAT_AGENTS);
+        const imageAgent = describeAgentConfig(context.USER_CONFIG.AI_IMAGE_PROVIDER, context, IMAGE_AGENTS);
+        const asrAgent = describeAgentConfig(context.USER_CONFIG.AI_ASR_PROVIDER, context, ASR_AGENTS);
+        const ttsAgent = describeAgentConfig(context.USER_CONFIG.AI_TTS_PROVIDER, context, TTS_AGENTS);
         const agent = {
-            AI_CHAT_PROVIDER: chatAgent?.name,
-            [chatAgent?.modelKey || 'AI_CHAT_PROVIDER_NOT_FOUND']: chatAgent?.model ? chatAgent.model(context.USER_CONFIG) : 'AI_CHAT_PROVIDER_NOT_FOUND',
+            AI_CHAT_PROVIDER: chatAgent.provider,
+            [chatAgent.modelKey]: chatAgent.model,
             TOOL_MODEL: context.USER_CONFIG.TOOL_MODEL || 'same as chat model',
-            AI_IMAGE_PROVIDER: imageAgent?.name,
-            [imageAgent?.modelKey || 'AI_IMAGE_PROVIDER_NOT_FOUND']: imageAgent?.model ? imageAgent.model(context.USER_CONFIG) : 'AI_IMAGE_PROVIDER_NOT_FOUND',
-            [asrAgent?.modelKey || 'AI_ASR_PROVIDER_NOT_FOUND']: asrAgent?.model ? asrAgent.model(context.USER_CONFIG) : 'AI_ASR_PROVIDER_NOT_FOUND',
-            [ttsAgent?.modelKey || 'AI_TTS_PROVIDER_NOT_FOUND']: ttsAgent?.model(context.USER_CONFIG),
-            VISION_MODEL: context.USER_CONFIG[`${chatAgent?.name?.toUpperCase()}_VISION_MODEL`] || `Agent ${chatAgent?.name ?? ''} not found`,
+            AI_IMAGE_PROVIDER: imageAgent.provider,
+            [imageAgent.modelKey]: imageAgent.model,
+            AI_ASR_PROVIDER: asrAgent.provider,
+            [asrAgent.modelKey]: asrAgent.model,
+            AI_TTS_PROVIDER: ttsAgent.provider,
+            [ttsAgent.modelKey]: ttsAgent.model,
+            VISION_MODEL: context.USER_CONFIG[`${chatAgent.provider.toUpperCase()}_VISION_MODEL`] || `Agent ${chatAgent.provider} not found`,
+            PROVIDER_ENABLED: {
+                chat: chatAgent.enabled,
+                image: imageAgent.enabled,
+                asr: asrAgent.enabled,
+                tts: ttsAgent.enabled,
+            },
         };
-        let msg = `📊 *Usage Statistics*:\n  Total Users: \`${stats.totalUsers}\`\n  Total Groups: \`${stats.totalGroups}\`\n  Total Messages: \`${stats.totalMessages}\`\n  Today Messages: \`${stats.todayMessages}\`\n\nsystem info:\n\nAGENT: ${JSON.stringify(agent, null, 2).split('\n').map(line => `\`${line}\``).join('\n')}\n\nOTHERS: ${await customInfo(context.USER_CONFIG)}\n`;
+        const otherInfo = await customInfo(context.USER_CONFIG, { format: 'object' });
+        let msg = `<b>Usage Statistics</b>\n`
+            + `Total Users: <code>${stats.totalUsers}</code>\n`
+            + `Total Groups: <code>${stats.totalGroups}</code>\n`
+            + `Total Messages: <code>${stats.totalMessages}</code>\n`
+            + `Today Messages: <code>${stats.todayMessages}</code>\n\n`
+            + `<b>Agent</b>\n<pre>${escapeHtml(JSON.stringify(agent, null, 2))}</pre>\n\n`
+            + `<b>Other</b>\n<pre>${escapeHtml(JSON.stringify(otherInfo, null, 2))}</pre>`;
         if (ENV.DEV_MODE) {
             const shareCtx = { ...context.SHARE_CONTEXT };
             shareCtx.botToken = '******';
             context.USER_CONFIG.OPENAI_API_KEY = ['******'];
             context.USER_CONFIG.OAILIKE_API_KEY = '******';
             const config = ConfigMerger.trim(context.USER_CONFIG);
-            msg = `${msg}\n`;
-            msg += `USER_CONFIG: ${JSON.stringify(config, null, 2)}\n`;
-            msg += `CHAT_CONTEXT: ${JSON.stringify(sender.context || {}, null, 2)}\n`;
-            msg += `SHARE_CONTEXT: ${JSON.stringify(shareCtx, null, 2)}`;
+            msg += `\n\n<b>Dev User Config</b>\n<pre>${escapeHtml(JSON.stringify(config, null, 2))}</pre>`;
+            msg += `\n\n<b>Chat Context</b>\n<pre>${escapeHtml(JSON.stringify(sender.context || {}, null, 2))}</pre>`;
+            msg += `\n\n<b>Share Context</b>\n<pre>${escapeHtml(JSON.stringify(shareCtx, null, 2))}</pre>`;
         }
-        return sender.sendRichText(msg, 'MarkdownV2', 'tip', {
-            addQuote: true,
-            quoteExpandable: true,
-        });
+        return sender.sendRichText(msg, 'HTML', 'tip');
     };
 }
 
