@@ -13,6 +13,7 @@ export interface UnionData {
     type: MsgType;
     original_type?: MsgType;
     mime_type?: string;
+    file_name?: string;
     media_group_id?: string;
     text?: string;
     // reply_text?: string;
@@ -25,13 +26,15 @@ export function extractMessageInfo(message: Telegram.Message, currentBotId: numb
     const messageData = extractTypeFromMessage(message);
 
     if (messageData.type === 'text' && isNeedGetReplyMessage(message, currentBotId)) {
-        const { type, id, mime_type, media_group_id } = extractTypeFromMessage(message.reply_to_message as any) || {};
+        const { type, id, mime_type, file_name, media_group_id } = extractTypeFromMessage(message.reply_to_message as any) || {};
         if (type && type !== 'text' && type !== 'unknown')
             messageData.type = type;
         if (id && id.length > 0)
             messageData.id = id;
         if (mime_type)
             messageData.mime_type = mime_type;
+        if (file_name)
+            messageData.file_name = file_name;
         if (media_group_id)
             messageData.media_group_id = media_group_id;
     }
@@ -64,11 +67,6 @@ function extractTypeFromMessage(message: Telegram.Message): UnionData {
             };
         }
         case 'document':
-        case 'audio':
-        case 'voice':
-        case 'animation':
-        case 'sticker':
-        case 'video':
         {
             // const MAX_FILE_SIZE = 20 * 1024 * 1024; // 能直接下载的文件大小为20MB
             // const fileSize = message[msgType]?.file_size;
@@ -79,9 +77,33 @@ function extractTypeFromMessage(message: Telegram.Message): UnionData {
             if (!id) {
                 throw new Error('file_id not found');
             }
-            if (msgType === 'document') {
-                const testSupport = message.document?.mime_type?.match(/(audio|image|text|video)/)?.[1];
-                testSupport && (typeInfo.type = testSupport as UnionData['type']);
+            const mimeType = message.document?.mime_type;
+            const testSupport = mimeType?.match(/^(audio|image|text|video)\//)?.[1];
+            if (testSupport) {
+                typeInfo.type = testSupport as UnionData['type'];
+            } else if (mimeType === 'application/pdf') {
+                typeInfo.type = 'document';
+            } else {
+                typeInfo.type = 'unsupported';
+            }
+            return {
+                type: typeInfo.type,
+                original_type: msgType,
+                mime_type: mimeType,
+                file_name: message.document?.file_name,
+                id: id ? [id] : undefined,
+                media_group_id: message.media_group_id,
+            };
+        }
+        case 'audio':
+        case 'voice':
+        case 'animation':
+        case 'sticker':
+        case 'video':
+        {
+            const id = message[msgType]?.file_id;
+            if (!id) {
+                throw new Error('file_id not found');
             }
             return {
                 type: typeInfo.type,

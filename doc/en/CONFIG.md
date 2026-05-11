@@ -132,7 +132,7 @@ This creates `/fast`.
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `SUPPORT_FORMAT` | Allowed incoming content types. Default covers text, images, voice, and audio. | `['text', 'photo', 'voice', 'audio', 'image']` |
+| `SUPPORT_FORMAT` | Allowed incoming content types. Default covers text, images, voice, audio, and supported Telegram documents. | `['text', 'photo', 'voice', 'audio', 'image', 'document']` |
 | `TELEGRAM_IMAGE_TRANSFER_MODE` | Send Telegram images to the model as `url` or `base64`. | `url` |
 | `TELEGRAM_PHOTO_SIZE_OFFSET` | Chooses which Telegram photo size to use. `-1` means largest. | `-2` |
 | `ENABLE_REPLY_TO_MENTION` | In group chats, prefer the replied message as the trigger target when available. | `false` |
@@ -149,6 +149,12 @@ This creates `/fast`.
 - `/img` works with both provider families
 - reply-to-image editing is currently wired through the OpenAI image flow
 - `oailike` image support is generation-focused
+
+Telegram document notes:
+
+- `text/*` documents are read as text and appended to the user prompt
+- `application/pdf` documents are sent to the chat model as PDF file parts
+- document uploads with unsupported MIME types are ignored by the message filter
 
 ## Streaming, Rendering, And Output
 

@@ -161,7 +161,7 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         message: Telegram.Message,
         context: WorkerContext,
     ): Promise<LLMChatRequestParams> {
-        const { type, id } = context.MIDDLE_CONTEXT.messageInfo;
+        const { type, id, mime_type, file_name } = context.MIDDLE_CONTEXT.messageInfo;
         let messageText = message.text || message.caption || '';
 
         // Get user identifier for group chats
@@ -219,6 +219,8 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         return fileUrlToBase64Message({
             urls,
             type,
+            mimeType: mime_type,
+            fileName: file_name,
             params,
             text: messageText,
             AUDIO_HANDLE_TYPE: context.USER_CONFIG.AUDIO_HANDLE_TYPE,
@@ -704,7 +706,23 @@ function getMediaType(url: string, defaultType: string): string {
 
 // v5: Breaking change in file type extraction logic.
 // Manual download and explicit MIME type specification are now required.
-async function fileUrlToBase64Message({ urls, type, params, AUDIO_HANDLE_TYPE = 'chat', text }: { urls: string[]; type: string; params: UserModelMessage; AUDIO_HANDLE_TYPE: string; text: string }): Promise<any> {
+async function fileUrlToBase64Message({
+    urls,
+    type,
+    mimeType,
+    fileName,
+    params,
+    AUDIO_HANDLE_TYPE = 'chat',
+    text,
+}: {
+    urls: string[];
+    type: string;
+    mimeType?: string;
+    fileName?: string;
+    params: UserModelMessage;
+    AUDIO_HANDLE_TYPE: string;
+    text: string;
+}): Promise<any> {
     async function urlToBase64Message(type = 'image') {
         log.info(`[urlToBase64Message] type: ${type}, urls: ${JSON.stringify(urls)}`);
         const responses = await Promise.all(urls.map(url => fetch(url))).then(r => r.filter(r => r.ok));
@@ -787,6 +805,24 @@ async function fileUrlToBase64Message({ urls, type, params, AUDIO_HANDLE_TYPE = 
                     text: `${text}\n${fileText}`.trim(),
                 },
             ];
+            break;
+        }
+        case 'document':
+        {
+            if (mimeType !== 'application/pdf') {
+                throw new Error(`Unsupported document type: ${mimeType || 'unknown'}. Only PDF documents are supported in generic document mode.`);
+            }
+            const [response] = await Promise.all(urls.map(url => fetch(url))).then(r => r.filter(item => item.ok));
+            if (!response) {
+                throw new Error('Failed to fetch PDF document');
+            }
+            const pdf = new Uint8Array(await response.arrayBuffer());
+            (params.content as any[]).push({
+                type: 'file',
+                data: pdf,
+                mediaType: 'application/pdf',
+                filename: fileName || 'document.pdf',
+            });
             break;
         }
     }

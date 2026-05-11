@@ -16,7 +16,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 
 | Area | What remains |
 | --- | --- |
-| Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing |
+| Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing and Telegram text/image/audio/PDF inputs |
 | Streaming | Telegram replies stream through the normal message edit/send path |
 | Images | `/img` generation for both provider families; reply-to-image editing through the OpenAI image path |
 | Speech | Telegram voice/audio input via STT, text-to-speech output via `/tts`, and configurable text/audio workflows |

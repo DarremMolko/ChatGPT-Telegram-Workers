@@ -9,6 +9,7 @@ import { base64StringToBlob } from '../utils';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
+import { resolveOpenAIChatModel } from './model_selector';
 import { warpLLMParams } from './model_middleware';
 import { requestChatCompletionsV2 } from './request';
 
@@ -28,15 +29,7 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
     readonly modelKey = 'OPENAI_CHAT_MODEL';
 
     readonly model = (ctx: AgentUserConfig, params?: LLMChatRequestParams): string => {
-        const msgType = Array.isArray(params?.content) ? params.content.at(-1)?.type : 'text';
-        switch (msgType) {
-            case 'image':
-                return ctx.OPENAI_VISION_MODEL;
-            case 'file':
-                return 'gpt-audio';
-            default:
-                return ctx.OPENAI_CHAT_MODEL;
-        }
+        return resolveOpenAIChatModel(ctx, params);
     };
 
     readonly request = async (params: LLMChatParams, context: AgentUserConfig, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> => {
