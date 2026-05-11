@@ -147,7 +147,7 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             lengthDelta += textPart.length;
             messageInfo.content += textPart;
 
-            if (lengthDelta > updateStep) {
+            if (!messageInfo.deferStream && lengthDelta > updateStep) {
                 lengthDelta = 0;
                 updateStep = Math.min(updateStep + 40, maxLength);
                 onStream.send(`${messageInfo.content.trimEnd()}●`);
@@ -214,6 +214,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
     const messageInfo: MessageInfo = {
         content: cache?.join() ?? '',
         occured_error: false,
+        deferStream: activeTools.length > 0,
     };
     const { prepareStepPre, onStepFinish, onChunk, ...middleware } = await AIMiddleware({
         config: context,
@@ -279,6 +280,33 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     };
 
     return (data: TextStreamPart<any>) => {
+        if (messageInfo.deferStream) {
+            switch (data.type) {
+                case 'reasoning-start':
+                case 'reasoning-delta':
+                case 'reasoning-end':
+                case 'text-start':
+                    messageInfo.stepStartContent ??= messageInfo.content;
+                    return '';
+                case 'text-delta':
+                    messageInfo.stepStartContent ??= messageInfo.content;
+                    return data.text;
+                case 'text-end':
+                    return '';
+                case 'source':
+                    if (ENV.ENABLE_SEARCH_SOURCE && data.sourceType === 'url') {
+                        sources.push({
+                            url: data.url,
+                            title: data.title || data.url,
+                        });
+                    }
+                    return '';
+                case 'error':
+                    throw data.error;
+                default:
+                    return '';
+            }
+        }
         switch (data.type) {
             case 'reasoning-start':
                 if (!ENV.SHOW_THINKING_TEXT) {

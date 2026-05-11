@@ -23,6 +23,7 @@ export interface MessageInfo {
     stepStartContent?: string;
     stepRetainedContent?: string;
     pendingStepRetainedReset?: boolean;
+    deferStream?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -37,6 +38,11 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
     return {
         prepareStepPre: (middleware: any) => async ({ model }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
+            if (messageInfo.deferStream) {
+                messageInfo.stepStartContent = undefined;
+                messageInfo.stepRetainedContent = undefined;
+                messageInfo.pendingStepRetainedReset = false;
+            }
             if (messageInfo.pendingStepRetainedReset) {
                 const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
                 messageInfo.content = baseContent;
@@ -95,6 +101,12 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 record.first_chunk_time = Date.now() - record.start_time;
                 hasRecordFirstChunkTime = true;
             }
+            if (messageInfo.deferStream) {
+                if (chunk.type === 'tool-call') {
+                    log.info(`start tool: ${chunk.toolName}`);
+                }
+                return;
+            }
             if (chunk.type === 'tool-call') {
                 const baseContent = messageInfo.stepStartContent ?? '';
                 const retainedContent = messageInfo.stepRetainedContent ?? '';
@@ -120,12 +132,19 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 }
                 await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
 
-                const baseContent = messageInfo.stepStartContent ?? '';
-                const retainedContent = messageInfo.stepRetainedContent ?? '';
-                const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
-                messageInfo.content = visibleContent;
-                onStream?.send(visibleContent || '...');
-                messageInfo.pendingStepRetainedReset = true;
+                if (messageInfo.deferStream) {
+                    messageInfo.content = messageInfo.stepStartContent ?? messageInfo.content;
+                    messageInfo.stepStartContent = undefined;
+                    messageInfo.stepRetainedContent = undefined;
+                    messageInfo.pendingStepRetainedReset = false;
+                } else {
+                    const baseContent = messageInfo.stepStartContent ?? '';
+                    const retainedContent = messageInfo.stepRetainedContent ?? '';
+                    const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
+                    messageInfo.content = visibleContent;
+                    onStream?.send(visibleContent || '...');
+                    messageInfo.pendingStepRetainedReset = true;
+                }
             }
 
             if (toolResults.length > 0) {
