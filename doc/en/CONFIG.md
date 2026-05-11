@@ -195,6 +195,42 @@ This creates `/fast`.
 | `INLINE_QUERY_SHOW_INFO` | Show response info blocks in inline-query mode. | `false` |
 | `CALLBACK_QUERY_RC` | `/settings` inline keyboard layout in `rows x columns` form. | `'7x2'` |
 
+Scheduled deletion notes:
+
+- `EXPIRED_TIME` is in minutes
+- `CRON_CHECK_TIME` controls how often the cleanup task runs, not how long messages live
+- `SCHEDULE_GROUP_DELETE_TYPE` and `SCHEDULE_PRIVATE_DELETE_TYPE` accept `tip` and `chat`
+- use `[]` to disable scheduled deletion tagging for that chat scope
+
+Examples:
+
+```toml
+[vars]
+# Delete only helper messages after 1 hour.
+EXPIRED_TIME = 60
+CRON_CHECK_TIME = "*/5 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = ["tip"]
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip"]
+```
+
+```toml
+[vars]
+# Delete all bot output after 24 hours.
+EXPIRED_TIME = 1440
+CRON_CHECK_TIME = "0 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = ["tip", "chat"]
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+```
+
+```toml
+[vars]
+# Delete private-chat output only.
+EXPIRED_TIME = 30
+CRON_CHECK_TIME = "*/10 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = []
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+```
+
 ## Provider Family Selection
 
 | Variable | Values | Default |

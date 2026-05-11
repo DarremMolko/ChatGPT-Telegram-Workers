@@ -30,8 +30,26 @@ OPENAI_TTS_VOICE = "alloy"
 # AUDIO_OUTPUT = "audio"
 
 # Optional: configure scheduled deletion in local mode.
+# The scheduler only tags bot messages whose type is listed below.
+# Allowed values: "tip", "chat"
+#
+# Example 1: delete only tip/status messages after 60 minutes.
 # EXPIRED_TIME = 60
 # CRON_CHECK_TIME = "*/5 * * * *"
+# SCHEDULE_GROUP_DELETE_TYPE = ["tip"]
+# SCHEDULE_PRIVATE_DELETE_TYPE = ["tip"]
+#
+# Example 2: delete both chat replies and tip messages after 24 hours.
+# EXPIRED_TIME = 1440
+# CRON_CHECK_TIME = "0 * * * *"
+# SCHEDULE_GROUP_DELETE_TYPE = ["tip", "chat"]
+# SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+#
+# Example 3: keep group chat history, but delete private chat replies after 30 minutes.
+# EXPIRED_TIME = 30
+# CRON_CHECK_TIME = "*/10 * * * *"
+# SCHEDULE_GROUP_DELETE_TYPE = []
+# SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
 
 # To enable a generic MCP server:
 # USE_MCP = ["demo"]

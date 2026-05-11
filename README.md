@@ -50,6 +50,13 @@ cp config.example.json config.json
 cp config.example.toml config.toml
 ```
 
+If you want polling mode instead of webhooks:
+
+```bash
+cp config.example.polling.json config.json
+cp config.example.toml config.toml
+```
+
 ### Minimal OpenAI Example
 
 ```toml
@@ -96,6 +103,14 @@ Choose a startup mode in `config.json`:
 }
 ```
 
+Polling example:
+
+```json
+{
+  "mode": "polling"
+}
+```
+
 Start locally:
 
 ```bash
@@ -113,6 +128,51 @@ If you use `polling` mode:
 
 - no `/init` step is needed
 - the process reads updates directly from Telegram
+
+## Scheduled Cleanup Examples
+
+Scheduled deletion only runs in the local adapter when all of these are true:
+
+- `EXPIRED_TIME` is greater than `0`
+- `CRON_CHECK_TIME` is set to a valid cron expression
+- the sent message type is enabled in `SCHEDULE_GROUP_DELETE_TYPE` or `SCHEDULE_PRIVATE_DELETE_TYPE`
+
+Allowed scheduled message types are:
+
+- `tip` for status and helper messages such as wait notices
+- `chat` for normal bot replies
+
+Example: delete only helper messages after 1 hour.
+
+```toml
+[vars]
+EXPIRED_TIME = 60
+CRON_CHECK_TIME = "*/5 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = ["tip"]
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip"]
+```
+
+Example: delete all bot output after 24 hours.
+
+```toml
+[vars]
+EXPIRED_TIME = 1440
+CRON_CHECK_TIME = "0 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = ["tip", "chat"]
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+```
+
+Example: keep group replies, but clean private chats after 30 minutes.
+
+```toml
+[vars]
+EXPIRED_TIME = 30
+CRON_CHECK_TIME = "*/10 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = []
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+```
+
+The cron expression follows the local process timezone. In Docker, that means the container timezone unless you set `TZ` yourself.
 
 ## Command Reference
 

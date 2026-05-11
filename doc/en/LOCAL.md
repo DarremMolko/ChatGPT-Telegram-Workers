@@ -15,6 +15,12 @@ The local adapter reads two files:
 - `config.json`
 - `config.toml`
 
+Example starter files:
+
+- `config.example.json` for webhook mode
+- `config.example.polling.json` for polling mode
+- `config.example.toml` for runtime env vars
+
 At startup:
 
 1. `config.toml` is parsed
@@ -46,6 +52,12 @@ This means Docker `environment:` values or shell exports win over file values.
 {
   "mode": "polling"
 }
+```
+
+Ready-to-copy file:
+
+```bash
+cp config.example.polling.json config.json
 ```
 
 ### Optional Proxy Example
@@ -176,6 +188,16 @@ The local adapter can run scheduled message cleanup when both of these are set:
 - `EXPIRED_TIME > 0`
 - `CRON_CHECK_TIME` contains a valid cron expression
 
+Messages are only scheduled for deletion when their type is enabled in the matching list:
+
+- `SCHEDULE_GROUP_DELETE_TYPE` for group and supergroup chats
+- `SCHEDULE_PRIVATE_DELETE_TYPE` for private chats
+
+Allowed values in those arrays:
+
+- `tip` for helper/status messages such as "Please wait a moment..."
+- `chat` for normal bot replies
+
 Example:
 
 ```toml
@@ -188,6 +210,43 @@ This means:
 
 - tagged bot messages expire after 60 minutes
 - the scheduler checks every 5 minutes for messages to delete
+
+More examples:
+
+Delete both helper messages and normal replies after 24 hours:
+
+```toml
+[vars]
+EXPIRED_TIME = 1440
+CRON_CHECK_TIME = "0 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = ["tip", "chat"]
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+```
+
+Keep group replies, but delete private chat output after 30 minutes:
+
+```toml
+[vars]
+EXPIRED_TIME = 30
+CRON_CHECK_TIME = "*/10 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = []
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
+```
+
+Delete only helper messages everywhere, but keep normal replies:
+
+```toml
+[vars]
+EXPIRED_TIME = 15
+CRON_CHECK_TIME = "*/2 * * * *"
+SCHEDULE_GROUP_DELETE_TYPE = ["tip"]
+SCHEDULE_PRIVATE_DELETE_TYPE = ["tip"]
+```
+
+Timezone note:
+
+- the cron expression is evaluated in the local process timezone
+- in Docker, that means the container timezone unless you set `TZ`
 
 ## Build
 
