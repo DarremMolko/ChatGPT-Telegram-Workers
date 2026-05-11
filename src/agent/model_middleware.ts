@@ -20,13 +20,6 @@ type Writeable<T> = { -readonly [P in keyof T as P extends 'modelId' ? P : never
 export interface MessageInfo {
     content: string;
     occured_error?: boolean;
-    stepStartContent?: string;
-    stepRetainedContent?: string;
-    pendingStepRetainedReset?: boolean;
-    deferStream?: boolean;
-    hadToolResults?: boolean;
-    toolAnswerBuffer?: string;
-    toolAnswerStarted?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -41,16 +34,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
     return {
         prepareStepPre: (middleware: any) => async ({ model }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
-            if (messageInfo.pendingStepRetainedReset) {
-                const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
-                messageInfo.content = baseContent;
-                onStream?.send(baseContent || '...');
-                messageInfo.stepStartContent = undefined;
-                messageInfo.stepRetainedContent = undefined;
-                messageInfo.pendingStepRetainedReset = false;
-                messageInfo.toolAnswerBuffer = '';
-                messageInfo.toolAnswerStarted = false;
-            }
             currentModel = model;
             if (activeTools.length > 0) {
                 const targetModel = config.TOOL_MODEL;
@@ -101,20 +84,8 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 record.first_chunk_time = Date.now() - record.start_time;
                 hasRecordFirstChunkTime = true;
             }
-            if (messageInfo.deferStream) {
-                if (chunk.type === 'tool-call') {
-                    const visibleContent = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}`.trimEnd();
-                    messageInfo.content = visibleContent;
-                    onStream?.send(visibleContent ? `${visibleContent}\n\ntool call start: \`${chunk.toolName}\`` : `tool call start: \`${chunk.toolName}\``);
-                    log.info(`start tool: ${chunk.toolName}`);
-                }
-                return;
-            }
             if (chunk.type === 'tool-call') {
-                const baseContent = messageInfo.stepStartContent ?? '';
-                const retainedContent = messageInfo.stepRetainedContent ?? '';
-                const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
-                onStream?.send(visibleContent ? `${visibleContent}\n\ntool call start: \`${chunk.toolName}\`` : `tool call start: \`${chunk.toolName}\``);
+                onStream?.send(`${messageInfo.content.trimEnd()}\n\ntool call start: \`${chunk.toolName}\``);
                 log.info(`start tool: ${chunk.toolName}`);
             }
         },
@@ -134,22 +105,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                     log.warn(`Deduplicated ${toolResults.length - uniqueResults.length} duplicate tool calls`);
                 }
                 await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
-
-                if (messageInfo.deferStream) {
-                    messageInfo.hadToolResults = true;
-                    messageInfo.toolAnswerBuffer = '';
-                    messageInfo.toolAnswerStarted = false;
-                    messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}`;
-                    onStream?.send(messageInfo.content.trimEnd() || '...');
-                    messageInfo.pendingStepRetainedReset = true;
-                } else {
-                    const baseContent = messageInfo.stepStartContent ?? '';
-                    const retainedContent = messageInfo.stepRetainedContent ?? '';
-                    const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
-                    messageInfo.content = visibleContent;
-                    onStream?.send(visibleContent || '...');
-                    messageInfo.pendingStepRetainedReset = true;
-                }
             }
 
             if (toolResults.length > 0) {
@@ -200,9 +155,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
             if (text && text.trim()) {
                 log.info(`Final response text length: ${text.length}`);
-                if (messageInfo.deferStream && toolResults.length === 0) {
-                    messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}${stripToolPlanningPrefix(text) || text}`;
-                }
             }
 
             if (usage && usage.inputTokens && usage.outputTokens) {
@@ -218,38 +170,9 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
 
             hasRecordFirstChunkTime = false;
-            if (!messageInfo.pendingStepRetainedReset) {
-                messageInfo.stepStartContent = undefined;
-                messageInfo.stepRetainedContent = undefined;
-            }
             step++;
         },
     };
-}
-
-const TOOL_PLANNING_PREFIX = /^(?:the user\b|user asked\b|i (?:have|found|need|should|will|can|already|now)\b|let me\b|first\b|to answer\b|voy a\b|primero\b|necesito\b|ya tengo\b|tengo\b|con (?:los|la|el) datos\b|para responder\b)/i;
-export const TOOL_ANSWER_MARKER = /^(?:#{1,6}\s|\|.*\||[-•*]\s|\d+\.\s|[📌✅💨💧🔆]|☀️|🌡️|🌧️|👁️)/u;
-const TOOL_ANSWER_SECTION_MARKER = /\n(?=#{1,6}\s|\|.*\||[-•*]\s|\d+\.\s|[📌✅💨💧🔆]|☀️|🌡️|🌧️|👁️)/u;
-
-export function stripToolPlanningPrefix(text: string): string {
-    let remaining = text.trimStart();
-    for (let i = 0; i < 4; i++) {
-        if (!TOOL_PLANNING_PREFIX.test(remaining)) {
-            return remaining;
-        }
-        const answerMarker = remaining.match(TOOL_ANSWER_SECTION_MARKER);
-        if (answerMarker?.index !== undefined) {
-            remaining = remaining.slice(answerMarker.index + 1).trimStart();
-            continue;
-        }
-        const paragraphBreak = remaining.match(/\n\s*\n/);
-        if (paragraphBreak?.index !== undefined) {
-            remaining = remaining.slice(paragraphBreak.index + paragraphBreak[0].length).trimStart();
-            continue;
-        }
-        return '';
-    }
-    return remaining;
 }
 
 function warpMessages(params: LanguageModelV3CallOptions, activeTools: string[], isResponseApi: boolean, rawSystemPrompt: string | undefined) {
