@@ -423,7 +423,7 @@ export class StopCommandHandler implements CommandHandler {
             return sender.sendPlainText('No active response is running.', 'tip');
         }
         const label = cancelled === 1 ? 'response' : 'responses';
-        return sender.sendPlainText(`Stopping ${cancelled} active ${label}.`, 'tip');
+        return sender.sendPlainText(`Stopped ${cancelled} active ${label}.`, 'tip');
     };
 }
 
