@@ -126,7 +126,7 @@ export class GroupMention implements MessageHandler {
 
     noneMessage = async (message: Telegram.Message, context: WorkerContext) => {
         const messageInfo = context.MIDDLE_CONTEXT.messageInfo;
-        if (messageInfo.type === 'text' && message.text === '' && (message.reply_to_message?.text ?? '') === '') {
+        if (messageInfo.original_type === 'text' && messageInfo.type === 'text' && message.text === '' && (message.reply_to_message?.text ?? '') === '') {
             const resp = createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
                 chat_id: message.chat.id,
                 text: '?',
