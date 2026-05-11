@@ -333,6 +333,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 return `\n>✹\n${SEGMENTATION_MARK}\n`;
             case 'text-delta':
                 log.debug(`[thinkingExtractor] text-delta: "${data.text}"`);
+                messageInfo.stepStartContent ??= messageInfo.content;
 
                 if (!ENV.SHOW_THINKING_TEXT) {
                     return data.text;

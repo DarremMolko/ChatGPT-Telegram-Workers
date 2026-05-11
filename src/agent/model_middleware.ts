@@ -108,6 +108,10 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                     log.warn(`Deduplicated ${toolResults.length - uniqueResults.length} duplicate tool calls`);
                 }
                 await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
+
+                const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
+                messageInfo.content = baseContent;
+                onStream?.send(baseContent || '...');
             }
 
             if (toolResults.length > 0) {
