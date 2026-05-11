@@ -11,7 +11,6 @@ Older releases document features and integrations that have since been removed f
 ## [Unreleased]
 
 ### Added
-- Native Telegram draft streaming in private chats, with fallback to edit-based streaming
 - Generic MCP configuration for local and Docker deployments
 - OpenAI Responses API built-in tool support alongside generic MCP support
 
@@ -21,6 +20,7 @@ Older releases document features and integrations that have since been removed f
 - Made runtime state explicitly Redis-backed
 - Made `CHAT_WHITE_LIST` users admins for the stored per-chat user-config surface
 - Switched endpoint selection for `openai` and `oailike` to be driven by API base URLs
+- Simplified Telegram streaming to use the message edit/send path only
 - Removed the plugin system and repo-level internal/external tool system in favor of MCP-only custom integrations
 
 ### Fixed

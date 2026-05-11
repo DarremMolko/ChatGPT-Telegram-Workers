@@ -98,7 +98,6 @@ Important:
 | Variable | Description | Default |
 | --- | --- | --- |
 | `TELEGRAM_API_DOMAIN` | Telegram API base URL. | `https://api.telegram.org` |
-| `TELEGRAM_STREAM_MODE` | Streaming transport for Telegram replies: `message`, `draft`, or `auto`. | `message` |
 | `TELEGRAM_BOT_NAME` | Bot usernames aligned by position with `TELEGRAM_AVAILABLE_TOKENS`. Helpful when using multiple bots. | `[]` |
 | `I_AM_A_GENEROUS_PERSON` | If `true`, bypasses user whitelist checks. | `false` |
 | `CHAT_GROUP_WHITE_LIST` | Group IDs allowed to use the bot. | `[]` |
@@ -327,11 +326,6 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | `ENABLE_SHOWINFO` | Include the model/log footer in normal replies. | `false` |
 | `SHOW_PARTS` | Which metadata pieces to show when info footer is enabled. | `['model', 'model_time', 'token', 'tool', 'tool_time']` |
 
-Telegram streaming transport notes:
-
-- `TELEGRAM_STREAM_MODE = "message"` uses the edit/send path and is the most compatible choice across Telegram clients
-- `TELEGRAM_STREAM_MODE = "draft"` uses native `sendMessageDraft` when possible in private chats
-- `TELEGRAM_STREAM_MODE = "auto"` keeps the draft path available while still falling back to message edits
 | `MESSAGE_COMPATIBLE` | Convert tool-call/tool-result history into user-visible message form for compatibility. | `true` |
 | `ENABLE_SEARCH_SOURCE` | Attach provider citations/source links when available. | `true` |
 | `SHOW_THINKING_TEXT` | Show reasoning output when available. | `true` |

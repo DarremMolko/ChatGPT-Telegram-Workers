@@ -128,7 +128,7 @@ Important:
 - `MCP_*` values must be JSON strings, not TOML inline tables
 - deployment-only settings stay in `config.toml` or process env
 - runtime chat-level settings are persisted in Redis and can be changed later through commands
-- `TELEGRAM_STREAM_MODE = "message"` is the safest default for local/Docker use across different Telegram clients
+- Telegram streaming uses the normal message edit/send path in local and Docker deployments
 
 ## Local Startup
 

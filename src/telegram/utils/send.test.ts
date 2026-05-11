@@ -1,7 +1,8 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiRequest = vi.fn();
+const sendMessage = vi.fn();
+const editMessageText = vi.fn();
 
 vi.mock('../../config/env', () => ({
     ENV: {
@@ -12,6 +13,9 @@ vi.mock('../../config/env', () => ({
         TELEGRAPH_AUTHOR_URL: '',
         SCHEDULE_GROUP_DELETE_TYPE: ['tip'],
         SCHEDULE_PRIVATE_DELETE_TYPE: ['tip'],
+        EXTRA_MESSAGE_CONTEXT: false,
+        ENABLE_REPLY_TO_MENTION: false,
+        LOG_POSITION_ON_TOP: true,
     },
 }));
 
@@ -26,7 +30,10 @@ vi.mock('../../log', () => ({
 
 vi.mock('../api', () => ({
     createTelegramBotAPI: () => ({
-        request: apiRequest,
+        token: 'token',
+        sendMessage,
+        editMessageText,
+        request: vi.fn(),
     }),
 }));
 
@@ -53,35 +60,51 @@ function createMessage(chatType: Telegram.ChatType): Telegram.Message {
     } as Telegram.Message;
 }
 
-describe('messageSender.sendDraftRichText', () => {
+describe('messageSender.sendRichText', () => {
     beforeEach(() => {
-        apiRequest.mockReset();
+        sendMessage.mockReset();
+        editMessageText.mockReset();
     });
 
-    it('uses sendMessageDraft in private chats', async () => {
+    it('sends a new message on first stream chunk', async () => {
         const sender = MessageSender.from('token', createMessage('private'));
-        apiRequest.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: true }), {
+        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
         }));
 
-        const response = await sender.sendDraftRichText('streaming reply');
+        const response = await sender.sendRichText('streaming reply');
 
-        expect(response?.ok).toBe(true);
-        expect(apiRequest).toHaveBeenCalledTimes(1);
-        expect(apiRequest).toHaveBeenCalledWith('sendMessageDraft', expect.objectContaining({
+        expect(response.ok).toBe(true);
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
             text: 'streaming reply',
-            draft_id: expect.any(Number),
         }));
+        expect(editMessageText).not.toHaveBeenCalled();
     });
 
-    it('skips native drafts outside private chats', async () => {
-        const sender = MessageSender.from('token', createMessage('group'));
+    it('edits the existing message on subsequent stream chunks', async () => {
+        const sender = MessageSender.from('token', createMessage('private'));
+        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        editMessageText.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
 
-        const response = await sender.sendDraftRichText('streaming reply');
+        await sender.sendRichText('first chunk');
+        const response = await sender.sendRichText('second chunk');
 
-        expect(response).toBeNull();
-        expect(apiRequest).not.toHaveBeenCalled();
+        expect(response.ok).toBe(true);
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+        expect(editMessageText).toHaveBeenCalledTimes(1);
+        expect(editMessageText).toHaveBeenCalledWith(expect.objectContaining({
+            chat_id: 123,
+            message_id: 99,
+            text: 'second chunk',
+        }));
     });
 });

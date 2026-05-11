@@ -230,8 +230,6 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     let sentPromise = null as Promise<Response | undefined> | null;
     let nextEnableTime: number | null = null;
     const isMessageSender = sender instanceof MessageSender;
-    const configuredTransport = resolveTelegramStreamTransport();
-    let streamTransport: 'auto' | 'draft' | 'message' = isMessageSender ? configuredTransport : 'message';
     const sendInterval = isMessageSender ? ENV.TELEGRAM_MIN_STREAM_INTERVAL : ENV.INLINE_QUERY_SEND_INTERVAL;
     const isSendTelegraph = (text: string) => {
         return isMessageSender
@@ -325,23 +323,6 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
             const data = mergeLogMessages(text, context?.USER_CONFIG);
             expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
             log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
-            if (isMessageSender && streamTransport !== 'message') {
-                const draftResponse = await sender.sendDraftRichText(data, undefined, expandParams);
-                if (draftResponse) {
-                    streamTransport = 'draft';
-                    sentPromise = Promise.resolve(draftResponse);
-                    if (draftResponse.status === 429) {
-                        const retryAfter = Number.parseInt(draftResponse.headers.get('Retry-After') || '');
-                        if (retryAfter) {
-                            nextEnableTime = Date.now() + retryAfter * 1000;
-                        }
-                    }
-                    return;
-                }
-                streamTransport = 'message';
-                sender.resetDraftState();
-            }
-
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
             sentPromise = sender.sendRichText(data, undefined, 'chat', expandParams);
             const resp = await sentPromise as Response;
@@ -369,7 +350,6 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         log.info('--- start end ---');
         streamSender.clearHeartbeat();
         await sentPromise;
-        isMessageSender && sender.resetDraftState();
         if ((nextEnableTime || 0) > Date.now()) {
             log.info(`Need await: ${(nextEnableTime || 0) - Date.now()}ms`);
             await waitUntil(nextEnableTime! + 10);
@@ -418,17 +398,6 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     };
 
     return streamSender as unknown as ChatStreamTextHandler;
-}
-
-function resolveTelegramStreamTransport(): 'auto' | 'draft' | 'message' {
-    switch (ENV.TELEGRAM_STREAM_MODE) {
-        case 'auto':
-        case 'draft':
-        case 'message':
-            return ENV.TELEGRAM_STREAM_MODE;
-        default:
-            return 'message';
-    }
 }
 
 async function sendTelegraph(sendContext: {

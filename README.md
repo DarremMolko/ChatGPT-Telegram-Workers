@@ -17,7 +17,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Area | What remains |
 | --- | --- |
 | Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing |
-| Streaming | Configurable Telegram streaming transport: message edits by default, with optional native draft streaming |
+| Streaming | Telegram replies stream through the normal message edit/send path |
 | Images | `/img` generation for both provider families; reply-to-image editing through the OpenAI image path |
 | Speech | Telegram voice/audio input via STT, text-to-speech output via `/tts`, and configurable text/audio workflows |
 | Tools | Generic MCP groups through `MCP_*` and OpenAI Responses built-in tools through `USE_OPENAI_BUILDIN` |
@@ -126,12 +126,6 @@ If you use `polling` mode:
 
 - no `/init` step is needed
 - the process reads updates directly from Telegram
-
-Streaming transport:
-
-- `TELEGRAM_STREAM_MODE = "message"` uses normal message sends/edits and is the default
-- `TELEGRAM_STREAM_MODE = "draft"` prefers Telegram native draft streaming in private chats
-- `TELEGRAM_STREAM_MODE = "auto"` allows the runtime to choose the draft path when possible
 
 ## Scheduled Cleanup Examples
 
