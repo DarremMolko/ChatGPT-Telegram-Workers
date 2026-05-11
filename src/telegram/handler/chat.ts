@@ -206,7 +206,8 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     let sentPromise = null as Promise<Response | undefined> | null;
     let nextEnableTime: number | null = null;
     const isMessageSender = sender instanceof MessageSender;
-    let streamTransport: 'auto' | 'draft' | 'message' = isMessageSender ? 'auto' : 'message';
+    const configuredTransport = resolveTelegramStreamTransport();
+    let streamTransport: 'auto' | 'draft' | 'message' = isMessageSender ? configuredTransport : 'message';
     const sendInterval = isMessageSender ? ENV.TELEGRAM_MIN_STREAM_INTERVAL : ENV.INLINE_QUERY_SEND_INTERVAL;
     const isSendTelegraph = (text: string) => {
         return isMessageSender
@@ -392,6 +393,17 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     };
 
     return streamSender as unknown as ChatStreamTextHandler;
+}
+
+function resolveTelegramStreamTransport(): 'auto' | 'draft' | 'message' {
+    switch (ENV.TELEGRAM_STREAM_MODE) {
+        case 'auto':
+        case 'draft':
+        case 'message':
+            return ENV.TELEGRAM_STREAM_MODE;
+        default:
+            return 'message';
+    }
 }
 
 async function sendTelegraph(sendContext: {
