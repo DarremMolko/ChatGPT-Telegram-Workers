@@ -28,3 +28,7 @@ export function renderResponseBreak(content: string) {
     }
     return '\n';
 }
+
+export function trimToolTransitionContent(content: string) {
+    return content.replace(/\n\s*\n$/g, '').replace(/\n+$/g, '');
+}

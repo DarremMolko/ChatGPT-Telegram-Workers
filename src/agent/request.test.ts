@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderResponseBreak, renderThinkingTag } from './thinking_format';
+import { renderResponseBreak, renderThinkingTag, trimToolTransitionContent } from './thinking_format';
 
 describe('renderThinkingTag', () => {
     it('starts a new line when previous streamed text already exists', () => {
@@ -27,5 +27,15 @@ describe('renderResponseBreak', () => {
 
     it('does not add a break after a segmentation boundary', () => {
         expect(renderResponseBreak('//SEGMENTATIONMARK//\n')).toBe('');
+    });
+});
+
+describe('trimToolTransitionContent', () => {
+    it('removes trailing blank lines before resumed tool output', () => {
+        expect(trimToolTransitionContent('Voy a buscar herramientas.\n\n')).toBe('Voy a buscar herramientas.');
+    });
+
+    it('preserves inner line breaks', () => {
+        expect(trimToolTransitionContent('Linea 1\nLinea 2\n\n')).toBe('Linea 1\nLinea 2');
     });
 });

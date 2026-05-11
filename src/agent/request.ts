@@ -12,7 +12,7 @@ import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { Stream } from './stream';
-import { renderResponseBreak, renderThinkingTag } from './thinking_format';
+import { renderResponseBreak, renderThinkingTag, trimToolTransitionContent } from './thinking_format';
 
 export interface SseChatCompatibleOptions {
     streamBuilder?: (resp: Response, controller: AbortController) => Stream;
@@ -385,6 +385,9 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 return '';
             case 'tool-call':
                 hasPendingToolTransition = messageInfo.content.trim().length > 0;
+                if (hasPendingToolTransition) {
+                    messageInfo.content = trimToolTransitionContent(messageInfo.content);
+                }
                 return '';
             case 'source':
                 if (ENV.ENABLE_SEARCH_SOURCE && data.sourceType === 'url') {
