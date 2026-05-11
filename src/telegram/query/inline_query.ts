@@ -69,7 +69,7 @@ export class AnswerChatInlineQuery implements AnswerInlineQueryType {
 }
 
 class CheckInlineQueryWhiteList implements InlineQueryHandler<InlineQueryContext> {
-    handle = async (inlineQuery: Telegram.InlineQuery, context: InlineQueryContext): Promise<Response | null> => {
+    handle = async (_inlineQuery: Telegram.InlineQuery, context: InlineQueryContext): Promise<Response | null> => {
         if (ENV.CHAT_WHITE_LIST.includes(`${context.from.id}`)) {
             return null;
         }

@@ -1,4 +1,3 @@
-/* eslint-disable unused-imports/no-unused-vars */
 import { ENV } from './config/env';
 import { createRouter } from './route';
 import { tasks } from './schedule';
@@ -24,7 +23,7 @@ export default {
             }), { status: 500 });
         }
     },
-    async scheduled(event: Event, env: any, ctx: any) {
+    async scheduled(_event: Event, env: any, _ctx: any) {
         try {
             attachRedis(env);
             const promises = [];

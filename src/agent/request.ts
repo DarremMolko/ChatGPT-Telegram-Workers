@@ -221,7 +221,6 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         activeTools,
         onStream,
         toolChoice: toolChoice || [],
-        chatModel: model.modelId,
         messageInfo,
     });
 

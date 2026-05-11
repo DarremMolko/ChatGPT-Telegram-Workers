@@ -1,5 +1,5 @@
 /* eslint-disable no-case-declarations */
-/* eslint-disable unused-imports/no-unused-vars */
+
 import type { LanguageModelV3, LanguageModelV3CallOptions, LanguageModelV3Prompt } from '@ai-sdk/provider';
 import type { ModelMessage, StepResult, TextStreamPart, ToolCallPart, ToolResultPart } from 'ai';
 import type { AgentUserConfig } from '../config/env';
@@ -16,7 +16,6 @@ import { resolveMcpTools } from '../mcp/tools';
 import { sendToolResult } from '../telegram/utils/tool_result';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 
-type Writeable<T> = { -readonly [P in keyof T as P extends 'modelId' ? P : never]: T[P] };
 export interface MessageInfo {
     content: string;
     occured_error?: boolean;
@@ -24,7 +23,7 @@ export interface MessageInfo {
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
 
-export async function AIMiddleware({ config, activeTools, onStream, toolChoice, messageInfo, chatModel }: { config: AgentUserConfig; activeTools: string[]; onStream: ChatStreamTextHandler | null; toolChoice: ToolChoice[] | []; messageInfo: MessageInfo; chatModel: string }): Promise<Record<string, ((...args: any[]) => any)>> {
+export async function AIMiddleware({ config, activeTools, onStream, toolChoice, messageInfo }: { config: AgentUserConfig; activeTools: string[]; onStream: ChatStreamTextHandler | null; toolChoice: ToolChoice[] | []; messageInfo: MessageInfo }): Promise<Record<string, ((...args: any[]) => any)>> {
     let step = 0;
     let rawSystemPrompt: string | undefined;
     const extractReasoning = extractReasoningMiddleware({ tagName: 'think' });
@@ -362,15 +361,6 @@ function warpMessages(params: LanguageModelV3CallOptions, activeTools: string[],
     }
     if (isResponseApi) {
         params.prompt = handleResponseApiMessage(messages);
-    }
-}
-
-function warpModel(model: LanguageModelV3, config: AgentUserConfig, activeTools: string[], toolChoice: ToolChoice, chatModel: string) {
-    const mutableModel = model as Writeable<LanguageModelV3>;
-    const effectiveModel = (activeTools.length > 0 && toolChoice?.type !== 'none') ? (config.TOOL_MODEL || chatModel) : chatModel;
-    if (effectiveModel !== mutableModel.modelId) {
-        let newModel: LanguageModelV3 | undefined;
-        mutableModel.modelId = newModel?.modelId ?? effectiveModel;
     }
 }
 

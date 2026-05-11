@@ -4,7 +4,6 @@ import type { ChatStreamTextHandler, HistoryModifier, ImageResult, LLMChatReques
 import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { ChosenInlineSender } from '../utils/send';
-import type { UnionData } from '../utils/tg_utils';
 import type { MessageHandler } from './types';
 import { APICallError } from 'ai';
 import { loadASRLLM, loadChatLLM, loadImageGen, loadTTSLLM, TTS_AGENTS } from '../../agent';
@@ -523,7 +522,7 @@ async function handleText(
 
 async function handleTextToImage(
     message: Telegram.Message,
-    params: LLMChatRequestParams,
+    _params: LLMChatRequestParams,
     context: WorkerContext,
     streamSender: ChatStreamTextHandler,
     _handleKey: string,
@@ -629,12 +628,6 @@ export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: 
         return sender.sendMediaGroup(medias, files);
     }
     return sender.sendMediaGroup(medias);
-}
-
-function _injectHistory(context: WorkerContext, result: UnionData, nextType: string = 'text') {
-    if (context.MIDDLE_CONTEXT.history.at(-1)?.role === 'user' || nextType !== 'text')
-        return;
-    context.MIDDLE_CONTEXT.history.push({ role: 'user', content: result.text || '', ...(result.url && result.url.length > 0 && { images: result.url }) });
 }
 
 export async function tts(text: string, config: AgentUserConfig): Promise<Blob> {

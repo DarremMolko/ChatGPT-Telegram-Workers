@@ -12,7 +12,7 @@ type RouterHandler = (req: RouterRequest, ...args: any) => Promise<Response | nu
 export class Router {
     private readonly routes: [string, RegExp, RouterHandler[], string][];
     private readonly base: string;
-    errorHandler: (req: RouterRequest, error: Error) => Promise<Response> | Response = async (req, error) => new Response(errorToString(error), { status: 500 });
+    errorHandler: (req: RouterRequest, error: Error) => Promise<Response> | Response = async (_req, error) => new Response(errorToString(error), { status: 500 });
 
     constructor({ base = '', routes = [], ...other } = {}) {
         this.routes = routes;
