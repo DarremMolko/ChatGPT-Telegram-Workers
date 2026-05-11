@@ -12,17 +12,17 @@ describe('renderThinkingTag', () => {
 
     it('adds a blank line before thinking after prior tool chatter', () => {
         expect(renderThinkingTag('Voy a buscar herramientas.', '>`Thinking\\.\\.\\.`', { separateFromPrevious: true }))
-            .toBe('\n\n>`Thinking\\.\\.\\.`');
+            .toBe('\n>`Thinking\\.\\.\\.`');
     });
 });
 
 describe('renderResponseBreak', () => {
-    it('adds a blank line before resumed final text after tool chatter', () => {
-        expect(renderResponseBreak('Voy a extraer el contenido del articulo.')).toBe('\n\n');
+    it('adds a single newline before resumed final text after tool chatter', () => {
+        expect(renderResponseBreak('Voy a extraer el contenido del articulo.')).toBe('\n');
     });
 
     it('reuses an existing trailing newline when present', () => {
-        expect(renderResponseBreak('Voy a extraer el contenido del articulo.\n')).toBe('\n');
+        expect(renderResponseBreak('Voy a extraer el contenido del articulo.\n')).toBe('');
     });
 
     it('does not add a break after a segmentation boundary', () => {

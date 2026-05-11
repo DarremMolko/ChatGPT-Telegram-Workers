@@ -13,7 +13,7 @@ export function renderThinkingTag(
         return thinkingTag;
     }
     if (separateFromPrevious) {
-        return content.endsWith('\n') ? `\n${thinkingTag}` : `\n\n${thinkingTag}`;
+        return content.endsWith('\n') ? thinkingTag : `\n${thinkingTag}`;
     }
     return `\n${thinkingTag}`;
 }
@@ -23,11 +23,8 @@ export function renderResponseBreak(content: string) {
     if (trimmedContent.length === 0 || trimmedContent.endsWith(SEGMENTATION_MARK)) {
         return '';
     }
-    if (content.endsWith('\n\n')) {
+    if (content.endsWith('\n')) {
         return '';
     }
-    if (content.endsWith('\n')) {
-        return '\n';
-    }
-    return '\n\n';
+    return '\n';
 }
