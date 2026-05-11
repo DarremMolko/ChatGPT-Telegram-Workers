@@ -242,7 +242,8 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         }
     } else {
         const result = await generateText(handledParams);
-        contentFull = `${result.reasoning ? `>\`Thought for several seconds\`\n>${(result.reasoningText ?? '').trim().replace(/\n/g, '\n>')}\n>✹\n` : ''}${result.text}`;
+        const reasoningText = (result.reasoningText ?? '').trim();
+        contentFull = `${reasoningText ? `>\`Thought for several seconds\`\n>${reasoningText.replace(/\n/g, '\n>')}\n>✹\n` : ''}${result.text}`;
         responseMessages = result.response.messages;
         contentFull = metaDataExtractor(result.providerMetadata, model.provider, contentFull);
     }
@@ -316,6 +317,12 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     return '';
                 }
                 thinkingStart = false;
+                if (!hasEmittedReasoningText) {
+                    messageInfo.content = messageInfo.content
+                        .replace(thinkingTag, '')
+                        .replace(/\n+$/, '');
+                    return '';
+                }
                 const thinkingTime = ((Date.now() - thinkingStartTime!) / 1e3).toFixed(1);
                 messageInfo.content = messageInfo.content
                     .replace(thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
