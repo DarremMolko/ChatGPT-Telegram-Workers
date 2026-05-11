@@ -43,4 +43,20 @@ describe('getLog tool formatting', () => {
         expect(output).toContain('call_tool');
         expect(output).toContain('4.9s');
     });
+
+    it('shows full tool args without truncation', () => {
+        const log = getLogSingleton({ config });
+        log.model = 'claude-opus-4.6-vapi';
+        log.start_time = 0;
+        log.end_time = 1000;
+        log.functions.push({
+            name: 'call_tool',
+            args: ['weather-get_weather_details', { city: 'Paraná, Argentina', include_forecast: true }],
+        });
+
+        const output = getLog(config);
+
+        expect(output).toContain('"city":"Paraná, Argentina"');
+        expect(output).toContain('"include_forecast":true');
+    });
 });

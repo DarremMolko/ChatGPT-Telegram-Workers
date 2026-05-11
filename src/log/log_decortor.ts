@@ -107,7 +107,7 @@ export function getLog(context: AgentUserConfig, { onlyModel = false, isParagrap
                 const duration = show.tool_time && typeof time === 'number'
                     ? ` ${time}s`
                     : '';
-                return `${name}: ${argsStr.substring(0, 80)}${duration}${error ? `\n[ERROR: ${error}]` : ''}`;
+                return `${name}: ${argsStr}${duration}${error ? `\n[ERROR: ${error}]` : ''}`;
             }).join('\n');
         }
 
