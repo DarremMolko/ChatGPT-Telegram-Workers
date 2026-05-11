@@ -255,6 +255,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     let thinkingStartTime: undefined | number;
     let reasoningBuffer = '';
     let lastOutputTime = 0;
+    let hasEmittedReasoningText = false;
     const thinkingTag = '**>`Thinking\\.\\.\\.`';
     const sources: Array<{ url: string; title: string }> = [];
 
@@ -262,6 +263,10 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     let inlineThoughtBuffer = '';
 
     (messageInfo as any).sources = sources;
+
+    const renderQuotedChunk = (text: string, isStart: boolean) => {
+        return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
+    };
 
     return (data: TextStreamPart<any>) => {
         switch (data.type) {
@@ -274,6 +279,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     thinkingStartTime = Date.now();
                     reasoningBuffer = '';
                     lastOutputTime = Date.now();
+                    hasEmittedReasoningText = false;
                     return thinkingTag;
                 }
                 return '';
@@ -286,9 +292,10 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 if (reasoningBuffer.length >= 50
                     || /[。！？.!?]\s*$/.test(reasoningBuffer.trim())
                     || (now - lastOutputTime > 500 && reasoningBuffer.length >= 20)) {
-                    const output = `\n>${reasoningBuffer.replace(/\n/g, '\n>')}`;
+                    const output = renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText);
                     reasoningBuffer = '';
                     lastOutputTime = now;
+                    hasEmittedReasoningText = true;
                     return output;
                 }
                 return '';
@@ -298,8 +305,9 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 }
                 let output = '';
                 if (reasoningBuffer.length > 0) {
-                    output = `\n>${reasoningBuffer.replace(/\n/g, '\n>')}`;
+                    output = renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText);
                     reasoningBuffer = '';
+                    hasEmittedReasoningText = true;
                 }
                 return output;
             case 'text-start':
@@ -329,7 +337,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     detectedInlineThought = true;
                     inlineThoughtBuffer = data.text;
                     log.info('[thinkingExtractor] Detected inline thought text from AI model');
-                    return `${thinkingTag}\n>${data.text.replace(/\n/g, '\n>')}`;
+                    return `${thinkingTag}${renderQuotedChunk(data.text, true)}`;
                 }
 
                 if (detectedInlineThought) {
@@ -355,14 +363,14 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                                 const splitIndex = lastNewlineMatch.index! + lastNewlineMatch[0].length;
                                 const thoughtPart = data.text.slice(0, splitIndex);
                                 const responsePart = data.text.slice(splitIndex);
-                                return `${thoughtPart.replace(/\n/g, '\n>')}\n>✹\n${SEGMENTATION_MARK}\n${responsePart}`;
+                                return `${renderQuotedChunk(thoughtPart, false)}\n>✹\n${SEGMENTATION_MARK}\n${responsePart}`;
                             }
                         }
 
-                        return `${data.text.replace(/\n/g, '\n>')}\n>✹\n${SEGMENTATION_MARK}\n`;
+                        return `${renderQuotedChunk(data.text, false)}\n>✹\n${SEGMENTATION_MARK}\n`;
                     }
 
-                    return `\n>${data.text.replace(/\n/g, '\n>')}`;
+                    return renderQuotedChunk(data.text, false);
                 }
 
                 return data.text;
