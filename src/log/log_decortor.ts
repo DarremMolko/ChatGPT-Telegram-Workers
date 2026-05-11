@@ -104,7 +104,10 @@ export function getLog(context: AgentUserConfig, { onlyModel = false, isParagrap
             logStr += '\n';
             logStr += log.functions.map(({ name, args, error, time }) => {
                 const argsStr = args ? JSON.stringify(args) : '[]';
-                return `${name}: ${argsStr.substring(0, 80)} ${time}s ${error ? `\n[ERROR: ${error}]` : ''}`;
+                const duration = show.tool_time && typeof time === 'number'
+                    ? ` ${time}s`
+                    : '';
+                return `${name}: ${argsStr.substring(0, 80)}${duration}${error ? `\n[ERROR: ${error}]` : ''}`;
             }).join('\n');
         }
 
@@ -140,7 +143,7 @@ export function clearLog(context: AgentUserConfig) {
 export interface LogStruct {
     trace_id: string;
     model: string;
-    functions: { name: string; args: any; error?: string; time: number }[];
+    functions: { name: string; args: any; error?: string; time?: number }[];
     tokens?: { prompt: number; completion: number; reasoning?: number; cached?: number };
     start_time: number;
     end_time?: number;
