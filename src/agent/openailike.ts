@@ -34,6 +34,7 @@ export class OpenAILike extends OpenAILikeBase implements ChatAgent {
         const model = await createLlmModel(modelId, context);
         return requestChatCompletionsV2(await warpLLMParams({
             model,
+            system: params.system,
             messages: params.messages,
             cache: params.cache,
         }, context), onStream);

@@ -45,6 +45,7 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
 
         return requestChatCompletionsV2(await warpLLMParams({
             model,
+            system: params.system,
             messages: params.messages,
         }, context), onStream);
     };
