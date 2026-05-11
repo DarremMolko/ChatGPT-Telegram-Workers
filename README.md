@@ -22,7 +22,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Speech | Telegram voice/audio input via STT, text-to-speech output via `/tts`, and configurable text/audio workflows |
 | Tools | Generic MCP groups through `MCP_*` and OpenAI Responses built-in tools through `USE_OPENAI_BUILDIN` |
 | Persistence | Redis-backed chat history, stored user config, scheduled deletions, and transient Telegram state |
-| Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, per-chat blocklists, and history export |
+| Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, `/stop`, per-chat blocklists, and history export |
 | Deployment | Local webhook mode, local polling mode, Docker, and Docker Compose |
 
 ## How Configuration Works
@@ -186,6 +186,7 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/start` | Show your chat ID and start a new chat | Useful for whitelist setup |
 | `/new` | Clear the current chat history | Resets the active conversation |
 | `/redo [text]` | Re-run the previous user turn | Optional replacement text |
+| `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
 | `/img <prompt>` | Generate an image | Reply to an image to edit it through OpenAI image editing |
 | `/tts [-v voice] <text>` | Generate speech from text | Uses the active TTS provider |
 | `/set ...` | Apply shortcut-based stored or temporary config changes | Supports inline message continuation |

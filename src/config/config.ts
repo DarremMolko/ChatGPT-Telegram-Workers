@@ -78,8 +78,6 @@ export class EnvironmentConfig {
     HIDE_MIDDLE_MESSAGE = false;
     // Chat trigger prefix, it will trigger group message and be deleted
     CHAT_TRIGGER_PREFIX = '';
-    // Show call info
-    CALL_INFO = true;
     // When the length reaches the set value, the group will send a telegraph article. If less than 0, it will not be sent
     TELEGRAPH_NUM_LIMIT = -1;
     // Telegraph scope
@@ -348,9 +346,6 @@ export class ExtraUserConfig {
     AUDIO_OUTPUT: 'audio' | 'text' = 'text';
     // Audio contains text
     AUDIO_CONTAINS_TEXT = true;
-    // Cover message role, the key is the model name, separated by commas, and the value is overridden_role:new_role.
-    // example: COVER_MESSAGE_ROLE = { 'gpt-5.4,gpt-5.4-mini': 'system:user' };
-    COVER_MESSAGE_ROLE: Record<string, string> = {};
     // max history length, default is 10
     MAX_HISTORY_LENGTH = 10;
     // whether to generate long text (limited by MAX_STEPS)
