@@ -189,7 +189,7 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
 | `/img <prompt>` | Generate an image | Reply to an image to edit it through OpenAI image editing |
 | `/tts [-v voice] <text>` | Generate speech from text | Uses the active TTS provider |
-| `/set ...` | Apply shortcut-based stored or temporary config changes | Supports inline message continuation |
+| `/set ...` | Apply shortcut-based stored or temporary config changes | Supports inline message continuation; `RELAX_AUTH_KEYS` only affects temporary `/set` usage |
 | `/setenv KEY=VALUE` | Store one user-config key | Works on the stored user-config surface |
 | `/setenvs {...}` | Store multiple user-config keys | JSON input |
 | `/delenv KEY` | Delete one stored user-config key | Removes the override |
@@ -201,6 +201,8 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/history [n]` | Export stored history as JSON | Whitelist-only |
 | `/block` | Add or remove a blocked user ID | Whitelist-only |
 | `/blocklist` | Show or clear the blocklist | Whitelist-only |
+
+`RELAX_AUTH_KEYS` only changes the auth behavior of temporary `/set` usage with trailing text. Example: `/set -tp 0.2 tell me a joke`. It does not relax persisted `/set` updates such as `/set -tp 0.2`, and it does not affect `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, or `/settings`.
 
 ## Tooling
 

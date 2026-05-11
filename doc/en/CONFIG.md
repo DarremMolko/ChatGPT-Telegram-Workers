@@ -192,7 +192,7 @@ This creates `/fast`.
 | `DEBUG_LOG_MAX_STRING_LENGTH` | Max string length written to the debug log file before truncation. | `8000` |
 | `DEV_MODE` | Expose additional debug output in commands such as `/system`. | `false` |
 | `HIDE_MIDDLE_MESSAGE` | Hide intermediate transcription/tool status messages where possible. | `false` |
-| `RELAX_AUTH_KEYS` | Allow some `/set` keys to skip the stronger auth path when used temporarily. | `[]` |
+| `RELAX_AUTH_KEYS` | Allow listed canonical config keys to skip the stronger `/set` auth path for temporary `/set` usage only. Persisted `/set` updates still require auth. | `[]` |
 | `INLINE_QUERY_SEND_INTERVAL` | Stream update interval used for inline query answers. | `2000` |
 | `INLINE_QUERY_SHOW_INFO` | Show response info blocks in inline-query mode. | `false` |
 | `CALLBACK_QUERY_RC` | `/settings` inline keyboard layout in `rows x columns` form. | `'7x2'` |
@@ -203,6 +203,15 @@ Scheduled deletion notes:
 - `CRON_CHECK_TIME` controls how often the cleanup task runs, not how long messages live
 - `SCHEDULE_GROUP_DELETE_TYPE` and `SCHEDULE_PRIVATE_DELETE_TYPE` accept `tip` and `chat`
 - use `[]` to disable scheduled deletion tagging for that chat scope
+
+`RELAX_AUTH_KEYS` notes:
+
+- It only affects `/set`
+- It only relaxes temporary `/set` usage with trailing text, for example `/set -tp 0.2 tell me a joke`
+- It does not relax persisted `/set` usage with no trailing text, for example `/set -tp 0.2`
+- It does not affect `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, or `/settings`
+- List canonical config keys such as `CHAT_TEMPERATURE`, not shortcut aliases such as `tp`
+- It is mainly relevant in shared group mode when `GROUP_CHAT_BOT_SHARE_MODE = true`
 
 Examples:
 
@@ -524,6 +533,19 @@ Default shortcut mapping:
 ```
 
 These shortcuts live in `MAPPING_KEY` and can be changed with `/map`.
+
+`RELAX_AUTH_KEYS` works with the resolved config key after shortcut expansion. Example:
+
+```toml
+[vars]
+RELAX_AUTH_KEYS = ["CHAT_TEMPERATURE"]
+```
+
+With that config:
+
+- `/set -tp 0.2 tell me a joke` can skip the stronger group auth path
+- `/set -tp 0.2` still requires auth because it persists the setting
+- `/set -m gpt-5.4-mini tell me a joke` still requires auth unless `CHAT_MODEL` is also listed
 
 ## Examples
 
