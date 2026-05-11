@@ -80,7 +80,7 @@ Important:
 | Generic tools | `MCP_*`, `USE_MCP`, `TOOL_MODEL` |
 | OpenAI built-in tools | `USE_OPENAI_BUILDIN`, `OPENAI_ENABLE_*` |
 | Group behavior | `CHAT_GROUP_WHITE_LIST`, `GROUP_CHAT_BOT_ENABLE`, `GROUP_CHAT_BOT_SHARE_MODE` |
-| Persistence and cleanup | `UPSTASH_REDIS_REST_*`, `MAX_HISTORY_LENGTH`, `EXPIRED_TIME`, `CRON_CHECK_TIME` |
+| Persistence and cleanup | `REDIS_URL`, `MAX_HISTORY_LENGTH`, `EXPIRED_TIME`, `CRON_CHECK_TIME` |
 | Inline settings and shortcuts | `MAPPING_KEY`, `MAPPING_VALUE`, `ENVS_VARIABLES`, `CALLBACK_MENU` |
 
 ## Required Settings
@@ -89,8 +89,7 @@ Important:
 | --- | --- | --- |
 | `TELEGRAM_AVAILABLE_TOKENS` | Comma-separated or array-form Telegram bot tokens. | `[]` |
 | `CHAT_WHITE_LIST` | User IDs allowed to use private chats and admin the stored user-config surface. | `[]` |
-| `UPSTASH_REDIS_REST_URL` | Required Upstash Redis REST endpoint. | `''` |
-| `UPSTASH_REDIS_REST_TOKEN` | Required Upstash Redis REST token. | `''` |
+| `REDIS_URL` | Required native Redis connection URL. Prefer `rediss://` for hosted Redis with TLS. | `''` |
 | `OPENAI_API_KEY` | OpenAI API key list. Required when any OpenAI capability is used. | `[]` |
 | `OAILIKE_API_KEY` | OpenAI-compatible API key. Required when `oailike` is used. | `null` |
 
@@ -549,8 +548,7 @@ These shortcuts live in `MAPPING_KEY` and can be changed with `/map`.
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
-UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
+REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 OPENAI_API_KEY = "sk-..."
 OPENAI_API_BASE = "https://api.openai.com/v1"
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"

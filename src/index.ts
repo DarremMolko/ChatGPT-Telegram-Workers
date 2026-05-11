@@ -5,7 +5,7 @@ import { tasks } from './schedule';
 import { createRedisStorage } from './utils/cache/redis_store';
 
 function attachRedis(env: any) {
-    if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
+    if (env.REDIS_URL) {
         env.REDIS = createRedisStorage(env).redis;
     }
 }

@@ -89,8 +89,7 @@ Minimal example:
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
-UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
+REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
@@ -102,8 +101,7 @@ OpenAI-compatible example:
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
-UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
+REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 
 AI_CHAT_PROVIDER = "oailike"
 AI_IMAGE_PROVIDER = "oailike"
@@ -126,7 +124,7 @@ MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
 
 Important:
 
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are required
+- `REDIS_URL` is required
 - `MCP_*` values must be JSON strings, not TOML inline tables
 - deployment-only settings stay in `config.toml` or process env
 - runtime chat-level settings are persisted in Redis and can be changed later through commands

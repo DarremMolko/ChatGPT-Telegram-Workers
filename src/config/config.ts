@@ -86,6 +86,8 @@ export class EnvironmentConfig {
     TELEGRAPH_AUTHOR_URL = '';
     // Disable link preview
     DISABLE_WEB_PREVIEW = false;
+    // Native Redis connection URL. Prefer rediss:// for hosted Redis with TLS.
+    REDIS_URL = '';
     // Message expired time, scale: minute
     EXPIRED_TIME = -1;
     // Schedule check time use cron expression, for example '*/10 0-2,6-23 * * *' means every ten minutes from 0 to 2 and from 6 to 23

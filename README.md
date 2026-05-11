@@ -9,7 +9,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 - English only
 - `openai` and `oailike` providers only
 - local process and Docker deployment only
-- Upstash Redis only
+- Redis only
 - generic MCP plus OpenAI Responses built-in tools only
 
 ## Capability Overview
@@ -63,8 +63,7 @@ cp config.example.toml config.toml
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
-UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
+REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
@@ -76,8 +75,7 @@ OPENAI_VISION_MODEL = "gpt-5.4-mini"
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
-UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
+REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 
 AI_CHAT_PROVIDER = "oailike"
 AI_IMAGE_PROVIDER = "oailike"
@@ -233,7 +231,7 @@ Non-chat endpoints such as `/models`, `/images`, `/audio`, embeddings, and reran
 
 ## Persistence And State
 
-Upstash Redis stores:
+Redis stores:
 
 - chat history
 - stored per-chat user configuration
@@ -267,7 +265,7 @@ src/
 
 - English is the only supported interface language.
 - The repository no longer contains Cloudflare, Vercel, or multi-provider deployment paths.
-- The local runtime requires Upstash Redis. File-backed, SQLite, and in-memory storage paths were removed.
+- The local runtime requires Redis through `REDIS_URL`. File-backed, SQLite, and in-memory storage paths were removed.
 - Unsupported legacy provider selections are normalized back to supported ones at runtime.
 
 ## License
