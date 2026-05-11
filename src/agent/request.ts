@@ -12,7 +12,7 @@ import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { Stream } from './stream';
-import { renderThinkingTag } from './thinking_format';
+import { renderResponseBreak, renderThinkingTag } from './thinking_format';
 
 export interface SseChatCompatibleOptions {
     streamBuilder?: (resp: Response, controller: AbortController) => Stream;
@@ -261,6 +261,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
 
     let detectedInlineThought = false;
     let inlineThoughtBuffer = '';
+    let hasPendingToolTransition = false;
 
     (messageInfo as any).sources = sources;
 
@@ -280,7 +281,9 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     reasoningBuffer = '';
                     lastOutputTime = Date.now();
                     hasEmittedReasoningText = false;
-                    return renderThinkingTag(messageInfo.content, thinkingTag);
+                    const output = renderThinkingTag(messageInfo.content, thinkingTag, { separateFromPrevious: hasPendingToolTransition });
+                    hasPendingToolTransition = false;
+                    return output;
                 }
                 return '';
             case 'reasoning-delta':
@@ -313,6 +316,10 @@ function thinkingExtractor(messageInfo: MessageInfo) {
             case 'text-start':
                 log.info('[thinkingExtractor] text-start event');
                 if (!thinkingStart) {
+                    if (hasPendingToolTransition) {
+                        hasPendingToolTransition = false;
+                        return renderResponseBreak(messageInfo.content);
+                    }
                     return '';
                 }
                 thinkingStart = false;
@@ -375,6 +382,9 @@ function thinkingExtractor(messageInfo: MessageInfo) {
 
                 return data.text;
             case 'text-end':
+                return '';
+            case 'tool-call':
+                hasPendingToolTransition = messageInfo.content.trim().length > 0;
                 return '';
             case 'source':
                 if (ENV.ENABLE_SEARCH_SOURCE && data.sourceType === 'url') {
