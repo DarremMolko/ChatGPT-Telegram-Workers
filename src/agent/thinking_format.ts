@@ -32,3 +32,7 @@ export function renderResponseBreak(content: string) {
 export function trimToolTransitionContent(content: string) {
     return content.replace(/\n\s*\n$/g, '').replace(/\n+$/g, '');
 }
+
+export function trimLeadingToolTransitionText(text: string) {
+    return text.replace(/^\n+/, '');
+}

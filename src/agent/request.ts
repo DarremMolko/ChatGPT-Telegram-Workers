@@ -12,7 +12,7 @@ import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { Stream } from './stream';
-import { renderResponseBreak, renderThinkingTag, trimToolTransitionContent } from './thinking_format';
+import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 export interface SseChatCompatibleOptions {
     streamBuilder?: (resp: Response, controller: AbortController) => Stream;
@@ -262,6 +262,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     let detectedInlineThought = false;
     let inlineThoughtBuffer = '';
     let hasPendingToolTransition = false;
+    let shouldTrimLeadingToolTransitionText = false;
 
     (messageInfo as any).sources = sources;
 
@@ -318,6 +319,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 if (!thinkingStart) {
                     if (hasPendingToolTransition) {
                         hasPendingToolTransition = false;
+                        shouldTrimLeadingToolTransitionText = true;
                         return renderResponseBreak(messageInfo.content);
                     }
                     return '';
@@ -330,25 +332,33 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     .replace(/(\n>){3,}$/g, '\n>\n>');
                 return `\n>✹\n${SEGMENTATION_MARK}\n`;
             case 'text-delta':
-                log.debug(`[thinkingExtractor] text-delta: "${data.text}"`);
+                let textDelta = data.text;
+                if (shouldTrimLeadingToolTransitionText) {
+                    textDelta = trimLeadingToolTransitionText(textDelta);
+                    if (textDelta.length === 0) {
+                        return '';
+                    }
+                    shouldTrimLeadingToolTransitionText = false;
+                }
+                log.debug(`[thinkingExtractor] text-delta: "${textDelta}"`);
 
                 if (!ENV.SHOW_THINKING_TEXT) {
-                    return data.text;
+                    return textDelta;
                 }
 
                 const isStartOfMessage = messageInfo.content.trim().length === 0
                     || messageInfo.content.endsWith(`${SEGMENTATION_MARK}\n`);
                 const thoughtPatterns = /^(?:thought|thinking|reasoning)[\s:]+/i;
 
-                if (isStartOfMessage && thoughtPatterns.test(data.text)) {
+                if (isStartOfMessage && thoughtPatterns.test(textDelta)) {
                     detectedInlineThought = true;
-                    inlineThoughtBuffer = data.text;
+                    inlineThoughtBuffer = textDelta;
                     log.info('[thinkingExtractor] Detected inline thought text from AI model');
-                    return `${thinkingTag}${renderQuotedChunk(data.text, true)}`;
+                    return `${thinkingTag}${renderQuotedChunk(textDelta, true)}`;
                 }
 
                 if (detectedInlineThought) {
-                    inlineThoughtBuffer += data.text;
+                    inlineThoughtBuffer += textDelta;
                     const hasDoubleNewline = /\n\s*\n/.test(inlineThoughtBuffer);
                     const endsWithSentenceThenCapital = /[.!?]\s+[A-Z]/.test(inlineThoughtBuffer.slice(-100));
                     const isVeryLong = inlineThoughtBuffer.length > 500;
@@ -365,22 +375,22 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                         log.info('[thinkingExtractor] Inline thought block ended');
 
                         if (hasDoubleNewline) {
-                            const lastNewlineMatch = data.text.match(/\n\s*\n/);
+                            const lastNewlineMatch = textDelta.match(/\n\s*\n/);
                             if (lastNewlineMatch) {
                                 const splitIndex = lastNewlineMatch.index! + lastNewlineMatch[0].length;
-                                const thoughtPart = data.text.slice(0, splitIndex);
-                                const responsePart = data.text.slice(splitIndex);
+                                const thoughtPart = textDelta.slice(0, splitIndex);
+                                const responsePart = textDelta.slice(splitIndex);
                                 return `${renderQuotedChunk(thoughtPart, false)}\n>✹\n${SEGMENTATION_MARK}\n${responsePart}`;
                             }
                         }
 
-                        return `${renderQuotedChunk(data.text, false)}\n>✹\n${SEGMENTATION_MARK}\n`;
+                        return `${renderQuotedChunk(textDelta, false)}\n>✹\n${SEGMENTATION_MARK}\n`;
                     }
 
-                    return renderQuotedChunk(data.text, false);
+                    return renderQuotedChunk(textDelta, false);
                 }
 
-                return data.text;
+                return textDelta;
             case 'text-end':
                 return '';
             case 'tool-call':

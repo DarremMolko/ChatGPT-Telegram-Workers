@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderResponseBreak, renderThinkingTag, trimToolTransitionContent } from './thinking_format';
+import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 describe('renderThinkingTag', () => {
     it('starts a new line when previous streamed text already exists', () => {
@@ -37,5 +37,15 @@ describe('trimToolTransitionContent', () => {
 
     it('preserves inner line breaks', () => {
         expect(trimToolTransitionContent('Linea 1\nLinea 2\n\n')).toBe('Linea 1\nLinea 2');
+    });
+});
+
+describe('trimLeadingToolTransitionText', () => {
+    it('removes leading blank lines from resumed tool-step chatter', () => {
+        expect(trimLeadingToolTransitionText('\n\nVoy a obtener el pronostico.')).toBe('Voy a obtener el pronostico.');
+    });
+
+    it('preserves non-leading line breaks', () => {
+        expect(trimLeadingToolTransitionText('Linea 1\nLinea 2')).toBe('Linea 1\nLinea 2');
     });
 });
