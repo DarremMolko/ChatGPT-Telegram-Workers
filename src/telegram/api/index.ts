@@ -35,13 +35,18 @@ class APIClientBase {
         const formData = new FormData();
         for (const key in params) {
             const value = params[key];
+            if (value === undefined || value === null) {
+                continue;
+            }
             if (value instanceof File) {
                 formData.append(key, value, value.name);
             } else if (value instanceof Blob) {
                 formData.append(key, value, 'blob');
             } else if (typeof value === 'string') {
                 formData.append(key, value);
-            } else if (value) {
+            } else if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+                formData.append(key, String(value));
+            } else {
                 formData.append(key, JSON.stringify(value));
             }
         }

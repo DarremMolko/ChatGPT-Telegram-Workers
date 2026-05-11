@@ -150,7 +150,6 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         return api.editMessageText({
             chat_id: message.chat.id,
             message_id: message.message_id,
-            ...(message.chat.type === 'private' ? {} : { reply_to_message_id: message.message_id }),
             text: escape(text, { quoteExpandable: true, addQuote: true }),
             parse_mode: 'MarkdownV2',
             reply_markup: { inline_keyboard },

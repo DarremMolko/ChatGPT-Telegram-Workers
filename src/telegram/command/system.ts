@@ -546,7 +546,14 @@ export class InlineCommandHandler implements CommandHandler {
 
         return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
             chat_id: message.chat.id,
-            ...(message.chat.type === 'private' ? {} : { reply_to_message_id: message.message_id }),
+            ...(message.chat.type === 'private'
+                ? {}
+                : {
+                        reply_parameters: {
+                            message_id: message.message_id,
+                            chat_id: message.chat.id,
+                        },
+                    }),
             text: escape(settingMsg, { quoteExpandable: true, addQuote: true }),
             parse_mode: 'MarkdownV2',
             reply_markup: {

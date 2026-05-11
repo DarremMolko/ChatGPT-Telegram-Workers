@@ -9,14 +9,6 @@ import md2node from './md2node';
 import { chunkDocument, escape } from './md2tgmd';
 import { waitUntil } from './tg_utils';
 
-interface SendMessageDraftParams {
-    chat_id: number;
-    draft_id: number;
-    text: string;
-    message_thread_id?: number;
-    parse_mode?: Telegram.ParseMode;
-}
-
 class MessageContext implements Record<string, any> {
     chat_id: number;
     message_id: number | null = null; // 当前发送的消息，用于后续编辑
@@ -186,14 +178,14 @@ export class MessageSender {
 
     private async sendMessageDraft(message: string, context: MessageContext, retryCount = 0): Promise<Response | null> {
         const maxRetries = 3;
-        const params: SendMessageDraftParams = {
+        const params: Telegram.SendMessageDraftParams = {
             chat_id: context.chat_id,
             draft_id: this.nextDraftId(),
             text: message,
             message_thread_id: context.message_thread_id || undefined,
             parse_mode: context.parse_mode || undefined,
         };
-        const resp = await this.api.request('sendMessageDraft' as Telegram.BotMethod, params);
+        const resp = await this.api.sendMessageDraft(params);
 
         if (resp.status === 429 && retryCount < maxRetries) {
             const waitTime = await extractRetryAfter(resp, 5);
