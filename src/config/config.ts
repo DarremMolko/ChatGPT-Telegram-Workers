@@ -312,6 +312,8 @@ export class ExtraUserConfig {
     ENABLE_SHOWINFO = false;
     // enable Show info, which parts to show, support model, model_time, token, tool, tool_time, first_chunk_time
     SHOW_PARTS = ['model', 'model_time', 'token', 'tool', 'tool_time'];
+    // Max serialized tool-args length in the info footer. Set to -1 to show full args.
+    SHOW_TOOL_ARGS_MAX_LENGTH = 80;
     USE_MCP: string[] = [];
     // if starts with '{agent}:' prefix, the specified agent corresponds to the chat model,
     // otherwise use the current agent and the specified model.

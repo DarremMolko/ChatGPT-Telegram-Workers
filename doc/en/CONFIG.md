@@ -331,6 +331,7 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | `AUDIO_PROMPT` | Default prompt used when audio arrives without text. | long default prompt |
 | `ENABLE_SHOWINFO` | Include the model/log footer in normal replies. | `false` |
 | `SHOW_PARTS` | Which metadata pieces to show when info footer is enabled. | `['model', 'model_time', 'token', 'tool', 'tool_time']` |
+| `SHOW_TOOL_ARGS_MAX_LENGTH` | Max serialized tool-args length in the info footer. Set to `-1` to show full args. | `80` |
 
 | `MESSAGE_COMPATIBLE` | Convert tool-call/tool-result history into user-visible message form for compatibility. | `true` |
 | `ENABLE_SEARCH_SOURCE` | Attach provider citations/source links when available. | `true` |

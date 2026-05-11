@@ -33,6 +33,11 @@ OPENAI_TTS_VOICE = "alloy"
 # Optional: change text/audio behavior.
 # TEXT_OUTPUT = "audio"
 # AUDIO_OUTPUT = "audio"
+#
+# Optional: show the model/tool footer in replies.
+# SHOW_PARTS = ["model", "model_time", "token", "tool", "tool_time"]
+# SHOW_TOOL_ARGS_MAX_LENGTH = 80
+# Set SHOW_TOOL_ARGS_MAX_LENGTH = -1 to show full tool arguments.
 
 # Optional: configure scheduled deletion in local mode.
 # The scheduler only tags bot messages whose type is listed below.

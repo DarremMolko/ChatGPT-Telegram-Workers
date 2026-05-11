@@ -5,6 +5,7 @@ describe('getLog tool formatting', () => {
     const config = {
         ENABLE_SHOWINFO: true,
         SHOW_PARTS: ['model', 'model_time', 'tool', 'tool_time'],
+        SHOW_TOOL_ARGS_MAX_LENGTH: 80,
     } as any;
 
     afterEach(() => {
@@ -44,8 +45,28 @@ describe('getLog tool formatting', () => {
         expect(output).toContain('4.9s');
     });
 
-    it('shows full tool args without truncation', () => {
+    it('truncates tool args by default with an ellipsis', () => {
         const log = getLogSingleton({ config });
+        log.model = 'claude-opus-4.6-vapi';
+        log.start_time = 0;
+        log.end_time = 1000;
+        log.functions.push({
+            name: 'call_tool',
+            args: ['weather-get_weather_details', { city: 'Paraná, Argentina', include_forecast: true, notes: 'x'.repeat(120) }],
+        });
+
+        const output = getLog(config);
+
+        expect(output).toContain('call_tool');
+        expect(output).toContain('...');
+    });
+
+    it('shows full tool args when max length is -1', () => {
+        const fullConfig = {
+            ...config,
+            SHOW_TOOL_ARGS_MAX_LENGTH: -1,
+        } as any;
+        const log = getLogSingleton({ config: fullConfig });
         log.model = 'claude-opus-4.6-vapi';
         log.start_time = 0;
         log.end_time = 1000;
@@ -54,9 +75,11 @@ describe('getLog tool formatting', () => {
             args: ['weather-get_weather_details', { city: 'Paraná, Argentina', include_forecast: true }],
         });
 
-        const output = getLog(config);
+        const output = getLog(fullConfig);
 
         expect(output).toContain('"city":"Paraná, Argentina"');
         expect(output).toContain('"include_forecast":true');
+
+        clearLog(fullConfig);
     });
 });

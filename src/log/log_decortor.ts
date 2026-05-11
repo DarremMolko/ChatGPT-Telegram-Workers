@@ -103,7 +103,7 @@ export function getLog(context: AgentUserConfig, { onlyModel = false, isParagrap
         if (log.functions.length > 0 && show.tool) {
             logStr += '\n';
             logStr += log.functions.map(({ name, args, error, time }) => {
-                const argsStr = args ? JSON.stringify(args) : '[]';
+                const argsStr = formatToolArgs(args, context.SHOW_TOOL_ARGS_MAX_LENGTH);
                 const duration = show.tool_time && typeof time === 'number'
                     ? ` ${time}s`
                     : '';
@@ -134,6 +134,14 @@ export function getLog(context: AgentUserConfig, { onlyModel = false, isParagrap
     return isParagraph
         ? logList.filter(Boolean).join(' ')
         : logList.filter(Boolean).flatMap(i => i.split('\n')).map(i => `>\`${i}\``).join('\n');
+}
+
+function formatToolArgs(args: unknown, maxLength: number): string {
+    const argsStr = args ? JSON.stringify(args) : '[]';
+    if (maxLength < 0 || argsStr.length <= maxLength) {
+        return argsStr;
+    }
+    return `${argsStr.substring(0, maxLength)}...`;
 }
 
 export function clearLog(context: AgentUserConfig) {
