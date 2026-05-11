@@ -42,16 +42,12 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
 
         const [row = 5, col = 3] = ENV.CALLBACK_QUERY_RC.split('x').map(Number);
         const pageLength = row * col;
-        console.log(`[DEBUG] CALLBACK_QUERY_RC=${ENV.CALLBACK_QUERY_RC}, row=${row}, col=${col}, pageLength=${pageLength}`);
         const queryHandler = new InlineCommandHandler();
         const showSensitiveValues = ENV.CHAT_WHITE_LIST.includes(query.from.id.toString());
         const defaltData = await queryHandler.defaultInlines(context.USER_CONFIG, { showAllEnvs: showSensitiveValues });
-        console.log(`[DEBUG] defaltData.length=${defaltData.length}, callbackData=${query.data}`);
         const pageIndexData = keyboard.flat().find(i => i.callback_data?.startsWith('PAGE_INDEX:'))?.callback_data?.replace('PAGE_INDEX:', '');
-        console.log(`[DEBUG] pageIndexData=${pageIndexData}`);
         const pathDetail = keyboard[0]?.[0]?.callback_data || '';
         let { path, data, pageIndex, pageNum, newCallBackData, configKey, label, callback } = getNextpage({ pathDetail, pageIndexData, callbackData: query.data, inlineList: defaltData, pageLength });
-        console.log(`[DEBUG] After getNextpage: data.length=${data.length}, pageIndex=${pageIndex}, pageNum=${pageNum}, newCallBackData=${newCallBackData}`);
 
         try {
             if (query.data === 'fresh' || (configKey.endsWith('_MODEL') && data.length === 0)) {
@@ -292,7 +288,7 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
             throw new Error(`Invalid path: index ${i} not found in data array of length ${data.length}`);
         }
         // 安全检查：确保 data[i] 存在且有必要的属性
-        if (!data[i].label || !data[i].config_key) {
+        if (!data[i].label || data[i].config_key === undefined) {
             throw new Error(`Invalid data at index ${i}: missing label or config_key`);
         }
         ({ label, config_key: configKey } = data[i]);
@@ -318,14 +314,13 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
             break;
         default:
             callbackData = Number(callbackData);
-            console.log(`[DEBUG] In default case: callbackData=${callbackData}, data.length BEFORE paging=${data.length}, configKey='${configKey}', pageIndex=${pageIndex}, pageLength=${pageLength}`);
             // 存在child - 如果没有configKey说明还在导航到子菜单，需要先访问完整数组再分页
             if (!configKey) {
                 // 安全检查：确保索引有效（使用完整数组）
                 if (!data[callbackData]) {
                     throw new Error(`Invalid callback index: ${callbackData} not found in data array of length ${data.length}`);
                 }
-                if (!data[callbackData].label || !data[callbackData].config_key) {
+                if (!data[callbackData].label || data[callbackData].config_key === undefined) {
                     throw new Error(`Invalid data at callback index ${callbackData}: missing label or config_key`);
                 }
                 path.push(callbackData);
