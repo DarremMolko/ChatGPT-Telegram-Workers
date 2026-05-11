@@ -15,6 +15,7 @@ import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log';
 import { updateMcp } from '../../mcp';
+import { formatLocalDateTime } from '../../utils/others/time';
 import { getStats } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
 import { chatWithLLM, sendImages, tts } from '../handler/chat';
@@ -281,7 +282,7 @@ export class VersionCommandHandler implements CommandHandler {
             sha: ENV.BUILD_VERSION,
         };
         const timeFormat = (ts: number): string => {
-            return new Date(ts * 1000).toLocaleString('en-US', {});
+            return formatLocalDateTime(new Date(ts * 1000));
         };
         return sender.sendPlainText(`Current build: ${current.sha} (${timeFormat(current.ts)})`);
     };

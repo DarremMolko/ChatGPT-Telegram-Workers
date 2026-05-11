@@ -6,6 +6,7 @@ import type { ChatAgent, ChatStreamTextHandler, HistoryItem, HistoryModifier, LL
 import { loadChatLLM } from '.';
 import { ENV } from '../config/env';
 import { log } from '../log/logger';
+import { formatLocalDateTime } from '../utils/others/time';
 
 export async function loadHistory(key: string, length: number): Promise<HistoryItem[]> {
     // 加载历史记录
@@ -188,17 +189,7 @@ function extractResultText(result: { messages: ResponseMessage[]; content: strin
 export function injectSystemMessage(messages: ModelMessage[], systemMessage: string | null) {
     if (systemMessage) {
         // 注入{{CURRENT_TIME}}
-        const now = new Date();
-        const localTime = now.toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-        });
-        systemMessage = systemMessage.replace('{{CURRENT_TIME}}', localTime);
+        systemMessage = systemMessage.replace('{{CURRENT_TIME}}', formatLocalDateTime());
         messages.unshift({
             role: 'system',
             content: systemMessage,

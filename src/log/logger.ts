@@ -1,5 +1,6 @@
 import type { LogLevelType } from '../config/types';
 import { ENV } from '../config/env';
+import { formatLocalDateTime } from '../utils/others/time';
 
 const LOG_LEVEL_PRIORITY: Record<LogLevelType, number> = {
     debug: 1,
@@ -9,7 +10,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevelType, number> = {
 };
 
 function LogLevel(level: LogLevelType, ...args: any[]) {
-    const timestamp = new Date().toISOString();
+    const timestamp = formatLocalDateTime();
     const logParts = args.map((e) => {
         if (typeof e === 'object') {
             return JSON.stringify(e, null, 2);

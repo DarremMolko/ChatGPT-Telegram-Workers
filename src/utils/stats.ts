@@ -5,6 +5,7 @@
  */
 
 import type { WorkerContextBase } from '../config/context';
+import { getLocalDateKey } from './others/time';
 
 export interface StatsData {
     totalUsers: number;
@@ -33,13 +34,13 @@ class StatsStore {
     }
 
     incrementDailyMessage(): void {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateKey();
         const current = this.dailyMessages.get(today) || 0;
         this.dailyMessages.set(today, current + 1);
     }
 
     getStats(): StatsData {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateKey();
         return {
             totalUsers: this.users.size,
             totalGroups: this.groups.size,
@@ -53,7 +54,7 @@ class StatsStore {
         const today = new Date();
         const keepDays = 7;
         const oldestDate = new Date(today.getTime() - keepDays * 24 * 60 * 60 * 1000);
-        const oldestDateStr = oldestDate.toISOString().split('T')[0];
+        const oldestDateStr = getLocalDateKey(oldestDate);
 
         for (const [date] of this.dailyMessages) {
             if (date < oldestDateStr) {
