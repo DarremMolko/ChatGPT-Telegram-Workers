@@ -20,7 +20,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Streaming | Telegram replies stream through the normal message edit/send path |
 | Images | `/img` generation for both provider families; reply-to-image editing through the OpenAI image path |
 | Speech | Telegram voice/audio input via STT, text-to-speech output via `/tts`, and configurable text/audio workflows |
-| Tools | Generic MCP groups through `MCP_*` and OpenAI Responses built-in tools through `USE_OPENAI_BUILDIN` |
+| Tools | Generic MCP groups, OpenAI Responses built-in tools, and optional local group-management tools |
 | Persistence | Redis-backed chat history, stored user config, scheduled deletions, and transient Telegram state |
 | Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, `/stop`, per-chat blocklists, and history export |
 | Deployment | Local webhook mode, local polling mode, Docker, and Docker Compose |

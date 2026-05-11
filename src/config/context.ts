@@ -10,6 +10,7 @@ export class ShareContext {
     botId: number;
     botToken: string;
     botName: string | null = null;
+    chatId: number;
 
     // KV 保存的键
     chatHistoryKey: string;
@@ -40,6 +41,7 @@ export class ShareContext {
         if (id === undefined || id === null) {
             throw new Error('Chat id not found');
         }
+        this.chatId = id;
         // message_id每次都在变的。
         // 私聊消息中：
         //   message.chat.id 是发言人id

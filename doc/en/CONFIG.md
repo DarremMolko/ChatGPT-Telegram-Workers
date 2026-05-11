@@ -104,10 +104,19 @@ Important:
 | `GROUP_CHAT_BOT_ENABLE` | Master group-chat enable switch. | `true` |
 | `GROUP_CHAT_BOT_SHARE_MODE` | If `true`, a group shares one history/config scope. If `false`, each user in the group gets an individual scope. | `true` |
 | `GROUP_INCLUDE_USERNAME` | Prefix group messages with a user identifier before sending them to the LLM. | `false` |
+| `GROUP_MANAGEMENT` | Inject local management tools in group chats. Supported values: `user_profile`, `recent_history`, `search_history`. | `[]` |
 | `BLOCK_COMMANDS` | Disable specific built-in commands, for example `["/history"]`. | `[]` |
 | `HIDE_COMMAND_BUTTONS` | Remove specific commands from Telegram command menus without disabling the command itself. | `[]` |
 | `BLOCK_AGENTS` | Disable specific provider agents, for example `["oailike"]`. | `[]` |
 | `SHOW_REPLY_BUTTON` | Show `/new` and `/redo` reply keyboard buttons in private chats. | `false` |
+
+`GROUP_MANAGEMENT` notes:
+
+- tools are injected only in group or supergroup chats
+- `user_profile` uses Telegram Bot API calls for chat and member data
+- `recent_history` and `search_history` inspect only the current in-session model history
+- that session history resets after `/new`
+- when `GROUP_CHAT_BOT_SHARE_MODE=false`, the session history scope is per-user within the group rather than shared across the full group
 
 ### Custom Commands
 
@@ -491,6 +500,13 @@ Generic `MCP_*` and provider-side `OPENAI_MCP_*` are separate systems:
 
 - `MCP_*` configures this bot’s own generic MCP clients
 - `OPENAI_MCP_*` configures OpenAI’s provider-side MCP tool
+
+`GROUP_MANAGEMENT` is a third tool source:
+
+- it injects local read-only tools for the current group chat
+- it is configured only through the `GROUP_MANAGEMENT` env value
+- it does not require MCP
+- it uses Telegram API calls plus the current in-session message history, not Redis history scans
 
 ## Inline Settings UI
 

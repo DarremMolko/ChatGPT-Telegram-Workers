@@ -2,6 +2,7 @@
 /* eslint-disable unused-imports/no-unused-vars */
 import type { LanguageModelV3, LanguageModelV3CallOptions, LanguageModelV3Prompt } from '@ai-sdk/provider';
 import type { ModelMessage, StepResult, TextStreamPart, ToolCallPart, ToolResultPart } from 'ai';
+import type { WorkerContext } from '../config/context';
 import type { AgentUserConfig } from '../config/env';
 import type { LogStruct } from '../log';
 import type { ToolResult } from '../telegram/utils/tool_result';
@@ -14,6 +15,7 @@ import { ENV } from '../config/env';
 import { getLogSingleton, log, writeDebugLog } from '../log';
 import { resolveMcpTools } from '../mcp/tools';
 import { sendToolResult } from '../telegram/utils/tool_result';
+import { resolveGroupManagementTools } from './group_management';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 
 type Writeable<T> = { -readonly [P in keyof T as P extends 'modelId' ? P : never]: T[P] };
@@ -374,12 +376,15 @@ function warpModel(model: LanguageModelV3, config: AgentUserConfig, activeTools:
     }
 }
 
-export async function warpLLMParams({ system, messages, model, cache, abortSignal }: { system?: string; messages: ModelMessage[]; model: LanguageModelV3; cache?: string[]; abortSignal?: AbortSignal }, context: AgentUserConfig) {
+export async function warpLLMParams({ system, messages, model, cache, abortSignal, runtimeContext }: { system?: string; messages: ModelMessage[]; model: LanguageModelV3; cache?: string[]; abortSignal?: AbortSignal; runtimeContext?: WorkerContext }, context: AgentUserConfig) {
     const userMessage = messages.findLast(m => m.role === 'user')!;
     const userText = Array.isArray(userMessage.content) ? userMessage.content.find(c => c.type === 'text')?.text ?? '' : userMessage.content;
     const { tools = {}, activeToolNames = [] } = await resolveMcpTools(context);
+    const groupManagement = resolveGroupManagementTools(runtimeContext);
+    Object.assign(tools, groupManagement.tools);
 
-    const activeTools = [...activeToolNames];
+    const manualToolChoiceNames = [...activeToolNames, ...groupManagement.activeToolNames];
+    const activeTools = [...manualToolChoiceNames];
     const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
@@ -510,8 +515,8 @@ export async function warpLLMParams({ system, messages, model, cache, abortSigna
     }
 
     let toolChoice;
-    if (activeToolNames.length > 0 && userText) {
-        const choiceResult = await wrapToolChoice(activeToolNames, userText);
+    if (manualToolChoiceNames.length > 0 && userText) {
+        const choiceResult = await wrapToolChoice(manualToolChoiceNames, userText);
         if (Array.isArray(userMessage.content)) {
             userMessage.content.find(c => c.type === 'text')!.text = choiceResult.message;
         } else {

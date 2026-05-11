@@ -1,4 +1,5 @@
 import type { AssistantModelMessage, ModelMessage, ToolModelMessage, UserModelMessage } from 'ai';
+import type { WorkerContext } from '../config/context';
 import type { AgentUserConfig } from '../config/env';
 import type { MessageSender } from '../telegram/utils/send';
 import type { UnionData } from '../telegram/utils/tg_utils';
@@ -62,6 +63,7 @@ export interface LLMChatParams {
     messages: ModelMessage[];
     cache?: string[];
     abortSignal?: AbortSignal;
+    runtimeContext?: WorkerContext;
 }
 
 export type ResponseMessage = AssistantModelMessage | ToolModelMessage;

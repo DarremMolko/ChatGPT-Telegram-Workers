@@ -83,6 +83,7 @@ export async function customInfo(
         USE_MCP: config.USE_MCP.join(','),
         CONFIGURED_MCP: Object.keys(ENV.MCP_CONFIG).join('|'),
         USE_OPENAI_BUILDIN: config.USE_OPENAI_BUILDIN.join(','),
+        GROUP_MANAGEMENT: ENV.GROUP_MANAGEMENT.join(','),
         CHAT_TRIGGER_PREFIX: ENV.CHAT_TRIGGER_PREFIX,
         MAX_STEPS: config.MAX_STEPS,
         MAX_RETRIES: config.MAX_RETRIES,

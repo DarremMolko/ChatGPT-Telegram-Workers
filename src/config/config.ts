@@ -42,6 +42,8 @@ export class EnvironmentConfig {
     GROUP_CHAT_BOT_SHARE_MODE = true;
     // 在群聊消息中包含用户名，帮助AI识别不同发言者
     GROUP_INCLUDE_USERNAME = false;
+    // Inject local management tools in group chats. Supported values: user_profile, recent_history, search_history
+    GROUP_MANAGEMENT: string[] = [];
 
     // -- 历史记录相关 --
     //

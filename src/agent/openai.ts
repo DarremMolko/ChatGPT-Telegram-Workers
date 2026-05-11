@@ -9,8 +9,8 @@ import { base64StringToBlob } from '../utils';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
-import { resolveOpenAIChatModel } from './model_selector';
 import { warpLLMParams } from './model_middleware';
+import { resolveOpenAIChatModel } from './model_selector';
 import { requestChatCompletionsV2 } from './request';
 
 export class OpenAIBase {
@@ -40,6 +40,7 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
             model,
             system: params.system,
             messages: params.messages,
+            runtimeContext: params.runtimeContext,
             abortSignal: params.abortSignal,
         }, context), onStream);
     };

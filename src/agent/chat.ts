@@ -83,6 +83,7 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
         cache: [],
         abortSignal,
     };
+    llmParams.runtimeContext = context;
     const answer = await agent.request(llmParams, context.USER_CONFIG, onStream);
     const { messages: raw_messages } = answer;
 
