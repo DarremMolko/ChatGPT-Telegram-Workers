@@ -463,7 +463,7 @@ async function sendTelegraph(sendContext: {
 
         if (!hasSentTelegraphLink) {
             const url = `https://telegra.ph/${telegraphSender.teleph_path}`;
-            const msg = `${containRaw ? '由于渲染出现错误 ' : ''}回答已经转换成文章。\n[🔗点击进行查看](${url})`.trim();
+            const msg = `${containRaw ? 'Rendering failed, ' : ''}the answer was converted into an article.\n[🔗Click here to view it](${url})`.trim();
             log.info(`send telegraph message: ${msg}`);
             return textSender.sendRichText(msg);
         }

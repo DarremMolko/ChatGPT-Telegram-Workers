@@ -55,13 +55,13 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
                     throw new Error('This operation is only accessible to the white list');
                 }
                 data = await callback?.(context, configKey) || [];
-                this.sendAlert(api, context.query_id, `✅ ${label} 数据更新成功`, false);
+                this.sendAlert(api, context.query_id, `✅ ${label} updated successfully`, false);
                 ({ data, pageNum } = paging(data, 0, pageLength));
             } else if (typeof newCallBackData === 'number' && configKey !== 'ENVS') {
                 await this.updateConfig(context, api, { data: data as unknown as string[], configKey, newCallBack: newCallBackData });
             }
         } catch (e) {
-            return this.sendAlert(api, context.query_id, `❌ ${label} 数据刷新失败\n${(e as Error).message}`, true);
+            return this.sendAlert(api, context.query_id, `❌ Failed to refresh ${label}\n${(e as Error).message}`, true);
         }
 
         let inlineKeyboard: Telegram.InlineKeyboardButton[][] = [];
@@ -180,7 +180,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
 
         const chunkedList = chunkArray(inlineList, realCol) as Telegram.InlineKeyboardButton[][];
         chunkedList.unshift([{
-            text: `请选择 ${label || key || '需要配置的选项'}`,
+            text: `Select ${label || key || 'an option to configure'}`,
             callback_data: path.join('.') + (key === 'ENVS' ? ':set' : ''),
         }]);
 
