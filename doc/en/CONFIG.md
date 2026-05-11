@@ -346,6 +346,29 @@ Telegram streaming transport notes:
 - `chat` handle modes
   - pass file/audio content directly to a compatible multimodal chat model
 
+### Rerank And Embedding Usage
+
+The embedding-model settings are not used for ordinary chat generation.
+
+They are only used by the rerank/intelligent-model path:
+
+- `ENABLE_INTELLIGENT_MODEL = true`
+- message prefixes such as `//c`, `//v`, `//t`, and `//s`
+- `RERANK_AGENT = "openai"` or `RERANK_AGENT = "oailikeV1"`
+
+In those modes, the bot embeds your input text plus the available model list and selects the closest match by similarity.
+
+Practical mapping:
+
+- `OPENAI_EMBEDDING_MODEL`
+  - used when `RERANK_AGENT = "openai"`
+- `OAILIKE_EMBEDDING_MODEL`
+  - used when `RERANK_AGENT = "oailikeV1"`
+- `OAILIKE_RERANK_MODEL`
+  - used instead when `RERANK_AGENT = "oailikeV2"` and the compatible backend exposes a `/rerank` endpoint
+
+If you do not use intelligent model selection or reranking, the embedding-model settings are effectively unused.
+
 ## Prompting, Aliases, And Workflow
 
 | Variable | Description | Default |
