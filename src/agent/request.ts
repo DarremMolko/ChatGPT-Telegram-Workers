@@ -265,6 +265,15 @@ function thinkingExtractor(messageInfo: MessageInfo) {
 
     (messageInfo as any).sources = sources;
 
+    const appendRetained = (text: string) => {
+        messageInfo.stepRetainedContent = (messageInfo.stepRetainedContent ?? '') + text;
+        return text;
+    };
+
+    const updateRetained = (updater: (text: string) => string) => {
+        messageInfo.stepRetainedContent = updater(messageInfo.stepRetainedContent ?? '');
+    };
+
     const renderQuotedChunk = (text: string, isStart: boolean) => {
         return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
     };
@@ -282,7 +291,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     reasoningBuffer = '';
                     lastOutputTime = Date.now();
                     hasEmittedReasoningText = false;
-                    return thinkingTag;
+                    return appendRetained(thinkingTag);
                 }
                 return '';
             case 'reasoning-delta':
@@ -294,7 +303,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 if (reasoningBuffer.length >= 50
                     || /[。！？.!?]\s*$/.test(reasoningBuffer.trim())
                     || (now - lastOutputTime > 500 && reasoningBuffer.length >= 20)) {
-                    const output = renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText);
+                    const output = appendRetained(renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText));
                     reasoningBuffer = '';
                     lastOutputTime = now;
                     hasEmittedReasoningText = true;
@@ -307,7 +316,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 }
                 let output = '';
                 if (reasoningBuffer.length > 0) {
-                    output = renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText);
+                    output = appendRetained(renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText));
                     reasoningBuffer = '';
                     hasEmittedReasoningText = true;
                 }
@@ -323,6 +332,9 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     messageInfo.content = messageInfo.content
                         .replace(thinkingTag, '')
                         .replace(/\n+$/, '');
+                    updateRetained(text => text
+                        .replace(thinkingTag, '')
+                        .replace(/\n+$/, ''));
                     return '';
                 }
                 const thinkingTime = ((Date.now() - thinkingStartTime!) / 1e3).toFixed(1);
@@ -330,7 +342,11 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     .replace(thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
                     .replace(/(\n>)*$/, '')
                     .replace(/(\n>){3,}$/g, '\n>\n>');
-                return `\n>✹\n${SEGMENTATION_MARK}\n`;
+                updateRetained(text => text
+                    .replace(thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
+                    .replace(/(\n>)*$/, '')
+                    .replace(/(\n>){3,}$/g, '\n>\n>'));
+                return appendRetained(`\n>✹\n${SEGMENTATION_MARK}\n`);
             case 'text-delta':
                 log.debug(`[thinkingExtractor] text-delta: "${data.text}"`);
                 messageInfo.stepStartContent ??= messageInfo.content;
@@ -347,7 +363,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     detectedInlineThought = true;
                     inlineThoughtBuffer = data.text;
                     log.info('[thinkingExtractor] Detected inline thought text from AI model');
-                    return `${thinkingTag}${renderQuotedChunk(data.text, true)}`;
+                    return appendRetained(`${thinkingTag}${renderQuotedChunk(data.text, true)}`);
                 }
 
                 if (detectedInlineThought) {
@@ -364,6 +380,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                         const estimatedTime = (inlineThoughtBuffer.length / 100).toFixed(1);
                         messageInfo.content = messageInfo.content
                             .replace(thinkingTag, `>\`Thought for ${estimatedTime} seconds\``);
+                        updateRetained(text => text.replace(thinkingTag, `>\`Thought for ${estimatedTime} seconds\``));
                         inlineThoughtBuffer = '';
                         log.info('[thinkingExtractor] Inline thought block ended');
 
@@ -373,14 +390,14 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                                 const splitIndex = lastNewlineMatch.index! + lastNewlineMatch[0].length;
                                 const thoughtPart = data.text.slice(0, splitIndex);
                                 const responsePart = data.text.slice(splitIndex);
-                                return `${renderQuotedChunk(thoughtPart, false)}\n>✹\n${SEGMENTATION_MARK}\n${responsePart}`;
+                                return `${appendRetained(renderQuotedChunk(thoughtPart, false))}${appendRetained(`\n>✹\n${SEGMENTATION_MARK}\n`)}${responsePart}`;
                             }
                         }
 
-                        return `${renderQuotedChunk(data.text, false)}\n>✹\n${SEGMENTATION_MARK}\n`;
+                        return `${appendRetained(renderQuotedChunk(data.text, false))}${appendRetained(`\n>✹\n${SEGMENTATION_MARK}\n`)}`;
                     }
 
-                    return renderQuotedChunk(data.text, false);
+                    return appendRetained(renderQuotedChunk(data.text, false));
                 }
 
                 return data.text;

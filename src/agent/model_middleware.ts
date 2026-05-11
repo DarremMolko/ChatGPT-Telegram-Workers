@@ -21,6 +21,7 @@ export interface MessageInfo {
     content: string;
     occured_error?: boolean;
     stepStartContent?: string;
+    stepRetainedContent?: string;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -86,9 +87,10 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 hasRecordFirstChunkTime = true;
             }
             if (chunk.type === 'tool-call') {
-                const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
-                messageInfo.content = baseContent;
-                onStream?.send(baseContent || '...');
+                const baseContent = messageInfo.stepStartContent ?? '';
+                const retainedContent = messageInfo.stepRetainedContent ?? '';
+                const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
+                onStream?.send(visibleContent ? `${visibleContent}\n\ntool call start: \`${chunk.toolName}\`` : `tool call start: \`${chunk.toolName}\``);
                 log.info(`start tool: ${chunk.toolName}`);
             }
         },
@@ -109,9 +111,11 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 }
                 await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
 
-                const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
-                messageInfo.content = baseContent;
-                onStream?.send(baseContent || '...');
+                const baseContent = messageInfo.stepStartContent ?? '';
+                const retainedContent = messageInfo.stepRetainedContent ?? '';
+                const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
+                messageInfo.content = visibleContent;
+                onStream?.send(visibleContent || '...');
             }
 
             if (toolResults.length > 0) {
@@ -178,6 +182,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
             hasRecordFirstChunkTime = false;
             messageInfo.stepStartContent = undefined;
+            messageInfo.stepRetainedContent = undefined;
             step++;
         },
     };
