@@ -256,7 +256,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     let reasoningBuffer = '';
     let lastOutputTime = 0;
     let hasEmittedReasoningText = false;
-    const thinkingTag = '**>`Thinking\\.\\.\\.`';
+    const thinkingTag = '>`Thinking\\.\\.\\.`';
     const sources: Array<{ url: string; title: string }> = [];
 
     let detectedInlineThought = false;
