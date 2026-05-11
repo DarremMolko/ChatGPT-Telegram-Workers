@@ -1,4 +1,3 @@
-import type { GetUpdatesResponse } from 'telegram-bot-api-types';
 import type { TelegramBotAPI } from '../../telegram/api';
 import * as fs from 'node:fs';
 import { schedule } from 'node-cron';
@@ -9,6 +8,7 @@ import { createTelegramBotAPI } from '../../telegram/api';
 import { handleUpdate } from '../../telegram/handler';
 import { createRedisStorage } from '../../utils/cache/redis_store';
 import { applyProxy, loadLocalEnv } from './env';
+import { normalizeGetUpdatesPayload, parseTelegramResponseBody } from './polling';
 import { startLocalServer } from './server';
 
 const {
@@ -57,8 +57,13 @@ async function runPolling() {
                         continue;
                     }
                 }
-                const { result } = await resp.json() as GetUpdatesResponse;
-                for (const update of result) {
+                const payload = await parseTelegramResponseBody(resp);
+                const { updates, error } = normalizeGetUpdatesPayload(payload);
+                if (error) {
+                    console.error(`[POLLING] ${error}`);
+                    continue;
+                }
+                for (const update of updates) {
                     if (update.update_id >= offset[token]) {
                         offset[token] = update.update_id + 1;
                     }
