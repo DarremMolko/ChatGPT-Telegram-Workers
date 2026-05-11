@@ -792,10 +792,17 @@ async function fileUrlToBase64Message({
         case 'text':
         {
             const fileText = await Promise.all(urls.map(url => fetch(url).then(r => r.text()))).then(t => t.join('\n'));
+            const fileContext = [
+                'The user attached a text file.',
+                fileName ? `Filename: ${fileName}` : '',
+                mimeType ? `MIME type: ${mimeType}` : '',
+                'File contents:',
+                fileText,
+            ].filter(Boolean).join('\n');
             params.content = [
                 {
                     type: 'text',
-                    text: `${text}\n${fileText}`.trim(),
+                    text: [text, fileContext].filter(Boolean).join('\n\n').trim(),
                 },
             ];
             break;
