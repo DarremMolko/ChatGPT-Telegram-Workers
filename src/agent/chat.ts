@@ -81,7 +81,8 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
 
     const messages = [...trimmedHistory, params];
     const llmParams: LLMChatParams = {
-        messages: injectSystemMessage(messages, context.USER_CONFIG.SYSTEM_INIT_MESSAGE),
+        system: resolveSystemMessage(context.USER_CONFIG.SYSTEM_INIT_MESSAGE),
+        messages,
         cache: [],
     };
     const answer = await workflow(agent, llmParams, context.USER_CONFIG, onStream);
@@ -186,14 +187,9 @@ function extractResultText(result: { messages: ResponseMessage[]; content: strin
     return lastMessage.content;
 };
 
-export function injectSystemMessage(messages: ModelMessage[], systemMessage: string | null) {
+export function resolveSystemMessage(systemMessage: string | null): string | undefined {
     if (systemMessage) {
-        // 注入{{CURRENT_TIME}}
-        systemMessage = systemMessage.replace('{{CURRENT_TIME}}', formatLocalDateTime());
-        messages.unshift({
-            role: 'system',
-            content: systemMessage,
-        });
+        return systemMessage.replace('{{CURRENT_TIME}}', formatLocalDateTime());
     }
-    return messages;
+    return undefined;
 }

@@ -57,6 +57,7 @@ export type LLMChatRequestParams = UserModelMessage;
 
 export interface LLMChatParams {
     prompt?: string;
+    system?: string;
     messages: ModelMessage[];
     cache?: string[];
 }

@@ -196,13 +196,13 @@ function appendStreamSources(content: string, sources: Array<{ url: string; titl
     return `${cleanedContent.trimEnd()}\n\n>sources:\n>${formattedSources}`;
 }
 
-export async function requestChatCompletionsV2({ model, messages, tools, activeTools, toolChoice, context, cache }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[] }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
+export async function requestChatCompletionsV2({ model, system, messages, tools, activeTools, toolChoice, context, cache }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; system?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[] }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
     log.info(`[requestChatCompletionsV2] messages before SDK: ${JSON.stringify(messages.map((m) => {
         if (m.role === 'user' && Array.isArray(m.content)) {
             return { role: m.role, content: m.content.map(c => c.type === 'file' ? { type: c.type, mediaType: (c as any).mediaType } : { type: c.type }) };
         }
         return { role: m.role };
-    }))}`);
+    }))}, system: ${system ? 'present' : 'absent'}`);
 
     const messageInfo: MessageInfo = {
         content: cache?.join() ?? '',
@@ -217,7 +217,7 @@ export async function requestChatCompletionsV2({ model, messages, tools, activeT
         messageInfo,
     });
 
-    const handledParams = await combineParams({ context, middleware, model, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk });
+    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk });
 
     let responseMessages: ResponseMessage[] = [];
     let contentFull = '';
@@ -377,7 +377,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     };
 }
 
-async function combineParams({ context, middleware, model, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void }) {
+async function combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; system?: string; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void }) {
     const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
@@ -398,6 +398,7 @@ async function combineParams({ context, middleware, model, messages, activeTools
             middleware,
         }),
         providerOptions,
+        system,
         messages,
         experimental_continueSteps: context.CONTINUE_STEP,
         maxRetries: context.MAX_RETRIES,
