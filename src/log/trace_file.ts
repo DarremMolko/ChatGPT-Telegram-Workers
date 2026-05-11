@@ -7,6 +7,8 @@ const MAX_DEPTH = 8;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OBJECT_KEYS = 100;
 const SENSITIVE_KEY_PATTERN = /authorization|api[-_]?key|password|secret|cookie|session|(?:^|[_-])tokens?(?:$|[_-])|(?:api|access|refresh|bearer|bot|auth|id)Token/i;
+const TELEGRAM_BOT_TOKEN_PATTERN = /\b\d{6,}:[\w-]{20,}\b/g;
+const TELEGRAM_BOT_TOKEN_URL_PATTERN = /\/bot\d{6,}:[\w-]{20,}\//g;
 
 const preparedDirectories = new Set<string>();
 const failedLogPaths = new Set<string>();
@@ -167,15 +169,21 @@ function sanitizeString(value: string): string {
     const maxLength = Number.isFinite(configuredMaxLength) && configuredMaxLength > 0
         ? configuredMaxLength
         : 8_000;
-    const redacted = value
-        .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
-        .replace(/sk-[\w-]+/g, 'sk-[REDACTED]');
+    const redacted = redactSensitiveText(value);
 
     if (redacted.length <= maxLength) {
         return redacted;
     }
 
     return `${redacted.slice(0, maxLength)}...[truncated ${redacted.length - maxLength} chars]`;
+}
+
+export function redactSensitiveText(value: string): string {
+    return value
+        .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
+        .replace(/sk-[\w-]+/g, 'sk-[REDACTED]')
+        .replace(TELEGRAM_BOT_TOKEN_URL_PATTERN, '/bot[REDACTED]/')
+        .replace(TELEGRAM_BOT_TOKEN_PATTERN, '[REDACTED_BOT_TOKEN]');
 }
 
 function prepareDirectory(filePath: string) {

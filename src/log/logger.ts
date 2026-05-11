@@ -1,7 +1,7 @@
 import type { LogLevelType } from '../config/types';
 import { ENV } from '../config/env';
 import { formatLocalDateTime } from '../utils/others/time';
-import { writeDebugLog } from './trace_file';
+import { redactSensitiveText, sanitizeForDebugLog, writeDebugLog } from './trace_file';
 
 const LOG_LEVEL_PRIORITY: Record<LogLevelType, number> = {
     debug: 1,
@@ -14,9 +14,12 @@ function LogLevel(level: LogLevelType, ...args: any[]) {
     const timestamp = formatLocalDateTime();
     const logParts = args.map((e) => {
         if (typeof e === 'object') {
-            return JSON.stringify(e, null, 2);
+            return JSON.stringify(sanitizeForDebugLog(e), null, 2);
         }
-        return e;
+        if (typeof e === 'string') {
+            return redactSensitiveText(e);
+        }
+        return String(e);
     });
     const logStr = logParts.join('\n');
 

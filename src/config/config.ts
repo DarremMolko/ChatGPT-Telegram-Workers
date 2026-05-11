@@ -22,6 +22,8 @@ export class EnvironmentConfig {
     TELEGRAM_PHOTO_SIZE_OFFSET = -2;
     // 向LLM优先传递图片方式：url, base64
     TELEGRAM_IMAGE_TRANSFER_MODE = 'url';
+    // Max Telegram file size to download and ingest, in bytes. Set <= 0 to disable the limit.
+    TELEGRAM_FILE_DOWNLOAD_MAX_SIZE = 20 * 1024 * 1024;
 
     // --  权限相关 --
     //

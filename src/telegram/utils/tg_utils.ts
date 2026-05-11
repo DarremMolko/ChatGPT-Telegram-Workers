@@ -53,6 +53,18 @@ export interface UnionData {
     raw?: Blob[];
 }
 
+function assertWithinDownloadLimit(fileSize: number | undefined, type: string) {
+    const maxSize = Number(ENV.TELEGRAM_FILE_DOWNLOAD_MAX_SIZE);
+    if (!Number.isFinite(maxSize) || maxSize <= 0 || !fileSize) {
+        return;
+    }
+    if (fileSize > maxSize) {
+        const actualSizeMb = (fileSize / 1024 / 1024).toFixed(1);
+        const maxSizeMb = (maxSize / 1024 / 1024).toFixed(1);
+        throw new Error(`File size over limit: ${actualSizeMb}MB. The maximum ${type} size is ${maxSizeMb}MB.`);
+    }
+}
+
 export function extractMessageInfo(message: Telegram.Message, currentBotId: number): UnionData {
     const messageData = extractTypeFromMessage(message);
 
@@ -109,6 +121,7 @@ function extractTypeFromMessage(message: Telegram.Message): UnionData {
             if (!file_id) {
                 console.error('photo file_id not found', message);
             }
+            assertWithinDownloadLimit((message.photo as Telegram.PhotoSize[]).find(item => item.file_id === file_id)?.file_size, 'photo');
             return {
                 type: msgType,
                 original_type: 'photo',
@@ -118,11 +131,7 @@ function extractTypeFromMessage(message: Telegram.Message): UnionData {
         }
         case 'document':
         {
-            // const MAX_FILE_SIZE = 20 * 1024 * 1024; // 能直接下载的文件大小为20MB
-            // const fileSize = message[msgType]?.file_size;
-            // if (fileSize && fileSize > MAX_FILE_SIZE) {
-            //     throw new Error(`File size over limit: ${(fileSize / 1024 / 1024).toFixed(1)}MB\nThe maximum file size to download is 20 MB`);
-            // }
+            assertWithinDownloadLimit(message[msgType]?.file_size, 'document');
             const id = message[msgType]?.file_id;
             if (!id) {
                 throw new Error('file_id not found');
@@ -145,6 +154,7 @@ function extractTypeFromMessage(message: Telegram.Message): UnionData {
         case 'sticker':
         case 'video':
         {
+            assertWithinDownloadLimit(message[msgType]?.file_size, msgType);
             const id = message[msgType]?.file_id;
             if (!id) {
                 throw new Error('file_id not found');
@@ -195,18 +205,18 @@ export async function getTelegramFile(fileIds: string[], botToken: string, type:
     }
 
     const paths = files.map(f => f.result?.file_path).filter(Boolean) as string[];
-    log.info(`[getTelegramFile] raw file_path from Telegram API: ${JSON.stringify(paths)}`);
-    const urls = paths.map(p => `https://api.telegram.org/file/bot${botToken}/${p}`);
-    log.info(`files urls:\n${urls.join('\n')}`);
+    const telegramBaseUrl = ENV.TELEGRAM_API_DOMAIN.replace(/\/+$/, '');
+    log.info(`[getTelegramFile] resolved ${paths.length} Telegram file(s)`);
+    const urls = paths.map(p => `${telegramBaseUrl}/file/bot${botToken}/${p}`);
 
     switch (type) {
         case 'url':
             return urls;
         case 'blob':
-            return await Promise.all(paths.map(p => fetch(`https://api.telegram.org/file/bot${botToken}/${p}`, {
+            return await Promise.all(urls.map(url => fetch(url, {
             }).then(res => res.blob())));
         case 'base64':
-            return await Promise.all(paths.map(p => fetch(`https://api.telegram.org/file/bot${botToken}/${p}`, {
+            return await Promise.all(urls.map(url => fetch(url, {
             }).then(res => res.arrayBuffer()).then(buffer => Buffer.from(buffer).toString('base64'))));
     }
 }

@@ -1,10 +1,17 @@
 import type * as Telegram from 'telegram-bot-api-types';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { getFileWithReturns, fetchMock } = vi.hoisted(() => ({
+    getFileWithReturns: vi.fn(),
+    fetchMock: vi.fn(),
+}));
 
 vi.mock('../../config/env', () => ({
     ENV: {
         EXTRA_MESSAGE_CONTEXT: false,
         TELEGRAM_PHOTO_SIZE_OFFSET: -1,
+        TELEGRAM_API_DOMAIN: 'https://telegram.example.test/',
+        TELEGRAM_FILE_DOWNLOAD_MAX_SIZE: 1024,
     },
 }));
 
@@ -12,7 +19,15 @@ vi.mock('../handler/chat', () => ({
     findPhotoFileID: vi.fn(() => 'photo-file-id'),
 }));
 
-const { extractMessageInfo } = await import('./tg_utils');
+vi.mock('../api', () => ({
+    createTelegramBotAPI: () => ({
+        getFileWithReturns,
+    }),
+}));
+
+vi.stubGlobal('fetch', fetchMock);
+
+const { extractMessageInfo, getTelegramFile } = await import('./tg_utils');
 
 function createDocumentMessage(mimeType: string, fileName = 'file.bin'): Telegram.Message {
     return {
@@ -36,6 +51,11 @@ function createDocumentMessage(mimeType: string, fileName = 'file.bin'): Telegra
         },
     } as Telegram.Message;
 }
+
+beforeEach(() => {
+    getFileWithReturns.mockReset();
+    fetchMock.mockReset();
+});
 
 describe('extractMessageInfo', () => {
     it('keeps PDFs as supported documents', () => {
@@ -95,5 +115,46 @@ describe('extractMessageInfo', () => {
             mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             file_name: 'note.docx',
         }));
+    });
+
+    it('rejects files that exceed the configured download limit', () => {
+        const message = createDocumentMessage('application/pdf', 'large.pdf');
+        message.document!.file_size = 2048;
+
+        expect(() => extractMessageInfo(message, 999)).toThrow('File size over limit');
+    });
+});
+
+describe('getTelegramFile', () => {
+    it('uses the configured Telegram API domain for file URLs', async () => {
+        getFileWithReturns.mockResolvedValue({
+            ok: true,
+            result: {
+                file_path: 'documents/file.txt',
+            },
+        });
+
+        const result = await getTelegramFile(['document-file-id'], '123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789', 'url');
+
+        expect(result).toEqual([
+            'https://telegram.example.test/file/bot123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789/documents/file.txt',
+        ]);
+    });
+
+    it('downloads binary content from the configured Telegram API domain', async () => {
+        getFileWithReturns.mockResolvedValue({
+            ok: true,
+            result: {
+                file_path: 'audio/file.ogg',
+            },
+        });
+        fetchMock.mockResolvedValue({
+            arrayBuffer: async () => new TextEncoder().encode('hello').buffer,
+        });
+
+        const result = await getTelegramFile(['audio-file-id'], '123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789', 'base64');
+
+        expect(fetchMock).toHaveBeenCalledWith('https://telegram.example.test/file/bot123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789/audio/file.ogg', {});
+        expect(result).toEqual(['aGVsbG8=']);
     });
 });

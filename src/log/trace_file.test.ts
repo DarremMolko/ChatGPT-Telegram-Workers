@@ -8,7 +8,7 @@ vi.mock('../config/env', () => ({
     },
 }));
 
-const { sanitizeForDebugLog } = await import('./trace_file');
+const { redactSensitiveText, sanitizeForDebugLog } = await import('./trace_file');
 
 describe('sanitizeForDebugLog', () => {
     it('redacts sensitive keys and bearer tokens', () => {
@@ -33,5 +33,12 @@ describe('sanitizeForDebugLog', () => {
 
         expect(result.text).toContain('[truncated');
         expect(result.bytes).toBe('[Binary 4 bytes]');
+    });
+
+    it('redacts Telegram bot tokens embedded in file URLs', () => {
+        const result = redactSensitiveText('https://api.telegram.org/file/bot123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789/documents/file.txt');
+
+        expect(result).toContain('/bot[REDACTED]/');
+        expect(result).not.toContain('123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789');
     });
 });

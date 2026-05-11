@@ -99,7 +99,9 @@ export async function handleCommandMessage(message: Telegram.Message, context: W
 
     if (ENV.DEV_MODE) {
         // 插入调试命令
-        SYSTEM_COMMANDS.push(new EchoCommandHandler());
+        if (!SYSTEM_COMMANDS.some(cmd => cmd.command === '/echo')) {
+            SYSTEM_COMMANDS.push(new EchoCommandHandler());
+        }
     }
 
     // const SYSTEM_COMMANDS = SystemCommandGen();

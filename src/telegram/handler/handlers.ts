@@ -30,21 +30,16 @@ export class OldMessageFilter implements MessageHandler<WorkerContextBase> {
         if (!ENV.SAFE_MODE) {
             return null;
         }
-        let idList = [];
-        try {
-            idList = JSON.parse(await ENV.REDIS.get(context.SHARE_CONTEXT.lastMessageKey).catch(() => '[]')) || [];
-        } catch (e) {
-            console.error(e);
-        }
-        // 保存最近的100条消息，如果存在则忽略，如果不存在则保存
-        if (idList.includes(message.message_id)) {
+        const dedupeKey = `${context.SHARE_CONTEXT.lastMessageKey}:${message.message_id}`;
+        const inserted = await ENV.REDIS.put(dedupeKey, '1', {
+            condition: 'NX',
+            expirationTtl: 60 * 60 * 24,
+        }).catch((error) => {
+            console.error(error);
+            return true;
+        });
+        if (!inserted) {
             throw new Error('Ignore old message');
-        } else {
-            idList.push(message.message_id);
-            if (idList.length > 100) {
-                idList.shift();
-            }
-            await ENV.REDIS.put(context.SHARE_CONTEXT.lastMessageKey, JSON.stringify(idList));
         }
         return null;
     };

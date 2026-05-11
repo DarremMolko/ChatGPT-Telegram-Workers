@@ -693,8 +693,12 @@ function getMediaType(url: string, defaultType: string): string {
     const urlWithoutQuery = url.split('?')[0];
     const extension = urlWithoutQuery.split('.').pop()?.toLowerCase() || '';
     const mimeType = MIME_TYPE_MAP[extension] || `${defaultType}/${extension}`;
-    log.info(`[getMediaType] url: ${url}, extension: ${extension}, mimeType: ${mimeType}`);
+    log.info(`[getMediaType] extension: ${extension || 'unknown'}, mimeType: ${mimeType}`);
     return mimeType;
+}
+
+function hasSensitiveTelegramFileUrl(url: string): boolean {
+    return /\/file\/bot\d{6,}:[\w-]{20,}\//.test(url);
 }
 
 // v5: Breaking change in file type extraction logic.
@@ -716,17 +720,17 @@ async function fileUrlToBase64Message({
     AUDIO_HANDLE_TYPE: string;
     text: string;
 }): Promise<any> {
-    async function urlToBase64Message(type = 'image') {
-        log.info(`[urlToBase64Message] type: ${type}, urls: ${JSON.stringify(urls)}`);
-        const responses = await Promise.all(urls.map(url => fetch(url))).then(r => r.filter(r => r.ok));
-        const mediaTypes = urls.map(url => getMediaType(url, type));
+    async function urlToBase64Message(type = 'image', targetUrls: string[] = urls) {
+        log.info(`[urlToBase64Message] type: ${type}, count: ${targetUrls.length}`);
+        const responses = await Promise.all(targetUrls.map(url => fetch(url))).then(r => r.filter(r => r.ok));
+        const mediaTypes = targetUrls.map(url => getMediaType(url, type));
         log.info(`[urlToBase64Message] mediaTypes: ${JSON.stringify(mediaTypes)}`);
         let files: string[] = [];
         if (!responses.length) {
             throw new Error('Failed to fetch file data');
         }
         if (type === 'image') {
-            const imageData = await Promise.all(urls.map(url => imageToBase64String(url)));
+            const imageData = await Promise.all(targetUrls.map(url => imageToBase64String(url)));
             imageData.forEach(({ data, format }, i) => {
                 mediaTypes[i] = format;
                 files[i] = data;
@@ -749,21 +753,19 @@ async function fileUrlToBase64Message({
         case 'photo':
         case 'sticker':
         {
-            const isUrl = ENV.TELEGRAM_IMAGE_TRANSFER_MODE === 'url';
+            const isUrl = ENV.TELEGRAM_IMAGE_TRANSFER_MODE === 'url' && urls.every(url => !hasSensitiveTelegramFileUrl(url));
             if (isUrl) {
-                // 为每个 URL 检测其格式
                 (params.content as any[]).push(...urls.map((url) => {
                     const format = url.split('?')[0].split('.').pop()?.toLowerCase();
-                    const type = format === 'webm' ? 'file' : 'image';
+                    const partType = format === 'webm' ? 'file' : 'image';
                     const mediaTypePrefix = format === 'webm' ? 'video' : 'image';
-                    return { type, [format === 'webm' ? 'data' : 'image']: url, mediaType: getMediaType(url, mediaTypePrefix) } as unknown as FilePart | ImagePart;
+                    return { type: partType, [format === 'webm' ? 'data' : 'image']: url, mediaType: getMediaType(url, mediaTypePrefix) } as unknown as FilePart | ImagePart;
                 }));
             } else {
-                // base64 模式：为每个 URL 检测格式并转换
                 const images = await Promise.all(urls.map(async (url) => {
                     const format = url.split('?')[0].split('.').pop()?.toLowerCase();
                     const mediaTypePrefix = format === 'webm' ? 'video' : 'image';
-                    const parts = await urlToBase64Message(mediaTypePrefix);
+                    const parts = await urlToBase64Message(mediaTypePrefix, [url]);
                     return parts;
                 }));
                 (params.content as any[]).push(...images.flat());
@@ -781,7 +783,14 @@ async function fileUrlToBase64Message({
                 (params.content as any[]).push(...files);
             } else {
                 const mediaTypes = urls.map(url => getMediaType(url, t));
-                (params.content as any[]).push(...urls.map((audio, i) => ({
+                const files = await Promise.all(urls.map(async (audio) => {
+                    const response = await fetch(audio);
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch file data');
+                    }
+                    return new Uint8Array(await response.arrayBuffer());
+                }));
+                (params.content as any[]).push(...files.map((audio, i) => ({
                     type: 'file' as const,
                     data: audio,
                     mediaType: mediaTypes[i],
