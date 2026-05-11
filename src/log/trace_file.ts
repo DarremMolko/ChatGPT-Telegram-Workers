@@ -6,7 +6,7 @@ const DEFAULT_DEBUG_LOG_FILE = resolve(process.cwd(), 'logs', 'chatgpt-telegram-
 const MAX_DEPTH = 8;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OBJECT_KEYS = 100;
-const SENSITIVE_KEY_PATTERN = /(authorization|api[-_]?key|password|secret|cookie|session|(?:^|[_-])tokens?(?:$|[_-])|(?:api|access|refresh|bearer|bot|auth|id)Token)/i;
+const SENSITIVE_KEY_PATTERN = /authorization|api[-_]?key|password|secret|cookie|session|(?:^|[_-])tokens?(?:$|[_-])|(?:api|access|refresh|bearer|bot|auth|id)Token/i;
 
 const preparedDirectories = new Set<string>();
 const failedLogPaths = new Set<string>();
@@ -73,7 +73,8 @@ export function sanitizeForDebugLog(value: unknown, depth = 0, seen = new WeakSe
     }
 
     if (typeof value === 'function') {
-        return `[Function ${(value as Function).name || 'anonymous'}]`;
+        const namedFunction = value as { name?: string };
+        return `[Function ${namedFunction.name || 'anonymous'}]`;
     }
 
     if (depth >= MAX_DEPTH) {
@@ -168,7 +169,7 @@ function sanitizeString(value: string): string {
         : 8_000;
     const redacted = value
         .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
-        .replace(/sk-[A-Za-z0-9_-]+/g, 'sk-[REDACTED]');
+        .replace(/sk-[\w-]+/g, 'sk-[REDACTED]');
 
     if (redacted.length <= maxLength) {
         return redacted;
