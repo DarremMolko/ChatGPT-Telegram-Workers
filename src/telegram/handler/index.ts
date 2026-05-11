@@ -11,7 +11,6 @@ import {
     CommandHandler,
     EnvChecker,
     InitUserConfig,
-    IntelligentModelProcess,
     MergeQuote,
     MessageFilter,
     OldMessageFilter,
@@ -79,8 +78,6 @@ async function handleMessage(token: string, message: Telegram.Message) {
         new BlocklistFilter(),
         // 替换消息
         new SubstituteHandler(),
-        // 动态模型处理
-        new IntelligentModelProcess(),
         // 处理命令消息
         new CommandHandler(),
         // 与llm聊天

@@ -6,7 +6,6 @@ import type { MessageHandler } from './types';
 import { WorkerContext } from '../../config/context';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
-import { Rerank } from '../../utils/data_calculation/rerank';
 import { recordUserActivity } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
 import { handleCommandMessage } from '../command';
@@ -174,100 +173,6 @@ export class TagNeedDelete implements MessageHandler<WorkerContext> {
         await ENV.REDIS.put(scheduleDeteleKey, JSON.stringify(scheduledData));
         log.info(`[TAG MESSAGE] Record chat ${chatId}, message ids: ${[...(tagMessageIds.get(message) || [])]}`);
         return null;
-    };
-}
-
-export class IntelligentModelProcess implements MessageHandler<WorkerContext> {
-    handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
-        if (!context.USER_CONFIG.ENABLE_INTELLIGENT_MODEL) {
-            return null;
-        }
-
-        const regex = /^\s*\/\/([cvts])\s*(\S+)/;
-        const text = new RegExp(regex).exec((message.text || message.caption || '').trim());
-
-        if (!text?.[1] || !text[2])
-            return null;
-
-        const rerank = new Rerank();
-        const sendTipPromise = this.sendTip(context, message);
-        try {
-            const agentModelKey = `${context.USER_CONFIG.AI_CHAT_PROVIDER.toUpperCase()}_MODELS`;
-            const models = context.USER_CONFIG[agentModelKey] || [];
-            if (models.length === 0) {
-                throw new Error('Don\'t have any model, please set/refresh model list first.');
-            }
-            const similarityModel = (await rerank.rank(context.USER_CONFIG, [text[2], ...models], 1))[0].value;
-            if (!similarityModel) {
-                return this.editTip(context, (await sendTipPromise).result, 'No similarity model found');
-            }
-            log.info(`[INTELLIGENT MODEL] find similarity model: ${similarityModel}`);
-            const mode = text[1];
-            let textReplace = `/set `;
-            switch (mode) {
-                case 'c':
-                    textReplace += `-CHAT_MODEL`;
-                    break;
-                case 'v':
-                    textReplace += `-VISION_MODEL`;
-                    break;
-                case 't':
-                    textReplace += `-TOOL_MODEL`;
-                    break;
-                case 's':
-                    textReplace += `-TTS_MODEL`;
-                    break;
-            }
-            textReplace += ` ${similarityModel}`;
-            if (message.text) {
-                message.text = textReplace + message.text.slice(text[0].length);
-            } else if (message.caption) {
-                message.caption = textReplace + message.caption.slice(text[0].length);
-            }
-            this.deleteTip(context, (await sendTipPromise).result);
-        } catch (error) {
-            return this.editTip(context, (await sendTipPromise).result, (error as Error).message, 'Error');
-        }
-        return null;
-    };
-
-    sendTip = (context: WorkerContext, message: Telegram.Message) => {
-        const tip = 'Searching for similarity result...';
-        const sendeParams: Telegram.SendMessageParams = {
-            chat_id: message.chat.id,
-            text: tip,
-            message_thread_id: message.is_topic_message && message.message_thread_id ? message.message_thread_id : undefined,
-            entities: [{
-                type: 'italic',
-                offset: 0,
-                length: tip.length,
-            }],
-        };
-        return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessageWithReturns(sendeParams);
-    };
-
-    deleteTip = (context: WorkerContext, message: Telegram.Message) => {
-        const delParams: Telegram.DeleteMessageParams = {
-            message_id: message.message_id,
-            chat_id: message.chat.id,
-        };
-        log.info('delete similarity tip.');
-        return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).deleteMessage(delParams);
-    };
-
-    editTip = async (context: WorkerContext, message: Telegram.Message, tip: string, type = 'Tip') => {
-        const editParams: Telegram.EditMessageTextParams = {
-            chat_id: message.chat.id,
-            message_id: message.message_id,
-            text: tip,
-            entities: [{
-                type: 'pre',
-                offset: 0,
-                length: tip.length,
-                language: type,
-            }],
-        };
-        return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).editMessageText(editParams);
     };
 }
 

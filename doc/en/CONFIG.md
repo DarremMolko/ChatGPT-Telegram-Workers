@@ -257,7 +257,7 @@ Defaults when a root `/v1` base is used:
 - `openai` -> `v1/responses`
 - `oailike` -> `v1/chat/completions`
 
-Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank continue to use the stripped root base.
+Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the stripped root base.
 
 ## OpenAI Provider Settings
 
@@ -270,7 +270,6 @@ Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank con
 | `OPENAI_STT_MODEL` | Speech-to-text model. | `gpt-4o-mini-transcribe` |
 | `OPENAI_TTS_MODEL` | Text-to-speech model. | `gpt-4o-mini-tts` |
 | `OPENAI_TTS_VOICE` | TTS voice name. | `alloy` |
-| `OPENAI_EMBEDDING_MODEL` | Embedding model for rerank mode `openai`. | `text-embedding-3-small` |
 | `OPENAI_IMAGE_MODEL` | Model used by `/img` and the OpenAI built-in image tool. | `gpt-image-1.5` |
 | `OPENAI_API_EXTRA_PARAMS` | Per-model request overrides merged into outgoing OpenAI requests. | `{}` |
 | `OPENAI_STT_EXTRA_PARAMS` | Extra multipart STT fields. | `{}` |
@@ -292,8 +291,6 @@ Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank con
 | `OAILIKE_STT_MODEL` | Speech-to-text model. | `FunAudioLLM/SenseVoiceSmall` |
 | `OAILIKE_TTS_MODEL` | Text-to-speech model. | `gpt-4o-mini-tts` |
 | `OAILIKE_TTS_VOICE` | TTS voice name. | `alloy` |
-| `OAILIKE_EMBEDDING_MODEL` | Embedding model for rerank mode `oailikeV1`. | `text-embedding-3-small` |
-| `OAILIKE_RERANK_MODEL` | Compatible rerank model for rerank mode `oailikeV2`. | `''` |
 | `OAILIKE_API_EXTRA_PARAMS` | Per-model request overrides merged into outgoing compatible requests. | `{}` |
 | `OAILIKE_STT_EXTRA_PARAMS` | Extra multipart STT fields. | `{}` |
 | `OAILIKE_TTS_EXTRA_PARAMS` | Extra TTS request fields. | `{}` |
@@ -311,7 +308,6 @@ Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank con
 | `MAX_TOKENS` | Max output tokens. | `undefined` |
 | `MAX_STEPS` | Max chained tool-call / response steps. | `5` |
 | `MAX_RETRIES` | AI SDK retry count. | `0` |
-| `RERANK_AGENT` | `openai`, `oailikeV1`, or `oailikeV2`. | `openai` |
 | `TEXT_HANDLE_TYPE` | How text input is processed: `text`, `tts`, or `chat`. | `text` |
 | `TEXT_OUTPUT` | Output type for text input: `text` or `audio`. | `text` |
 | `AUDIO_HANDLE_TYPE` | How audio input is processed: `stt`, `audio`, or `chat`. | `stt` |
@@ -346,30 +342,7 @@ Telegram streaming transport notes:
 - `chat` handle modes
   - pass file/audio content directly to a compatible multimodal chat model
 
-### Rerank And Embedding Usage
-
-The embedding-model settings are not used for ordinary chat generation.
-
-They are only used by the rerank/intelligent-model path:
-
-- `ENABLE_INTELLIGENT_MODEL = true`
-- message prefixes such as `//c`, `//v`, `//t`, and `//s`
-- `RERANK_AGENT = "openai"` or `RERANK_AGENT = "oailikeV1"`
-
-In those modes, the bot embeds your input text plus the available model list and selects the closest match by similarity.
-
-Practical mapping:
-
-- `OPENAI_EMBEDDING_MODEL`
-  - used when `RERANK_AGENT = "openai"`
-- `OAILIKE_EMBEDDING_MODEL`
-  - used when `RERANK_AGENT = "oailikeV1"`
-- `OAILIKE_RERANK_MODEL`
-  - used instead when `RERANK_AGENT = "oailikeV2"` and the compatible backend exposes a `/rerank` endpoint
-
-If you do not use intelligent model selection or reranking, the embedding-model settings are effectively unused.
-
-## Prompting, Aliases, And Workflow
+## Prompting And Aliases
 
 | Variable | Description | Default |
 | --- | --- | --- |
@@ -381,9 +354,6 @@ If you do not use intelligent model selection or reranking, the embedding-model 
 | `MESSAGE_REPLACER` | Map of text replacements applied before sending content to the model. | `{}` |
 | `PARAMS_MODIFIER` | Low-level per-model parameter add/remove rules. | `[]` |
 | `CONTINUE_STEP` | Allow the AI SDK to continue multi-step outputs. | `false` |
-| `ENABLE_WORKFLOW` | Enable named prompt workflows triggered by `@key` prefixes. | `false` |
-| `WORKFLOW` | Workflow map keyed by trigger name. | `{}` |
-| `ENABLE_INTELLIGENT_MODEL` | Enable simple inline model selection hints such as `//c model`. | `false` |
 | `BLOCKLIST` | Stored per-chat blocked user IDs. | `[]` |
 
 ### `PARAMS_MODIFIER` Format
@@ -400,21 +370,6 @@ PARAMS_MODIFIER = [
 - `model1,model2:` selects exact model IDs
 - `-param` removes or undefines a request parameter
 - `+param=value` adds or overrides a request parameter
-
-### `WORKFLOW` Format
-
-When enabled, a user message starting with `@key` can run one or more chained model steps.
-
-Example:
-
-```toml
-ENABLE_WORKFLOW = true
-WORKFLOW = {
-  think = [
-    { agent = "oailike", model = "deepseek-reasoner", temperature = 0.3, max_tokens = 1024, next = "Use this reasoning to answer the original question:\n{{result}}\n\nQuestion:\n{{question}}" }
-  ]
-}
-```
 
 ## Generic MCP
 
@@ -563,8 +518,6 @@ Default shortcut mapping:
 -tm:TOOL_MODEL
 -as:AI_ASR_PROVIDER
 -at:AI_TTS_PROVIDER
--ra:RERANK_AGENT
--ew:ENABLE_WORKFLOW
 -tp:CHAT_TEMPERATURE
 ```
 

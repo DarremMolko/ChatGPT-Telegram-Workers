@@ -36,7 +36,6 @@ const SUPPORTED_CHAT_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_IMAGE_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
-const SUPPORTED_RERANK_AGENTS = new Set(['openai', 'oailikeV1', 'oailikeV2']);
 
 function resolveRuntimeBuildInfo(): { sha: string; timestamp: number } {
     const envSha = process.env.BUILD_VERSION?.trim();
@@ -170,10 +169,6 @@ class Environment extends EnvironmentConfig {
         if (!SUPPORTED_TTS_PROVIDERS.has(this.USER_CONFIG.AI_TTS_PROVIDER)) {
             this.USER_CONFIG.AI_TTS_PROVIDER = 'openai';
         }
-        if (!SUPPORTED_RERANK_AGENTS.has(this.USER_CONFIG.RERANK_AGENT)) {
-            this.USER_CONFIG.RERANK_AGENT = 'openai';
-        }
-
         if (this.USER_CONFIG.OPENAI_API_KEY.length === 0 && this.USER_CONFIG.OAILIKE_API_KEY) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = 'oailike';
             this.USER_CONFIG.AI_IMAGE_PROVIDER = 'oailike';

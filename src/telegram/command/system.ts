@@ -636,7 +636,6 @@ export class InlineCommandHandler implements CommandHandler {
         const allImageAgents = IMAGE_AGENTS.map(agent => agent.name);
         const allTTSAgents = TTS_AGENTS.map(agent => agent.name);
         const allASRAgents = ASR_AGENTS.map(agent => agent.name);
-        const allRerankAgents = ['openai', 'oailikeV1', 'oailikeV2'];
         const chatAgent = context.AI_CHAT_PROVIDER;
         const { showAllEnvs = false } = options;
         const configKeyHandler = (type: string) => {
@@ -675,12 +674,6 @@ export class InlineCommandHandler implements CommandHandler {
                 config_key: 'AI_ASR_PROVIDER',
                 type: 'radio',
                 value: allASRAgents,
-            },
-            {
-                label: 'Rerank Agent',
-                config_key: 'RERANK_AGENT',
-                type: 'radio',
-                value: allRerankAgents,
             },
             {
                 label: 'MCP',

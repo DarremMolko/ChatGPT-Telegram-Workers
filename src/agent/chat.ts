@@ -1,9 +1,6 @@
-/* eslint-disable unused-imports/no-unused-vars */
 import type { ModelMessage } from 'ai';
 import type { WorkerContext } from '../config/context';
-import type { AgentUserConfig } from '../config/env';
 import type { ChatAgent, ChatStreamTextHandler, HistoryItem, HistoryModifier, LLMChatParams, LLMChatRequestParams, ResponseMessage } from './types';
-import { loadChatLLM } from '.';
 import { ENV } from '../config/env';
 import { log } from '../log/logger';
 import { formatLocalDateTime } from '../utils/others/time';
@@ -86,7 +83,7 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
         cache: [],
         abortSignal,
     };
-    const answer = await workflow(agent, llmParams, context.USER_CONFIG, onStream);
+    const answer = await agent.request(llmParams, context.USER_CONFIG, onStream);
     const { messages: raw_messages } = answer;
 
     if (!historyDisable && raw_messages.at(-1)?.role === 'assistant') {
@@ -127,66 +124,6 @@ export async function storeHistory(history: ModelMessage[], context: WorkerConte
     await ENV.REDIS.put(historyKey, JSON.stringify(history)).catch(console.error);
     log.info(`[STORE HISTORY] DONE`);
 }
-
-async function workflow(agent: ChatAgent, llmParams: LLMChatParams, context: AgentUserConfig, onStream: ChatStreamTextHandler | null) {
-    const question = llmParams.messages.at(-1)?.content;
-    if (!context.ENABLE_WORKFLOW || typeof question !== 'string') {
-        return agent.request(llmParams, context, onStream);
-    }
-
-    const key = Object.keys(context.WORKFLOW).find(key => question.startsWith(`@${key}`));
-    if (!key) {
-        return agent.request(llmParams, context, onStream);
-    }
-
-    llmParams.messages.at(-1)!.content = question.substring(key.length + 1).trimStart();
-    const backup = { ...context };
-    const updater = (context: AgentUserConfig, { agent, model, temperature, max_tokens }: { agent: string; model: string; temperature: number; max_tokens: number; next: string }) => {
-        agent && (context.AI_CHAT_PROVIDER = agent);
-        model && (context[`${agent.toUpperCase()}_CHAT_MODEL`] = model);
-        temperature && (context.CHAT_TEMPERATURE = temperature);
-        max_tokens && (context.MAX_TOKENS = max_tokens);
-    };
-    const renderNext = (result: string, { next }: { next: string }) => {
-        llmParams.messages.pop();
-        llmParams.messages.push({
-            role: 'user',
-            content: next.replace('{{question}}', question).replace('{{result}}', result) || `question: ${question}\nresult: ${result}`,
-        });
-    };
-
-    for (const workflow of context.WORKFLOW[key]) {
-        updater(context, workflow);
-        const agent = loadChatLLM(context);
-        if (!agent) {
-            throw new Error(`Agent ${workflow.agent} not found`);
-        }
-        const result = await agent.request(llmParams, context, onStream);
-        // 不发送给ai的消息
-        if (result.messages.at(-1)?.role === 'tool') {
-            return result;
-        }
-        // const text = extractResultText(result, llmParams);
-        const stepText = result.content.slice(llmParams.cache?.join().length || 0);
-        if (stepText.trim() === '') {
-            throw new Error('Response is empty');
-        }
-        llmParams.cache!.push(`${stepText}\n▲\n`);
-        await onStream?.send(result.content);
-        renderNext(stepText, workflow);
-    }
-    Object.assign(context, backup);
-    return agent.request(llmParams, context, onStream);
-}
-
-function extractResultText(result: { messages: ResponseMessage[]; content: string }, llmParams: LLMChatParams) {
-    const lastMessage = result.messages.at(-1)!;
-    if (Array.isArray(lastMessage.content)) {
-        return lastMessage.content.map((c: any) => ['text', 'reasoning'].includes(c.type) ? (c as any).text || '' : '').join('\n')
-            || result.content.slice(llmParams.cache?.join().length || 0);
-    }
-    return lastMessage.content;
-};
 
 export function resolveSystemMessage(systemMessage: string | null): string | undefined {
     if (systemMessage) {

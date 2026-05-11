@@ -147,7 +147,7 @@ export class EnvironmentConfig {
     // otherwise, only the set variables will be shown.
     ENVS_VARIABLES = [];
     // callback menu, if it is empty, all options will be displayed.
-    // options: 'AI_CHAT_PROVIDER', 'AI_IMAGE_PROVIDER', 'AI_TTS_PROVIDER', 'AI_ASR_PROVIDER', 'USE_MCP', 'CHAT_MODEL', 'IMAGE_MODEL', 'VISION_MODEL', 'TOOL_MODEL', 'ENVS', 'RERANK_AGENT'
+    // options: 'AI_CHAT_PROVIDER', 'AI_IMAGE_PROVIDER', 'AI_TTS_PROVIDER', 'AI_ASR_PROVIDER', 'USE_MCP', 'CHAT_MODEL', 'IMAGE_MODEL', 'VISION_MODEL', 'TOOL_MODEL', 'ENVS'
     CALLBACK_MENU = [];
 
     // Whether to transform  tool_call/tool_result message to user message
@@ -199,7 +199,6 @@ export class OpenAIConfig {
     OPENAI_TTS_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
 
     OPENAI_TTS_VOICE = 'alloy';
-    OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
     OPENAI_MODELS = [];
     OPENAI_MODELS_API = '/models';
     OPENAI_TTS_PROMPT = '';
@@ -279,10 +278,6 @@ export class OpenAILikeConfig {
     OAILIKE_VISION_MODEL = 'gpt-5.4-mini';
     // oailike image size
     OAILIKE_IMAGE_SIZE = '1024x1024';
-    // oailike embedding model
-    OAILIKE_EMBEDDING_MODEL = 'text-embedding-3-small';
-    // oailike rerank model
-    OAILIKE_RERANK_MODEL = '';
     // oailike asr model
     OAILIKE_STT_MODEL = 'FunAudioLLM/SenseVoiceSmall';
     OAILIKE_STT_EXTRA_PARAMS: Record<string, string> = {};
@@ -306,7 +301,7 @@ export class DefineKeys {
 }
 
 export class ExtraUserConfig {
-    MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-im:IMAGE_MODEL|-v:VISION_MODEL|-s:STT_MODEL|-t:TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-ra:RERANK_AGENT|-ew:ENABLE_WORKFLOW|-tp:CHAT_TEMPERATURE';
+    MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-im:IMAGE_MODEL|-v:VISION_MODEL|-s:STT_MODEL|-t:TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-tp:CHAT_TEMPERATURE';
     // /set command mapping value, separated by |, : separates multiple relationships
     MAPPING_VALUE = '';
     // MAPPING_VALUE = "fast:gpt-5.4-mini|full:gpt-5.4|compat:oailike";
@@ -331,11 +326,6 @@ export class ExtraUserConfig {
     MAX_STEPS = 5;
     // chat agent max retries
     MAX_RETRIES = 0;
-    // Rerank agent: openai or oailike
-    // oailikeV1 uses embeddings, oailikeV2 uses the compatible rerank endpoint.
-    RERANK_AGENT = 'openai';
-    // Whether to enable intelligent model processing
-    ENABLE_INTELLIGENT_MODEL = false;
     // text handle type, to 'tts' or 'text' to chat with llm, or 'chat' by using direct multimodal chat (default: text)
     TEXT_HANDLE_TYPE: 'tts' | 'text' | 'chat' = 'text';
     // Text output type, 'audio' or 'text' (default: text)
@@ -358,28 +348,6 @@ export class ExtraUserConfig {
     // for example: PARAMS_MODIFIER = ['gpt-5.4:+reasoning_effort="high"'];
     // priority is higher than EXTRA_PARAMS
     PARAMS_MODIFIER: string[] = [];
-    // start with @key to trigger workflow, support agent, model, temperature, max_tokens;
-    // next is the next step prompt: {{result}} is the result of the current step result, {{question}} is user input
-    WORKFLOW: {
-        [key: string]: {
-            agent: string;
-            model: string;
-            temperature: number;
-            max_tokens: number;
-            next: string;
-        }[];
-    } = {
-        // think: [{
-        //     agent: 'oailike',
-        //     model: 'deepseek-reasoner',
-        //     temperature: 0.3,
-        //     max_tokens: 1,
-        //     next: `思考内容: {{result}}\n\n基于以上思考回答问题: {{question}}`,
-        // }],
-    };
-
-    // whether to enable workflow
-    ENABLE_WORKFLOW = false;
     // whether to enable model alias of mapping value
     ENABLE_ALIAS = false;
     // 音频提示词

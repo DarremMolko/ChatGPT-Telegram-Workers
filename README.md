@@ -37,7 +37,7 @@ There are two configuration layers:
 2. Stored per-chat user configuration
    - Persisted in Redis
    - Modified through `/set`, `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/settings`
-   - Covers provider choice, model choice, MCP selection, tool model, temperatures, workflow, output modes, and similar chat-level behavior
+   - Covers provider choice, model choice, MCP selection, tool model, temperatures, output modes, and similar chat-level behavior
 
 `CHAT_WHITE_LIST` users are runtime admins for the stored per-chat config surface. Deployment-only environment settings still come from `config.toml` or process env.
 
@@ -234,7 +234,7 @@ Defaults when you keep the root `/v1` base:
 - `openai` -> `v1/responses`
 - `oailike` -> `v1/chat/completions`
 
-Non-chat endpoints such as `/models`, `/images`, `/audio`, embeddings, and rerank still resolve against the stripped root API base automatically.
+Non-chat endpoints such as `/models`, `/images`, and `/audio` still resolve against the stripped root API base automatically.
 
 ## Persistence And State
 
