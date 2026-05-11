@@ -22,6 +22,7 @@ export interface MessageInfo {
     occured_error?: boolean;
     stepStartContent?: string;
     stepRetainedContent?: string;
+    pendingStepRetainedReset?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -36,6 +37,14 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
     return {
         prepareStepPre: (middleware: any) => async ({ model }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
+            if (messageInfo.pendingStepRetainedReset) {
+                const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
+                messageInfo.content = baseContent;
+                onStream?.send(baseContent || '...');
+                messageInfo.stepStartContent = undefined;
+                messageInfo.stepRetainedContent = undefined;
+                messageInfo.pendingStepRetainedReset = false;
+            }
             currentModel = model;
             if (activeTools.length > 0) {
                 const targetModel = config.TOOL_MODEL;
@@ -116,6 +125,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 const visibleContent = `${baseContent}${retainedContent}`.trimEnd();
                 messageInfo.content = visibleContent;
                 onStream?.send(visibleContent || '...');
+                messageInfo.pendingStepRetainedReset = true;
             }
 
             if (toolResults.length > 0) {
@@ -181,8 +191,10 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
 
             hasRecordFirstChunkTime = false;
-            messageInfo.stepStartContent = undefined;
-            messageInfo.stepRetainedContent = undefined;
+            if (!messageInfo.pendingStepRetainedReset) {
+                messageInfo.stepStartContent = undefined;
+                messageInfo.stepRetainedContent = undefined;
+            }
             step++;
         },
     };
