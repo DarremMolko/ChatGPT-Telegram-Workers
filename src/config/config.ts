@@ -101,6 +101,12 @@ export class EnvironmentConfig {
     SEND_IMAGE_AS_FILE: boolean = false;
     // Log level
     LOG_LEVEL: LogLevelType = 'info';
+    // Optional NDJSON file path for detailed runtime, reasoning, and tool-call traces.
+    // When empty and DEBUG_MODE=true, the default path is
+    // ./logs/chatgpt-telegram-workers.debug.ndjson
+    DEBUG_LOG_FILE = '';
+    // Max string length written to the debug log before truncation.
+    DEBUG_LOG_MAX_STRING_LENGTH = 8000;
 
     // -------------
 

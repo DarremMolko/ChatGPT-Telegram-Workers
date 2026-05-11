@@ -1,6 +1,7 @@
 import type { LogLevelType } from '../config/types';
 import { ENV } from '../config/env';
 import { formatLocalDateTime } from '../utils/others/time';
+import { writeDebugLog } from './trace_file';
 
 const LOG_LEVEL_PRIORITY: Record<LogLevelType, number> = {
     debug: 1,
@@ -37,6 +38,16 @@ function LogLevel(level: LogLevelType, ...args: any[]) {
         default:
             console.log(formattedMessage);
     }
+
+    writeDebugLog({
+        source: 'logger',
+        event: 'runtime-log',
+        level,
+        data: {
+            message: logStr,
+            args,
+        },
+    });
 }
 
 type Logger = Record<LogLevelType, (...args: any[]) => void>;

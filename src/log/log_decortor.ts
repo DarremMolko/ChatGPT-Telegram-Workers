@@ -2,6 +2,7 @@ import type { Message } from 'telegram-bot-api-types';
 import type { CompletionData } from '../agent/types';
 import type { WorkerContext } from '../config/context';
 import type { AgentUserConfig } from '../config/env';
+import { randomUUID } from 'node:crypto';
 
 export const logSingleton = new WeakMap<AgentUserConfig, LogStruct[]>();
 export const tagMessageIds = new WeakMap<Message, Set<number>>();
@@ -51,6 +52,7 @@ export function Logger(
 
 export function getLogSingleton({ config, init = true }: { config: AgentUserConfig; init?: boolean }): LogStruct {
     const initLog: LogStruct = {
+        trace_id: randomUUID(),
         model: '',
         functions: [],
         start_time: Number.NaN,
@@ -136,6 +138,7 @@ export function clearLog(context: AgentUserConfig) {
 }
 
 export interface LogStruct {
+    trace_id: string;
     model: string;
     functions: { name: string; args: any; error?: string; time: number }[];
     tokens?: { prompt: number; completion: number; reasoning?: number; cached?: number };

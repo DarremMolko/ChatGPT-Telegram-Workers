@@ -188,6 +188,8 @@ This creates `/fast`.
 | `CHAT_TOTAL_DURATION_LIMIT` | Total conversation request timeout in seconds. | `1800` |
 | `LOG_LEVEL` | Runtime logger level. | `info` |
 | `DEBUG_MODE` | Store more debugging data and keep extra diagnostics. | `false` |
+| `DEBUG_LOG_FILE` | Optional NDJSON file path for detailed runtime, reasoning, and tool-call traces. When empty and `DEBUG_MODE=true`, defaults to `./logs/chatgpt-telegram-workers.debug.ndjson`. | `''` |
+| `DEBUG_LOG_MAX_STRING_LENGTH` | Max string length written to the debug log file before truncation. | `8000` |
 | `DEV_MODE` | Expose additional debug output in commands such as `/system`. | `false` |
 | `HIDE_MIDDLE_MESSAGE` | Hide intermediate transcription/tool status messages where possible. | `false` |
 | `RELAX_AUTH_KEYS` | Allow some `/set` keys to skip the stronger auth path when used temporarily. | `[]` |

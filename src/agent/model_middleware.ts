@@ -11,7 +11,7 @@ import {
     wrapLanguageModel,
 } from 'ai';
 import { ENV } from '../config/env';
-import { getLogSingleton, log } from '../log';
+import { getLogSingleton, log, writeDebugLog } from '../log';
 import { resolveMcpTools } from '../mcp/tools';
 import { sendToolResult } from '../telegram/utils/tool_result';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
@@ -33,7 +33,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     let currentModel: LanguageModelV3;
 
     return {
-        prepareStepPre: (middleware: any) => async ({ model }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
+        prepareStepPre: (middleware: any) => async ({ model, stepNumber, steps }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
             currentModel = model;
             if (activeTools.length > 0) {
                 const targetModel = config.TOOL_MODEL;
@@ -44,6 +44,19 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
             record = getLogSingleton({ config });
             recordModelLog({ config, model: currentModel, record });
+            writeDebugLog({
+                source: 'llm',
+                event: 'step-prepare',
+                traceId: record.trace_id,
+                data: {
+                    step: stepNumber,
+                    prior_steps: steps.length,
+                    requested_model: model.modelId,
+                    effective_model: currentModel.modelId,
+                    provider: currentModel.provider,
+                    active_tools: activeTools,
+                },
+            });
             return {
                 model: currentModel,
             };
@@ -76,6 +89,21 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
             const isResponseApi = currentModel.provider.endsWith('.responses');
             warpMessages(params, activeTools, isResponseApi, rawSystemPrompt);
+            writeDebugLog({
+                source: 'llm',
+                event: 'step-params',
+                traceId: record.trace_id,
+                data: {
+                    type,
+                    step,
+                    model: currentModel.modelId,
+                    provider: currentModel.provider,
+                    active_tools: activeTools,
+                    tool_choice: params.toolChoice,
+                    tool_names: getToolNames(params.tools),
+                    prompt: params.prompt,
+                },
+            });
             return params;
         },
 
@@ -88,12 +116,103 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 onStream?.send(`${messageInfo.content.trimEnd()}\n\ntool call start: \`${chunk.toolName}\``);
                 log.info(`start tool: ${chunk.toolName}`);
             }
+            switch (chunk.type) {
+                case 'reasoning-start':
+                case 'reasoning-end':
+                case 'text-start':
+                case 'text-end':
+                    writeDebugLog({
+                        source: 'llm',
+                        event: `stream-${chunk.type}`,
+                        traceId: record.trace_id,
+                        data: {
+                            step,
+                            model: currentModel.modelId,
+                        },
+                    });
+                    break;
+                case 'reasoning-delta':
+                    writeDebugLog({
+                        source: 'llm',
+                        event: 'stream-reasoning-delta',
+                        traceId: record.trace_id,
+                        data: {
+                            step,
+                            text: chunk.text,
+                        },
+                    });
+                    break;
+                case 'tool-call':
+                    writeDebugLog({
+                        source: 'llm',
+                        event: 'stream-tool-call',
+                        traceId: record.trace_id,
+                        data: {
+                            step,
+                            tool_name: chunk.toolName,
+                            tool_call_id: chunk.toolCallId,
+                            input: chunk.input,
+                        },
+                    });
+                    break;
+                case 'source':
+                    const sourceData = chunk.sourceType === 'url'
+                        ? {
+                                source_type: chunk.sourceType,
+                                title: chunk.title,
+                                url: chunk.url,
+                            }
+                        : {
+                                source_type: chunk.sourceType,
+                                title: chunk.title,
+                                media_type: chunk.mediaType,
+                                filename: chunk.filename,
+                            };
+                    writeDebugLog({
+                        source: 'llm',
+                        event: 'stream-source',
+                        traceId: record.trace_id,
+                        data: {
+                            step,
+                            ...sourceData,
+                        },
+                    });
+                    break;
+                case 'error':
+                    writeDebugLog({
+                        source: 'llm',
+                        event: 'stream-error',
+                        traceId: record.trace_id,
+                        data: {
+                            step,
+                            error: chunk.error,
+                        },
+                    });
+                    break;
+                default:
+                    break;
+            }
         },
 
         onStepFinish: async ({ text, toolResults, usage, request, response }: StepResult<any>) => {
             log.info('llm request end');
             log.info(`[onStepFinish] text: "${text}", text length: ${text?.length || 0}, toolResults count: ${toolResults.length}`);
             log.debug('step raw request:', request);
+            writeDebugLog({
+                source: 'llm',
+                event: 'step-finish',
+                traceId: record.trace_id,
+                data: {
+                    step,
+                    model: currentModel.modelId,
+                    provider: currentModel.provider,
+                    text,
+                    tool_results: toolResults,
+                    usage,
+                    request,
+                    response,
+                },
+            });
 
             record.end_time = Date.now();
 
@@ -455,6 +574,13 @@ function recordModelLog({ config, model, record }: { config: AgentUserConfig; mo
         const mappedModel = config.MAPPING_VALUE.split('|').map(i => i.split(':')).find(([_, value]) => value === model.modelId);
         record.model = mappedModel?.[0] ?? model.modelId;
     }
+}
+
+function getToolNames(tools: unknown): string[] {
+    if (!tools || typeof tools !== 'object') {
+        return [];
+    }
+    return Object.keys(tools as Record<string, unknown>);
 }
 
 function addCitationLinks(content: string, citations: Array<string | { url_citation?: { title: string; url: string } }>) {

@@ -23,6 +23,12 @@ OPENAI_TTS_VOICE = "alloy"
 # TELEGRAM_STREAM_MODE = "draft"
 # TELEGRAM_STREAM_MODE = "auto"
 #
+# Optional: enable detailed NDJSON debugging for reasoning and tool calls.
+# If DEBUG_MODE = true and DEBUG_LOG_FILE is omitted, the default path is:
+# ./logs/chatgpt-telegram-workers.debug.ndjson
+# DEBUG_MODE = true
+# DEBUG_LOG_FILE = "./logs/chatgpt-telegram-workers.debug.ndjson"
+#
 # Optional: enable OpenAI provider-side tools when using the Responses API.
 # USE_OPENAI_BUILDIN = ["webSearch"]
 # OPENAI_WEB_SEARCH_CONTEXT_SIZE = "high"
