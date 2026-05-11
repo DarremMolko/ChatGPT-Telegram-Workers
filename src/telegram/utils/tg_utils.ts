@@ -9,6 +9,37 @@ export function isTelegramChatTypeGroup(type: string): boolean {
 }
 
 type MsgType = 'text' | 'photo' | 'voice' | 'image' | 'audio' | 'document' | 'sticker' | 'video' | 'animation' | 'unknown' | 'unsupported';
+const TEXT_LIKE_DOCUMENT_MIME_TYPES = new Set([
+    'application/json',
+    'application/ld+json',
+    'application/x-ndjson',
+    'application/ndjson',
+    'application/toml',
+    'application/yaml',
+    'application/x-yaml',
+    'application/xml',
+]);
+const TEXT_LIKE_DOCUMENT_EXTENSIONS = new Set([
+    'txt',
+    'text',
+    'md',
+    'markdown',
+    'csv',
+    'tsv',
+    'json',
+    'jsonl',
+    'ndjson',
+    'yaml',
+    'yml',
+    'toml',
+    'xml',
+    'ini',
+    'cfg',
+    'conf',
+    'env',
+    'log',
+    'sql',
+]);
 export interface UnionData {
     type: MsgType;
     original_type?: MsgType;
@@ -40,6 +71,25 @@ export function extractMessageInfo(message: Telegram.Message, currentBotId: numb
     }
 
     return messageData;
+}
+
+function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType {
+    const mediaType = mimeType?.toLowerCase() || '';
+    const directSupport = mediaType.match(/^(audio|image|text|video)\//)?.[1];
+    if (directSupport) {
+        return directSupport as MsgType;
+    }
+    if (mediaType === 'application/pdf') {
+        return 'document';
+    }
+    if (TEXT_LIKE_DOCUMENT_MIME_TYPES.has(mediaType)) {
+        return 'text';
+    }
+    const extension = fileName?.split('.').pop()?.toLowerCase() || '';
+    if (TEXT_LIKE_DOCUMENT_EXTENSIONS.has(extension)) {
+        return 'text';
+    }
+    return 'unsupported';
 }
 
 function extractTypeFromMessage(message: Telegram.Message): UnionData {
@@ -78,19 +128,13 @@ function extractTypeFromMessage(message: Telegram.Message): UnionData {
                 throw new Error('file_id not found');
             }
             const mimeType = message.document?.mime_type;
-            const testSupport = mimeType?.match(/^(audio|image|text|video)\//)?.[1];
-            if (testSupport) {
-                typeInfo.type = testSupport as UnionData['type'];
-            } else if (mimeType === 'application/pdf') {
-                typeInfo.type = 'document';
-            } else {
-                typeInfo.type = 'unsupported';
-            }
+            const fileName = message.document?.file_name;
+            typeInfo.type = resolveDocumentUnionType(mimeType, fileName);
             return {
                 type: typeInfo.type,
                 original_type: msgType,
                 mime_type: mimeType,
-                file_name: message.document?.file_name,
+                file_name: fileName,
                 id: id ? [id] : undefined,
                 media_group_id: message.media_group_id,
             };

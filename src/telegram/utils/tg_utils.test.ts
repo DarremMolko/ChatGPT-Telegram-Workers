@@ -61,6 +61,31 @@ describe('extractMessageInfo', () => {
         }));
     });
 
+    it('maps common text-like application MIME types to text input', () => {
+        expect(extractMessageInfo(createDocumentMessage('application/json', 'data.json'), 999)).toEqual(expect.objectContaining({
+            type: 'text',
+            file_name: 'data.json',
+        }));
+        expect(extractMessageInfo(createDocumentMessage('application/toml', 'config.toml'), 999)).toEqual(expect.objectContaining({
+            type: 'text',
+            file_name: 'config.toml',
+        }));
+        expect(extractMessageInfo(createDocumentMessage('application/x-yaml', 'config.yaml'), 999)).toEqual(expect.objectContaining({
+            type: 'text',
+            file_name: 'config.yaml',
+        }));
+    });
+
+    it('falls back to filename extension for text-like octet-stream documents', () => {
+        const info = extractMessageInfo(createDocumentMessage('application/octet-stream', 'settings.toml'), 999);
+
+        expect(info).toEqual(expect.objectContaining({
+            type: 'text',
+            mime_type: 'application/octet-stream',
+            file_name: 'settings.toml',
+        }));
+    });
+
     it('marks unsupported document MIME types as unsupported', () => {
         const info = extractMessageInfo(createDocumentMessage('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'note.docx'), 999);
 
