@@ -16,6 +16,7 @@ export default {
             clearenv: 'Clear all stored user-config overrides for the current chat scope',
             system: 'Show runtime, provider, and usage information',
             redo: 'Retry the last conversation, optionally with replacement text',
+            stop: 'Stop the active response in the current chat scope',
             echo: 'Echo the raw Telegram message payload',
             set: 'Apply temporary or stored user-config overrides with shortcut flags',
             history: 'Export stored chat history as JSON. Format: `/history [n]`',

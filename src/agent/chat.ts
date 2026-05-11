@@ -46,7 +46,7 @@ export async function loadHistory(key: string, length: number): Promise<HistoryI
     return history;
 }
 
-export async function requestCompletionsFromLLM(params: LLMChatRequestParams | null, context: WorkerContext, agent: ChatAgent, modifier: HistoryModifier | null, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
+export async function requestCompletionsFromLLM(params: LLMChatRequestParams | null, context: WorkerContext, agent: ChatAgent, modifier: HistoryModifier | null, onStream: ChatStreamTextHandler | null, abortSignal?: AbortSignal): Promise<{ messages: ResponseMessage[]; content: string }> {
     let history = context.MIDDLE_CONTEXT.history;
     const historyDisable = ENV.STORE_HISTORY_LENGTH <= 0;
     if (modifier) {
@@ -84,6 +84,7 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
         system: resolveSystemMessage(context.USER_CONFIG.SYSTEM_INIT_MESSAGE),
         messages,
         cache: [],
+        abortSignal,
     };
     const answer = await workflow(agent, llmParams, context.USER_CONFIG, onStream);
     const { messages: raw_messages } = answer;

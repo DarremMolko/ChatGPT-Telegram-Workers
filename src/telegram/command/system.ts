@@ -19,6 +19,7 @@ import { formatLocalDateTime } from '../../utils/others/time';
 import { getStats } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
 import { chatWithLLM, sendImages, tts } from '../handler/chat';
+import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
 import { chunkArray, getTelegramFile, isTelegramChatTypeGroup } from '../utils/tg_utils';
@@ -406,6 +407,28 @@ export class RedoCommandHandler implements CommandHandler {
         context.MIDDLE_CONTEXT.history = await loadHistory(context.SHARE_CONTEXT.chatHistoryKey, ENV.STORE_HISTORY_LENGTH);
         return chatWithLLM(message, null, context, mf) as unknown as Response;
     };
+}
+
+export class StopCommandHandler implements CommandHandler {
+    command = '/stop';
+    scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
+
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const scopeKey = context.SHARE_CONTEXT.chatHistoryKey;
+        if (getActiveRequestCount(scopeKey) <= 0) {
+            return sender.sendPlainText('No active response is running.', 'tip');
+        }
+        const cancelled = cancelActiveRequests(scopeKey);
+        if (cancelled <= 0) {
+            return sender.sendPlainText('No active response is running.', 'tip');
+        }
+        const label = cancelled === 1 ? 'response' : 'responses';
+        return sender.sendPlainText(`Stopping ${cancelled} active ${label}.`, 'tip');
+    };
+}
+
+export class CancelCommandHandler extends StopCommandHandler {
+    command = '/cancel';
 }
 
 export class EchoCommandHandler implements CommandHandler {

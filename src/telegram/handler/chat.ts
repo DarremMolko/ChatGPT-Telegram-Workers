@@ -11,9 +11,11 @@ import { loadASRLLM, loadChatLLM, loadImageGen, loadTTSLLM, TTS_AGENTS } from '.
 import { loadHistory, requestCompletionsFromLLM } from '../../agent/chat';
 import { ENV } from '../../config/env';
 import { clearLog, getLog, log } from '../../log';
+import { isUserCancelledSignal } from '../../utils/abort';
 import { imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
+import { registerActiveRequest } from '../utils/active_request';
 import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
@@ -61,10 +63,18 @@ export async function chatWithLLM(
     isMiddle?: boolean,
 ): Promise<Response | string> {
     const streamSender = sender ?? OnStreamHander(MessageSender.from(context.SHARE_CONTEXT.botToken, message), context, message?.text || message?.caption || '');
+    const activeRequest = !isMiddle ? registerActiveRequest(context.SHARE_CONTEXT.chatHistoryKey) : null;
     try {
         const agent = loadChatLLM(context.USER_CONFIG);
         log.info(`start chat with LLM`);
-        const answer = await requestCompletionsFromLLM(params, context, agent, modifier, ENV.STREAM_MODE && !isMiddle ? streamSender : null);
+        const answer = await requestCompletionsFromLLM(
+            params,
+            context,
+            agent,
+            modifier,
+            ENV.STREAM_MODE && !isMiddle ? streamSender : null,
+            activeRequest?.signal,
+        );
         log.info(`chat with LLM done`);
 
         if (isMiddle) {
@@ -72,12 +82,24 @@ export async function chatWithLLM(
         }
         return streamSender.end!(answer.content);
     } catch (e) {
+        if (activeRequest?.isUserCancelled()) {
+            streamSender.clearHeartbeat?.();
+            const partial = (streamSender.peek?.() || '').replace(/●\s*$/, '').trim();
+            if (partial) {
+                return streamSender.end!(partial);
+            }
+            const sender = streamSender.sender as MessageSender | undefined;
+            if (sender) {
+                return sender.sendPlainText('Stopped current response.', 'tip');
+            }
+            return new Response('cancelled');
+        }
         log.error((e as Error).message, (e as Error).stack);
         if (APICallError.isInstance(e)) {
             log.error(e.responseBody);
         }
         let errMsg = '';
-        if ((e as Error).name === 'AbortError') {
+        if ((e as Error).name === 'AbortError' || isUserCancelledSignal(activeRequest?.signal)) {
             errMsg += 'Chat with LLM timeout';
         } else {
             errMsg += (e as Error).message;
@@ -88,6 +110,8 @@ export async function chatWithLLM(
         }
         errMsg = errMsg.trim().replace(context.SHARE_CONTEXT.botToken, '[REDACTED]').substring(0, 2048);
         return streamSender.end!(`\`\`\`Error\n${errMsg}\n\`\`\``, false, 'error');
+    } finally {
+        activeRequest?.done();
     }
 }
 
@@ -246,6 +270,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     const streamSender = {
         send: null as ((text: string, type?: 'chat' | 'error' | 'heartbeat') => Promise<any>) | null,
         end: null as ((text: string, needLog?: boolean, type?: 'chat' | 'error' | 'heartbeat') => Promise<any>) | null,
+        peek: () => cache,
         sender,
         clearHeartbeat: () => {
             heartbeatId && clearInterval(heartbeatId);

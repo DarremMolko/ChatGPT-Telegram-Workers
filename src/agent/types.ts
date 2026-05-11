@@ -47,6 +47,7 @@ export interface ChatStreamTextHandler {
     sender?: MessageSender;
     send: (text: string, type?: 'chat' | 'error' | 'heartbeat') => Promise<any>;
     end?: (text: string, needLog?: boolean, type?: 'chat' | 'error' | 'heartbeat') => Promise<any>;
+    peek?: () => string;
     clearHeartbeat?: () => void;
 }
 
@@ -60,6 +61,7 @@ export interface LLMChatParams {
     system?: string;
     messages: ModelMessage[];
     cache?: string[];
+    abortSignal?: AbortSignal;
 }
 
 export type ResponseMessage = AssistantModelMessage | ToolModelMessage;

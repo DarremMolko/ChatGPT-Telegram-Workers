@@ -8,6 +8,7 @@ import { generateText, stepCountIs, streamText, TypeValidationError, wrapLanguag
 import { ENV } from '../config/env';
 import { log } from '../log';
 import { SEGMENTATION_MARK } from '../telegram/utils/md2tgmd';
+import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { Stream } from './stream';
@@ -132,7 +133,7 @@ function clearTimeoutID(timeoutID: any) {
     }
 }
 
-export async function streamHandler(stream: AsyncIterable<any>, contentExtractor: (data: any) => string | null, onStream: ChatStreamTextHandler, messageInfo: MessageInfo): Promise<string> {
+export async function streamHandler(stream: AsyncIterable<any>, contentExtractor: (data: any) => string | null, onStream: ChatStreamTextHandler, messageInfo: MessageInfo, abortSignal?: AbortSignal): Promise<string> {
     let lengthDelta = 0;
     let updateStep = 5;
     const maxLength = 10_000;
@@ -153,6 +154,12 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             }
         }
     } catch (e) {
+        if (isUserCancelledSignal(abortSignal)) {
+            if (messageInfo.content === '') {
+                throw e;
+            }
+            return messageInfo.content;
+        }
         if (messageInfo.content === '') {
             throw e;
         }
@@ -196,7 +203,7 @@ function appendStreamSources(content: string, sources: Array<{ url: string; titl
     return `${cleanedContent.trimEnd()}\n\n>sources:\n>${formattedSources}`;
 }
 
-export async function requestChatCompletionsV2({ model, system, messages, tools, activeTools, toolChoice, context, cache }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; system?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[] }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
+export async function requestChatCompletionsV2({ model, system, messages, tools, activeTools, toolChoice, context, cache, abortSignal }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; system?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[]; abortSignal?: AbortSignal }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
     log.info(`[requestChatCompletionsV2] messages before SDK: ${JSON.stringify(messages.map((m) => {
         if (m.role === 'user' && Array.isArray(m.content)) {
             return { role: m.role, content: m.content.map(c => c.type === 'file' ? { type: c.type, mediaType: (c as any).mediaType } : { type: c.type }) };
@@ -217,7 +224,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         messageInfo,
     });
 
-    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk });
+    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk, abortSignal });
 
     let responseMessages: ResponseMessage[] = [];
     let contentFull = '';
@@ -226,7 +233,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         const stream = streamText(handledParams);
         const dataExtractor = thinkingExtractor(messageInfo);
 
-        contentFull = await streamHandler(stream.fullStream, dataExtractor, onStream, messageInfo);
+        contentFull = await streamHandler(stream.fullStream, dataExtractor, onStream, messageInfo, abortSignal);
         responseMessages = messageInfo.occured_error ? [{ role: 'assistant', content: contentFull }] : (await stream.response).messages;
         contentFull = messageInfo.occured_error ? contentFull : metaDataExtractor(await stream.providerMetadata, model.provider, contentFull);
 
@@ -377,7 +384,34 @@ function thinkingExtractor(messageInfo: MessageInfo) {
     };
 }
 
-async function combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; system?: string; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void }) {
+function mergeAbortSignals(signals: Array<AbortSignal | undefined>): AbortSignal | undefined {
+    const activeSignals = signals.filter(Boolean) as AbortSignal[];
+    if (activeSignals.length === 0) {
+        return undefined;
+    }
+    if (activeSignals.length === 1) {
+        return activeSignals[0];
+    }
+    if (typeof AbortSignal.any === 'function') {
+        return AbortSignal.any(activeSignals);
+    }
+    const controller = new AbortController();
+    const abort = (signal: AbortSignal) => {
+        if (!controller.signal.aborted) {
+            controller.abort(signal.reason);
+        }
+    };
+    for (const signal of activeSignals) {
+        if (signal.aborted) {
+            abort(signal);
+            break;
+        }
+        signal.addEventListener('abort', () => abort(signal), { once: true });
+    }
+    return controller.signal;
+}
+
+async function combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk, abortSignal }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; system?: string; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void; abortSignal?: AbortSignal }) {
     const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
@@ -391,6 +425,10 @@ async function combineParams({ context, middleware, model, system, messages, act
     } else {
         providerOptions.openai = effectiveTarget.agent === 'oailike' ? context.OAILIKE_PROVIDER_OPTIONS : context.OPENAI_PROVIDER_OPTIONS;
     }
+    const mergedAbortSignal = mergeAbortSignals([
+        abortSignal,
+        ENV.CHAT_TOTAL_DURATION_LIMIT > 0 ? AbortSignal.timeout(ENV.CHAT_TOTAL_DURATION_LIMIT * 1e3) : undefined,
+    ]);
 
     return {
         model: wrapLanguageModel({
@@ -410,6 +448,6 @@ async function combineParams({ context, middleware, model, system, messages, act
         stopWhen: stepCountIs(context.MAX_STEPS),
         onStepFinish,
         onChunk,
-        ...(ENV.CHAT_TOTAL_DURATION_LIMIT > 0 && { abortSignal: AbortSignal.timeout(ENV.CHAT_TOTAL_DURATION_LIMIT * 1e3) }),
+        ...(mergedAbortSignal && { abortSignal: mergedAbortSignal }),
     };
 }

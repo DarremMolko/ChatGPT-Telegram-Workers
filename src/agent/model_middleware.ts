@@ -255,7 +255,7 @@ function warpModel(model: LanguageModelV3, config: AgentUserConfig, activeTools:
     }
 }
 
-export async function warpLLMParams({ system, messages, model, cache }: { system?: string; messages: ModelMessage[]; model: LanguageModelV3; cache?: string[] }, context: AgentUserConfig) {
+export async function warpLLMParams({ system, messages, model, cache, abortSignal }: { system?: string; messages: ModelMessage[]; model: LanguageModelV3; cache?: string[]; abortSignal?: AbortSignal }, context: AgentUserConfig) {
     const userMessage = messages.findLast(m => m.role === 'user')!;
     const userText = Array.isArray(userMessage.content) ? userMessage.content.find(c => c.type === 'text')?.text ?? '' : userMessage.content;
     const { tools = {}, activeToolNames = [] } = await resolveMcpTools(context);
@@ -412,6 +412,7 @@ export async function warpLLMParams({ system, messages, model, cache }: { system
         activeTools,
         toolChoice,
         context,
+        abortSignal,
     };
 }
 
