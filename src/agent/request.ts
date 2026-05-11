@@ -147,7 +147,7 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             lengthDelta += textPart.length;
             messageInfo.content += textPart;
 
-            if (!messageInfo.deferStream && lengthDelta > updateStep) {
+            if (lengthDelta > updateStep) {
                 lengthDelta = 0;
                 updateStep = Math.min(updateStep + 40, maxLength);
                 onStream.send(`${messageInfo.content.trimEnd()}●`);
@@ -350,7 +350,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     return appendRetained(`\n>✹\n${SEGMENTATION_MARK}\n`);
                 case 'text-delta':
                     messageInfo.stepStartContent ??= messageInfo.content;
-                    return '';
+                    return messageInfo.hadToolResults ? data.text : '';
                 case 'text-end':
                     return '';
                 case 'source':

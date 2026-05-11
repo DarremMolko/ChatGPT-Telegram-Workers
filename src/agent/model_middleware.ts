@@ -24,6 +24,7 @@ export interface MessageInfo {
     stepRetainedContent?: string;
     pendingStepRetainedReset?: boolean;
     deferStream?: boolean;
+    hadToolResults?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -98,7 +99,8 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
             if (messageInfo.deferStream) {
                 if (chunk.type === 'tool-call') {
-                    const visibleContent = messageInfo.content.trimEnd();
+                    const visibleContent = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}`.trimEnd();
+                    messageInfo.content = visibleContent;
                     onStream?.send(visibleContent ? `${visibleContent}\n\ntool call start: \`${chunk.toolName}\`` : `tool call start: \`${chunk.toolName}\``);
                     log.info(`start tool: ${chunk.toolName}`);
                 }
@@ -130,7 +132,9 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
 
                 if (messageInfo.deferStream) {
+                    messageInfo.hadToolResults = true;
                     messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}`;
+                    onStream?.send(messageInfo.content.trimEnd() || '...');
                     messageInfo.pendingStepRetainedReset = true;
                 } else {
                     const baseContent = messageInfo.stepStartContent ?? '';
