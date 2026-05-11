@@ -541,23 +541,6 @@ async function extractTelegramDescription(resp: Response): Promise<string> {
     }
 }
 
-export function makeResponseTransient(api: TelegramBotAPI, chatId: number, resp: Response, ttlMs = 5000): Response {
-    void resp.clone().json().then((body: Telegram.SendMediaGroupResponse | Telegram.SendMessageResponse) => {
-        const messageIds = Array.isArray(body.result)
-            ? body.result.map(item => item.message_id).filter(Boolean)
-            : [body.result?.message_id].filter(Boolean);
-        if (messageIds.length === 0) {
-            return;
-        }
-        setTimeout(() => {
-            for (const messageId of messageIds) {
-                void api.deleteMessage({ chat_id: chatId, message_id: messageId }).catch(console.error);
-            }
-        }, ttlMs);
-    }).catch(() => {});
-    return resp;
-}
-
 export async function checkIsNeedTagIds(context: { chatType: string; message: Telegram.Message }, resp: Promise<Response>, msgType: 'tip' | 'chat') {
     const { chatType, message } = context;
     let message_id: number[] = [];
