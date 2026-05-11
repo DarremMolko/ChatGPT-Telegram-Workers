@@ -38,11 +38,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
     return {
         prepareStepPre: (middleware: any) => async ({ model }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
-            if (messageInfo.deferStream) {
-                messageInfo.stepStartContent = undefined;
-                messageInfo.stepRetainedContent = undefined;
-                messageInfo.pendingStepRetainedReset = false;
-            }
             if (messageInfo.pendingStepRetainedReset) {
                 const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
                 messageInfo.content = baseContent;
@@ -103,6 +98,8 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
             if (messageInfo.deferStream) {
                 if (chunk.type === 'tool-call') {
+                    const visibleContent = messageInfo.content.trimEnd();
+                    onStream?.send(visibleContent ? `${visibleContent}\n\ntool call start: \`${chunk.toolName}\`` : `tool call start: \`${chunk.toolName}\``);
                     log.info(`start tool: ${chunk.toolName}`);
                 }
                 return;
@@ -133,10 +130,8 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 await handleToolResult({ toolResults: uniqueResults as any, onStream, config });
 
                 if (messageInfo.deferStream) {
-                    messageInfo.content = messageInfo.stepStartContent ?? messageInfo.content;
-                    messageInfo.stepStartContent = undefined;
-                    messageInfo.stepRetainedContent = undefined;
-                    messageInfo.pendingStepRetainedReset = false;
+                    messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}`;
+                    messageInfo.pendingStepRetainedReset = true;
                 } else {
                     const baseContent = messageInfo.stepStartContent ?? '';
                     const retainedContent = messageInfo.stepRetainedContent ?? '';
@@ -195,6 +190,9 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
             if (text && text.trim()) {
                 log.info(`Final response text length: ${text.length}`);
+                if (messageInfo.deferStream && toolResults.length === 0) {
+                    messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}${text}`;
+                }
             }
 
             if (usage && usage.inputTokens && usage.outputTokens) {

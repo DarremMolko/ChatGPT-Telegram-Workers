@@ -283,14 +283,74 @@ function thinkingExtractor(messageInfo: MessageInfo) {
         if (messageInfo.deferStream) {
             switch (data.type) {
                 case 'reasoning-start':
+                    if (!ENV.SHOW_THINKING_TEXT) {
+                        return '';
+                    }
+                    messageInfo.stepStartContent ??= messageInfo.content;
+                    if (!thinkingStart) {
+                        thinkingStart = true;
+                        thinkingStartTime = Date.now();
+                        reasoningBuffer = '';
+                        lastOutputTime = Date.now();
+                        hasEmittedReasoningText = false;
+                        return appendRetained(thinkingTag);
+                    }
+                    return '';
                 case 'reasoning-delta':
+                    if (!ENV.SHOW_THINKING_TEXT) {
+                        return '';
+                    }
+                    reasoningBuffer += data.text;
+                    const now = Date.now();
+                    if (reasoningBuffer.length >= 50
+                        || /[。！？.!?]\s*$/.test(reasoningBuffer.trim())
+                        || (now - lastOutputTime > 500 && reasoningBuffer.length >= 20)) {
+                        const output = appendRetained(renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText));
+                        reasoningBuffer = '';
+                        lastOutputTime = now;
+                        hasEmittedReasoningText = true;
+                        return output;
+                    }
+                    return '';
                 case 'reasoning-end':
+                    if (!ENV.SHOW_THINKING_TEXT) {
+                        return '';
+                    }
+                    if (reasoningBuffer.length > 0) {
+                        const output = appendRetained(renderQuotedChunk(reasoningBuffer, !hasEmittedReasoningText));
+                        reasoningBuffer = '';
+                        hasEmittedReasoningText = true;
+                        return output;
+                    }
+                    return '';
                 case 'text-start':
                     messageInfo.stepStartContent ??= messageInfo.content;
-                    return '';
+                    if (!thinkingStart) {
+                        return '';
+                    }
+                    thinkingStart = false;
+                    if (!hasEmittedReasoningText) {
+                        messageInfo.content = messageInfo.content
+                            .replace(thinkingTag, '')
+                            .replace(/\n+$/, '');
+                        updateRetained(text => text
+                            .replace(thinkingTag, '')
+                            .replace(/\n+$/, ''));
+                        return '';
+                    }
+                    const thinkingTime = ((Date.now() - thinkingStartTime!) / 1e3).toFixed(1);
+                    messageInfo.content = messageInfo.content
+                        .replace(thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
+                        .replace(/(\n>)*$/, '')
+                        .replace(/(\n>){3,}$/g, '\n>\n>');
+                    updateRetained(text => text
+                        .replace(thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
+                        .replace(/(\n>)*$/, '')
+                        .replace(/(\n>){3,}$/g, '\n>\n>'));
+                    return appendRetained(`\n>✹\n${SEGMENTATION_MARK}\n`);
                 case 'text-delta':
                     messageInfo.stepStartContent ??= messageInfo.content;
-                    return data.text;
+                    return '';
                 case 'text-end':
                     return '';
                 case 'source':
