@@ -17,7 +17,7 @@ import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
 import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
-import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
+import { makeResponseTransient, MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
 
 /**
@@ -90,7 +90,8 @@ export async function chatWithLLM(
             }
             const sender = streamSender.sender as MessageSender | undefined;
             if (sender) {
-                return sender.sendPlainText('Stopped current response.', 'tip');
+                const resp = await sender.sendPlainText('Stopped current response.', 'tip');
+                return makeResponseTransient(sender.api, sender.context.chat_id, resp);
             }
             return new Response('cancelled');
         }

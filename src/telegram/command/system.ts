@@ -21,7 +21,7 @@ import { createTelegramBotAPI } from '../api';
 import { chatWithLLM, sendImages, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
-import { checkIsNeedTagIds, sendAction } from '../utils/send';
+import { checkIsNeedTagIds, makeResponseTransient, sendAction } from '../utils/send';
 import { chunkArray, getTelegramFile, isTelegramChatTypeGroup } from '../utils/tg_utils';
 
 export const COMMAND_AUTH_CHECKER = {
@@ -413,17 +413,22 @@ export class StopCommandHandler implements CommandHandler {
     command = '/stop';
     scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
 
+    private async sendTransientTip(sender: MessageSender, text: string): Promise<Response> {
+        const resp = await sender.sendPlainText(text, 'tip');
+        return makeResponseTransient(sender.api, sender.context.chat_id, resp);
+    }
+
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const scopeKey = context.SHARE_CONTEXT.chatHistoryKey;
         if (getActiveRequestCount(scopeKey) <= 0) {
-            return sender.sendPlainText('No active response is running.', 'tip');
+            return this.sendTransientTip(sender, 'No active response is running.');
         }
         const cancelled = cancelActiveRequests(scopeKey);
         if (cancelled <= 0) {
-            return sender.sendPlainText('No active response is running.', 'tip');
+            return this.sendTransientTip(sender, 'No active response is running.');
         }
         const label = cancelled === 1 ? 'response' : 'responses';
-        return sender.sendPlainText(`Stopped ${cancelled} active ${label}.`, 'tip');
+        return this.sendTransientTip(sender, `Stopped ${cancelled} active ${label}.`);
     };
 }
 
