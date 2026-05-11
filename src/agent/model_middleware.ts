@@ -20,6 +20,7 @@ type Writeable<T> = { -readonly [P in keyof T as P extends 'modelId' ? P : never
 export interface MessageInfo {
     content: string;
     occured_error?: boolean;
+    stepStartContent?: string;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -85,7 +86,9 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 hasRecordFirstChunkTime = true;
             }
             if (chunk.type === 'tool-call') {
-                onStream?.send(`${messageInfo.content.trimEnd()}\n\ntool call start: \`${chunk.toolName}\``);
+                const baseContent = (messageInfo.stepStartContent ?? '').trimEnd();
+                messageInfo.content = baseContent;
+                onStream?.send(baseContent || '...');
                 log.info(`start tool: ${chunk.toolName}`);
             }
         },
@@ -170,6 +173,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
 
             hasRecordFirstChunkTime = false;
+            messageInfo.stepStartContent = undefined;
             step++;
         },
     };

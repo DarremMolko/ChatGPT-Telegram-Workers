@@ -276,6 +276,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     return '';
                 }
                 if (!thinkingStart) {
+                    messageInfo.stepStartContent ??= messageInfo.content;
                     thinkingStart = true;
                     thinkingStartTime = Date.now();
                     reasoningBuffer = '';
@@ -313,6 +314,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                 return output;
             case 'text-start':
                 log.info('[thinkingExtractor] text-start event');
+                messageInfo.stepStartContent ??= messageInfo.content;
                 if (!thinkingStart) {
                     return '';
                 }
