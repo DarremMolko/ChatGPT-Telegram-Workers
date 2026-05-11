@@ -12,7 +12,7 @@ function buildRequest(req: IncomingMessage, baseURL: string): Request {
                 headers.append(key, item);
             }
         } else if (value !== undefined) {
-            headers.set(key, value);
+            headers.set(key, String(value));
         }
     }
     const init: RequestInit = {
@@ -52,7 +52,7 @@ export function startLocalServer(
     baseURL: string,
     router: Router,
 ) {
-    const server = createServer(async (req, res) => {
+    const server = createServer(async (req: IncomingMessage, res: ServerResponse<IncomingMessage>) => {
         try {
             const request = buildRequest(req, baseURL);
             const response = await router.fetch(request as any);

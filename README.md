@@ -59,6 +59,8 @@ CHAT_WHITE_LIST = "123456789"
 UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
 OPENAI_API_KEY = "sk-..."
+OPENAI_CHAT_MODEL = "gpt-5.4-mini"
+OPENAI_VISION_MODEL = "gpt-5.4-mini"
 ```
 
 ### Minimal OpenAI-Compatible Example
@@ -77,6 +79,8 @@ AI_TTS_PROVIDER = "oailike"
 
 OAILIKE_API_KEY = "your-key"
 OAILIKE_API_BASE = "https://your-api.example.com/v1"
+OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
+OAILIKE_VISION_MODEL = "gpt-5.4-mini"
 ```
 
 Choose a startup mode in `config.json`:
@@ -120,7 +124,6 @@ If you use `polling` mode:
 | `/redo [text]` | Re-run the previous user turn | Optional replacement text |
 | `/img <prompt>` | Generate an image | Reply to an image to edit it through OpenAI image editing |
 | `/tts [-v voice] <text>` | Generate speech from text | Uses the active TTS provider |
-| `/pplx [mode] <query>` | Ask Perplexity directly | Optional, local/Docker only, requires `PPLX_COOKIE` |
 | `/set ...` | Apply shortcut-based stored or temporary config changes | Supports inline message continuation |
 | `/setenv KEY=VALUE` | Store one user-config key | Works on the stored user-config surface |
 | `/setenvs {...}` | Store multiple user-config keys | JSON input |
@@ -150,7 +153,7 @@ Two tool layers remain:
 
 `TOOL_MODEL` can keep tool-calling steps on a separate model. It accepts either:
 
-- a plain model ID, such as `gpt-4.1-mini`
+- a plain model ID, such as `gpt-5.4-mini`
 - an explicit provider-prefixed target, such as `oailike:deepseek-chat`
 
 ## Endpoint Routing
@@ -202,7 +205,7 @@ src/
 
 ## Notes
 
-- `LANGUAGE` is fixed to English.
+- English is the only supported interface language.
 - The repository no longer contains Cloudflare, Vercel, or multi-provider deployment paths.
 - The local runtime requires Upstash Redis. File-backed, SQLite, and in-memory storage paths were removed.
 - Unsupported legacy provider selections are normalized back to supported ones at runtime.

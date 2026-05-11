@@ -21,7 +21,6 @@ export default {
             history: 'Export stored chat history as JSON. Format: `/history [n]`',
             settings: 'Open the inline settings UI',
             tts: 'Generate speech from text. Use `-v` to override the active TTS voice.',
-            pplx: 'Ask Perplexity directly. Requires `PPLX_COOKIE` in local or Docker mode.',
             map: 'Manage `/set` key and value aliases',
             block: 'Add or remove a user from the current chat blocklist',
             blocklist: 'Show or clear the current chat blocklist',
@@ -46,8 +45,8 @@ export default {
 
  You can set MAPPING_KEY, use half-width | to separate entries, and put the option on the left and the target variable on the right.
  You can set MAPPING_VALUE to create short aliases for commonly used values in the same format.
- For example: MAPPING_VALUE = 'fast:gpt-4o-mini|full:gpt-4o|compat:oailike'
- Use /set to quickly adjust parameters: /set -m gpt-4o -v gpt-4o-mini
+ For example: MAPPING_VALUE = 'fast:gpt-5.4-mini|full:gpt-5.4|compat:oailike'
+ Use /set to quickly adjust parameters: /set -m gpt-5.4 -v gpt-5.4-mini
 
  The /set command can append a normal message after the temporary overrides, and those temporary changes will not be stored.
  When adjusting SYSTEM_INIT_MESSAGE, if PROMPT is set, you can use a prompt key directly and the matching role prompt will be filled automatically, for example:

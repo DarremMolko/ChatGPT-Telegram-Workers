@@ -74,7 +74,7 @@ Important:
 | Capability | Main settings |
 | --- | --- |
 | Chat provider routing | `AI_CHAT_PROVIDER`, `OPENAI_API_BASE`, `OAILIKE_API_BASE` |
-| Image generation | `AI_IMAGE_PROVIDER`, `DALL_E_MODEL`, `OAILIKE_IMAGE_MODEL` |
+| Image generation | `AI_IMAGE_PROVIDER`, `OPENAI_IMAGE_MODEL`, `OAILIKE_IMAGE_MODEL` |
 | Image editing | OpenAI `/img` reply-to-image flow |
 | Audio input/output | `AI_ASR_PROVIDER`, `AI_TTS_PROVIDER`, `TEXT_HANDLE_TYPE`, `AUDIO_HANDLE_TYPE`, `TEXT_OUTPUT`, `AUDIO_OUTPUT` |
 | Generic tools | `MCP_*`, `USE_MCP`, `TOOL_MODEL` |
@@ -98,7 +98,6 @@ Important:
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `LANGUAGE` | Fixed interface language. | `en` |
 | `TELEGRAM_API_DOMAIN` | Telegram API base URL. | `https://api.telegram.org` |
 | `TELEGRAM_BOT_NAME` | Bot usernames aligned by position with `TELEGRAM_AVAILABLE_TOKENS`. Helpful when using multiple bots. | `[]` |
 | `I_AM_A_GENEROUS_PERSON` | If `true`, bypasses user whitelist checks. | `false` |
@@ -123,7 +122,7 @@ Example:
 
 ```toml
 [vars]
-CUSTOM_COMMAND_fast = "/set -m gpt-4o-mini"
+CUSTOM_COMMAND_fast = "/set -m gpt-5.4-mini"
 COMMAND_DESCRIPTION_fast = "Switch to the fast chat model"
 COMMAND_SCOPE_fast = "all_private_chats,all_chat_administrators"
 ```
@@ -230,17 +229,13 @@ Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank con
 | --- | --- | --- |
 | `OPENAI_API_KEY` | API key list. A random key is picked per request. | `[]` |
 | `OPENAI_API_BASE` | Base URL or explicit LLM endpoint. | `https://api.openai.com/v1` |
-| `OPENAI_CHAT_MODEL` | Main text chat model. | `gpt-4o-mini` |
-| `OPENAI_VISION_MODEL` | Chat model used when the latest user message includes images/files. | `gpt-4o-mini` |
-| `OPENAI_STT_MODEL` | Speech-to-text model. | `whisper-1` |
-| `OPENAI_TTS_MODEL` | Text-to-speech model. | `tts-1` |
+| `OPENAI_CHAT_MODEL` | Main text chat model. | `gpt-5.4-mini` |
+| `OPENAI_VISION_MODEL` | Chat model used when the latest user message includes images/files. | `gpt-5.4-mini` |
+| `OPENAI_STT_MODEL` | Speech-to-text model. | `gpt-4o-mini-transcribe` |
+| `OPENAI_TTS_MODEL` | Text-to-speech model. | `gpt-4o-mini-tts` |
 | `OPENAI_TTS_VOICE` | TTS voice name. | `alloy` |
 | `OPENAI_EMBEDDING_MODEL` | Embedding model for rerank mode `openai`. | `text-embedding-3-small` |
-| `OPENAI_IMAGE_MODEL` | OpenAI built-in image generation tool model. | `gpt-image-1` |
-| `DALL_E_MODEL` | `/img` generation model. | `dall-e-3` |
-| `DALL_E_IMAGE_SIZE` | `/img` generation size for DALL-E. | `1024x1024` |
-| `DALL_E_IMAGE_QUALITY` | `/img` quality for DALL-E. | `standard` |
-| `DALL_E_IMAGE_STYLE` | `/img` style for DALL-E. | `vivid` |
+| `OPENAI_IMAGE_MODEL` | Model used by `/img` and the OpenAI built-in image tool. | `gpt-image-1.5` |
 | `OPENAI_API_EXTRA_PARAMS` | Per-model request overrides merged into outgoing OpenAI requests. | `{}` |
 | `OPENAI_STT_EXTRA_PARAMS` | Extra multipart STT fields. | `{}` |
 | `OPENAI_TTS_EXTRA_PARAMS` | Extra TTS request fields. | `{}` |
@@ -254,12 +249,12 @@ Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank con
 | --- | --- | --- |
 | `OAILIKE_API_KEY` | API key. | `null` |
 | `OAILIKE_API_BASE` | Base URL or explicit LLM endpoint. | `https://api.openai.com/v1` |
-| `OAILIKE_CHAT_MODEL` | Main text chat model. | `gpt-4o-mini` |
-| `OAILIKE_VISION_MODEL` | Vision-capable chat model. | `gpt-4o-mini` |
-| `OAILIKE_IMAGE_MODEL` | `/img` image generation model. | `dall-e-3` |
+| `OAILIKE_CHAT_MODEL` | Main text chat model. | `gpt-5.4-mini` |
+| `OAILIKE_VISION_MODEL` | Vision-capable chat model. | `gpt-5.4-mini` |
+| `OAILIKE_IMAGE_MODEL` | `/img` image generation model. | `gpt-image-1.5` |
 | `OAILIKE_IMAGE_SIZE` | Default image size for the compatible image endpoint. | `1024x1024` |
 | `OAILIKE_STT_MODEL` | Speech-to-text model. | `FunAudioLLM/SenseVoiceSmall` |
-| `OAILIKE_TTS_MODEL` | Text-to-speech model. | `tts-1` |
+| `OAILIKE_TTS_MODEL` | Text-to-speech model. | `gpt-4o-mini-tts` |
 | `OAILIKE_TTS_VOICE` | TTS voice name. | `alloy` |
 | `OAILIKE_EMBEDDING_MODEL` | Embedding model for rerank mode `oailikeV1`. | `text-embedding-3-small` |
 | `OAILIKE_RERANK_MODEL` | Compatible rerank model for rerank mode `oailikeV2`. | `''` |
@@ -319,7 +314,7 @@ Non-chat APIs such as `/models`, `/images`, `/audio`, embeddings, and rerank con
 | `MAPPING_VALUE` | `/set` alias-to-value mapping string. | `''` |
 | `ENABLE_ALIAS` | Show alias name instead of raw model ID in output logs when possible. | `false` |
 | `MESSAGE_REPLACER` | Map of text replacements applied before sending content to the model. | `{}` |
-| `PARAMS_MODIFIER` | Low-level per-model parameter add/remove rules. | default search/o-series rules |
+| `PARAMS_MODIFIER` | Low-level per-model parameter add/remove rules. | `[]` |
 | `CONTINUE_STEP` | Allow the AI SDK to continue multi-step outputs. | `false` |
 | `ENABLE_WORKFLOW` | Enable named prompt workflows triggered by `@key` prefixes. | `false` |
 | `WORKFLOW` | Workflow map keyed by trigger name. | `{}` |
@@ -332,8 +327,8 @@ Example:
 
 ```toml
 PARAMS_MODIFIER = [
-  "o1-mini,o3-mini:-temperature|+max_tokens=1000",
-  "gpt-4.1:+reasoning_effort=\"high\""
+  "gpt-5.4:+reasoning_effort=\"high\"",
+  "gpt-5.4-mini:+reasoning_effort=\"medium\""
 ]
 ```
 
@@ -438,7 +433,7 @@ Important:
 | `OPENAI_ENABLE_IMAGE_GENERATION` | Enable OpenAI provider-side image generation tool. | `false` |
 | `OPENAI_IMAGE_BACKGROUND` | `auto`, `opaque`, or `transparent`. | `auto` |
 | `OPENAI_IMAGE_INPUT_FIDELITY` | `low` or `high`. | `low` |
-| `OPENAI_IMAGE_MODEL` | Provider-side image model. | `gpt-image-1` |
+| `OPENAI_IMAGE_MODEL` | Provider-side image model. | `gpt-image-1.5` |
 | `OPENAI_IMAGE_OUTPUT_COMPRESSION` | Compression level. | `100` |
 | `OPENAI_IMAGE_OUTPUT_FORMAT` | `png`, `jpeg`, or `webp`. | `png` |
 | `OPENAI_IMAGE_PARTIAL_IMAGES` | Partial image count for streaming mode. | `0` |
@@ -465,20 +460,6 @@ Generic `MCP_*` and provider-side `OPENAI_MCP_*` are separate systems:
 
 - `MCP_*` configures this bot’s own generic MCP clients
 - `OPENAI_MCP_*` configures OpenAI’s provider-side MCP tool
-
-## Optional Perplexity Command
-
-The `/pplx` command is still present.
-
-| Variable | Description | Default |
-| --- | --- | --- |
-| `PPLX_COOKIE` | Browser cookie string used to access Perplexity. | `null` |
-
-Notes:
-
-- local/Docker only
-- optional
-- separate from `openai` and `oailike`
 
 ## Inline Settings UI
 
@@ -536,7 +517,8 @@ UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
 OPENAI_API_KEY = "sk-..."
 OPENAI_API_BASE = "https://api.openai.com/v1"
-OPENAI_CHAT_MODEL = "gpt-4o-mini"
+OPENAI_CHAT_MODEL = "gpt-5.4-mini"
+OPENAI_VISION_MODEL = "gpt-5.4-mini"
 ```
 
 ### OpenAI-Compatible Chat Completions
@@ -550,9 +532,9 @@ AI_TTS_PROVIDER = "oailike"
 
 OAILIKE_API_KEY = "your-key"
 OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
-OAILIKE_CHAT_MODEL = "your-chat-model"
-OAILIKE_VISION_MODEL = "your-vision-model"
-OAILIKE_IMAGE_MODEL = "your-image-model"
+OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
+OAILIKE_VISION_MODEL = "gpt-5.4-mini"
+OAILIKE_IMAGE_MODEL = "gpt-image-1.5"
 ```
 
 ### OpenAI With Generic MCP
@@ -562,7 +544,7 @@ OAILIKE_IMAGE_MODEL = "your-image-model"
 OPENAI_API_KEY = "sk-..."
 USE_MCP = ["filesystem"]
 MCP_filesystem = "{\"type\":\"stdio\",\"command\":\"npx\",\"args\":[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/data\"]}"
-TOOL_MODEL = "gpt-4.1-mini"
+TOOL_MODEL = "gpt-5.4"
 ```
 
 ### OpenAI With Provider-Side Web Search

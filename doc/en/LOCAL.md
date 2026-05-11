@@ -75,19 +75,19 @@ Minimal example:
 
 ```toml
 [vars]
-LANGUAGE = "en"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
 UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
 UPSTASH_REDIS_REST_TOKEN = "your-upstash-rest-token"
 OPENAI_API_KEY = "sk-..."
+OPENAI_CHAT_MODEL = "gpt-5.4-mini"
+OPENAI_VISION_MODEL = "gpt-5.4-mini"
 ```
 
 OpenAI-compatible example:
 
 ```toml
 [vars]
-LANGUAGE = "en"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
 UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
@@ -100,6 +100,8 @@ AI_TTS_PROVIDER = "oailike"
 
 OAILIKE_API_KEY = "your-key"
 OAILIKE_API_BASE = "https://your-api.example.com/v1"
+OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
+OAILIKE_VISION_MODEL = "gpt-5.4-mini"
 ```
 
 Generic MCP example:
@@ -248,6 +250,5 @@ No plugin or custom tool directory mount is required in the simplified build.
 - `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`
 - `CHAT_WHITE_LIST` admins can fully manage the stored per-chat user config surface through commands and `/settings`
 - generic MCP is the only remaining repo-level custom tool integration
-- optional `/pplx` support requires `PPLX_COOKIE`
 
 For the full runtime setting reference, see [CONFIG.md](./CONFIG.md).

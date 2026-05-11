@@ -3,8 +3,6 @@ import prompts_default from '../utils/others/prompt';
 
 // -- 只能通过环境变量覆盖的配置 --
 export class EnvironmentConfig {
-    // 多语言支持
-    LANGUAGE = 'en';
     // Chat Complete API Timeout, scale: seconds
     CHAT_COMPLETE_API_TIMEOUT = 0;
     // Total Duration Limit, scale: seconds, default 30 minutes
@@ -68,10 +66,6 @@ export class EnvironmentConfig {
     // -------------
 
     // Whether to read files
-    /**
-     * @deprecated Use a higher granularity parameter SUPPORT_FORMAT.
-     */
-    ENABLE_FILE = true;
     // Supported file formats: text, photo, voice, audio, video(based on model support), document(send image、audio、text as file), sticker(gif, jpg, png, webp, webm as video)
     SUPPORT_FORMAT: string[] = ['text', 'photo', 'voice', 'audio', 'image'];
     // In group chats, the reply object is the trigger object by default, and when enabled, it is prioritized as the object to be replied to
@@ -80,25 +74,10 @@ export class EnvironmentConfig {
     IGNORE_TEXT_PREFIX = '';
     // When multiple processes, whether to hide intermediate step information
     HIDE_MIDDLE_MESSAGE = false;
-    /**
-     * Replace words, and will force trigger bot { ':n': '/new', ':g3': '/gpt3', ':g4': '/gpt4'}
-     * @deprecated, use CHAT_TRIGGER_SUFFIX and COMMAND_TRIGGERS instead
-     */
-    CHAT_MESSAGE_TRIGGER = {};
     // Chat trigger prefix, it will trigger group message and be deleted
     CHAT_TRIGGER_PREFIX = '';
-    /**
-     * Ask AI to call function times
-     * @deprecated
-     */
-    FUNC_LOOP_TIMES = 1;
     // Show call info
     CALL_INFO = true;
-    /**
-     * func call Maximum number of concurrent calls after each successful hit
-     * @deprecated
-     */
-    CON_EXEC_FUN_NUM = 1;
     // When the length reaches the set value, the group will send a telegraph article. If less than 0, it will not be sent
     TELEGRAPH_NUM_LIMIT = -1;
     // Telegraph scope
@@ -116,20 +95,8 @@ export class EnvironmentConfig {
     // Schedule private delete type command dialog:command and chat dialog:chat
     SCHEDULE_PRIVATE_DELETE_TYPE = ['tip'];
 
-    /**
-     * All complete api timeout
-     * @deprecated
-     */
-    ALL_COMPLETE_API_TIMEOUT = 180;
-    /**
-     * Function call timeout
-     * @deprecated
-     */
-    FUNC_TIMEOUT = 15;
     // Send pictures via files format
     SEND_IMAGE_AS_FILE: boolean = false;
-    // Perplexity cookie
-    PPLX_COOKIE: string | null = null;
     // Log level
     LOG_LEVEL: LogLevelType = 'info';
 
@@ -213,36 +180,24 @@ export class OpenAIConfig {
     // OpenAI API Key
     OPENAI_API_KEY: string[] = [];
     // OpenAI Model
-    OPENAI_CHAT_MODEL = 'gpt-4o-mini';
+    OPENAI_CHAT_MODEL = 'gpt-5.4-mini';
     // OpenAI API base. Accepts either the root `/v1` base or a full LLM endpoint such as `/v1/responses` or `/v1/chat/completions`.
     OPENAI_API_BASE = 'https://api.openai.com/v1';
     // OpenAI API Extra Params, key is model name prefix, separated by commas; value is extra Params, support path(camelCase), split by '.'
-    // for example: OPENAI_API_EXTRA_PARAMS = { 'gpt-4o-mini,gpt-4o-2024-08-06': { 'temperature': 0.5 } };
+    // for example: OPENAI_API_EXTRA_PARAMS = { 'gpt-5.4,gpt-5.4-mini': { 'reasoningEffort': 'high' } };
     OPENAI_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
     // OpenAI STT Model
-    OPENAI_STT_MODEL = 'whisper-1';
+    OPENAI_STT_MODEL = 'gpt-4o-mini-transcribe';
     OPENAI_STT_EXTRA_PARAMS: Record<string, string> = {};
     // OpenAI Vision Model
-    OPENAI_VISION_MODEL = 'gpt-4o-mini';
+    OPENAI_VISION_MODEL = 'gpt-5.4-mini';
     // OpenAI TTS Model
-    OPENAI_TTS_MODEL = 'tts-1';
+    OPENAI_TTS_MODEL = 'gpt-4o-mini-tts';
     // OpenAI TTS Extra Params
     OPENAI_TTS_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
 
     OPENAI_TTS_VOICE = 'alloy';
-    /**
-     * OpenAI need transform model
-     * @deprecated
-     */
-    OPENAI_NEED_TRANSFORM_MODEL: string[] = ['o1-mini-all', 'o1-mini-preview-all'];
     OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
-
-    /**
-     * OpenAI Reasoning Effort, only for starts with 'o1'
-     * reasoning_effort: 'low', 'medium', 'high'
-     * @deprecated use OPENAI_API_EXTRA_PARAMS instead
-     */
-    OPENAI_REASONING_EFFORT: 'low' | 'medium' | 'high' | undefined = undefined;
     OPENAI_MODELS = [];
     OPENAI_MODELS_API = '/models';
     OPENAI_TTS_PROMPT = '';
@@ -288,7 +243,7 @@ export class OpenAIConfig {
     OPENAI_ENABLE_IMAGE_GENERATION = false;
     OPENAI_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto'; // 背景类型
     OPENAI_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low'; // 输入保真度
-    OPENAI_IMAGE_MODEL = 'gpt-image-1'; // 图片生成模型
+    OPENAI_IMAGE_MODEL = 'gpt-image-1.5'; // 图片生成模型
     OPENAI_IMAGE_OUTPUT_COMPRESSION = 100; // 输出压缩等级 (0-100)
     OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png'; // 输出格式
     OPENAI_IMAGE_PARTIAL_IMAGES = 0; // 流式模式下生成的部分图片数量 (0-3)
@@ -309,29 +264,17 @@ export class OpenAIConfig {
     OPENAI_MCP_APPROVAL_TOOL_NAMES: string[] = []; // 需要审批的工具名称（当requireApproval非always时）
 }
 
-// -- DALLE 配置 --
-export class DalleAIConfig {
-    // DALL-E的模型名称
-    DALL_E_MODEL = 'dall-e-3';
-    // DALL-E图片尺寸
-    DALL_E_IMAGE_SIZE = '1024x1024';
-    // DALL-E图片质量
-    DALL_E_IMAGE_QUALITY = 'standard';
-    // DALL-E图片风格
-    DALL_E_IMAGE_STYLE = 'vivid';
-}
-
 export class OpenAILikeConfig {
     // oailike api key
     OAILIKE_API_KEY: string | null = null;
     // oailike api base. Accepts either the root `/v1` base or a full LLM endpoint such as `/v1/responses` or `/v1/chat/completions`.
     OAILIKE_API_BASE = 'https://api.openai.com/v1';
     // oailike api model
-    OAILIKE_CHAT_MODEL = 'gpt-4o-mini';
+    OAILIKE_CHAT_MODEL = 'gpt-5.4-mini';
     // oailike image model
-    OAILIKE_IMAGE_MODEL = 'dall-e-3';
+    OAILIKE_IMAGE_MODEL = 'gpt-image-1.5';
     // oailike vision model
-    OAILIKE_VISION_MODEL = 'gpt-4o-mini';
+    OAILIKE_VISION_MODEL = 'gpt-5.4-mini';
     // oailike image size
     OAILIKE_IMAGE_SIZE = '1024x1024';
     // oailike embedding model
@@ -342,13 +285,13 @@ export class OpenAILikeConfig {
     OAILIKE_STT_MODEL = 'FunAudioLLM/SenseVoiceSmall';
     OAILIKE_STT_EXTRA_PARAMS: Record<string, string> = {};
     // oailike tts model
-    OAILIKE_TTS_MODEL = 'tts-1';
+    OAILIKE_TTS_MODEL = 'gpt-4o-mini-tts';
     // oailike tts extra params
     OAILIKE_TTS_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
     // oailike tts voice
     OAILIKE_TTS_VOICE = 'alloy';
     // OAILIKE API Extra Params, key is model name prefix, separated by commas; value is extra Params, support path(camelCase), split by '.'
-    // for example: OAILIKE_API_EXTRA_PARAMS = { 'gpt-4o': { 'temperature': 0.5 } };
+    // for example: OAILIKE_API_EXTRA_PARAMS = { 'gpt-5.4,gpt-5.4-mini': { 'reasoningEffort': 'high' } };
     OAILIKE_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
     OAILIKE_MODELS = [];
     OAILIKE_MODELS_API = '/models';
@@ -364,7 +307,7 @@ export class ExtraUserConfig {
     MAPPING_KEY = '-p:SYSTEM_INIT_MESSAGE|-n:MAX_HISTORY_LENGTH|-a:AI_CHAT_PROVIDER|-ai:AI_IMAGE_PROVIDER|-m:CHAT_MODEL|-im:IMAGE_MODEL|-v:VISION_MODEL|-s:STT_MODEL|-t:TTS_MODEL|-ex:OPENAI_API_EXTRA_PARAMS|-mk:MAPPING_KEY|-mv:MAPPING_VALUE|-tm:TOOL_MODEL|-th:TEXT_HANDLE_TYPE|-to:TEXT_OUTPUT|-ah:AUDIO_HANDLE_TYPE|-ao:AUDIO_OUTPUT|-act:AUDIO_CONTAINS_TEXT|-as:AI_ASR_PROVIDER|-at:AI_TTS_PROVIDER|-ra:RERANK_AGENT|-ew:ENABLE_WORKFLOW|-tp:CHAT_TEMPERATURE';
     // /set command mapping value, separated by |, : separates multiple relationships
     MAPPING_VALUE = '';
-    // MAPPING_VALUE = "cson:claude-3-5-sonnet-20240620|haiku:claude-3-haiku-20240307|g4m:gpt-4o-mini|g4:gpt-4o|rp+:command-r-plus";
+    // MAPPING_VALUE = "fast:gpt-5.4-mini|full:gpt-5.4|compat:oailike";
     // Whether to show model and time information in the message
     ENABLE_SHOWINFO = false;
     // enable Show info, which parts to show, support model, model_time, token, tool, tool_time, first_chunk_time
@@ -391,25 +334,18 @@ export class ExtraUserConfig {
     RERANK_AGENT = 'openai';
     // Whether to enable intelligent model processing
     ENABLE_INTELLIGENT_MODEL = false;
-    // text handle type, to 'tts' or 'text' to chat with llm, or 'chat' by using audio-preview (default: text)
+    // text handle type, to 'tts' or 'text' to chat with llm, or 'chat' by using direct multimodal chat (default: text)
     TEXT_HANDLE_TYPE: 'tts' | 'text' | 'chat' = 'text';
     // Text output type, 'audio' or 'text' (default: text)
     TEXT_OUTPUT: 'audio' | 'text' = 'text';
-    // Audio handle type, 'stt' or 'audio' to chat with llm, or 'chat' by using audio-preview (default: stt)
+    // Audio handle type, 'stt' or 'audio' to chat with llm, or 'chat' by using direct multimodal chat (default: stt)
     AUDIO_HANDLE_TYPE: 'stt' | 'audio' | 'chat' = 'stt';
     // Audio output type, 'audio' or 'text' (default: text)
     AUDIO_OUTPUT: 'audio' | 'text' = 'text';
     // Audio contains text
     AUDIO_CONTAINS_TEXT = true;
-    // Drop openai params, the key is the model name,
-    // separated by commas, and the value is the parameters to be dropped, separated by commas.
-    // example: DROPS_OPENAI_PARAMS = { 'o1-mini,o1-preview': 'max_tokens,temperature,stream' };
-    /**
-     * @deprecated Use PARAMS_MODIFIER instead
-     */
-    DROPS_OPENAI_PARAMS: Record<string, string> = {};
     // Cover message role, the key is the model name, separated by commas, and the value is overridden_role:new_role.
-    // example: COVER_MESSAGE_ROLE = { 'o1-mini,o1-preview': 'system:user' };
+    // example: COVER_MESSAGE_ROLE = { 'gpt-5.4,gpt-5.4-mini': 'system:user' };
     COVER_MESSAGE_ROLE: Record<string, string> = {};
     // max history length, default is 10
     MAX_HISTORY_LENGTH = 10;
@@ -420,9 +356,9 @@ export class ExtraUserConfig {
     // Parameter modifier; string array; separated by colons, the key is the model name, separated by commas;
     // the value is the parameter modification value, modification values starting with '+' indicates addition, with the value after '=' and separated by '|'; starting with '-' indicates addition indicate deletion.
     // note: not support stream option
-    // for example: PARAMS_MODIFIER = ['o1-mini,o3-mini:-temperature|+max_tokens=1000'];
+    // for example: PARAMS_MODIFIER = ['gpt-5.4:+reasoning_effort="high"'];
     // priority is higher than EXTRA_PARAMS
-    PARAMS_MODIFIER: string[] = ['o1-mini,o3-mini,gpt-4o-mini-search-preview,gpt-4o-search-preview:-temperature'];
+    PARAMS_MODIFIER: string[] = [];
     // start with @key to trigger workflow, support agent, model, temperature, max_tokens;
     // next is the next step prompt: {{result}} is the result of the current step result, {{question}} is user input
     WORKFLOW: {

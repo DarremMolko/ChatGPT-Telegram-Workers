@@ -80,22 +80,18 @@ export async function createLlmModel(model: string, context: AgentUserConfig): P
                     Authorization: `Bearer ${context.OAILIKE_API_KEY}`,
                 }),
                 includeUsage: true,
-                metadataExtractor: extraMetadataExtractor(modelId),
+                metadataExtractor: extraMetadataExtractor(),
                 fetch: mockFetch(modelId, context, 'oailike'),
             }), agent);
     }
 }
 
-function extraMetadataExtractor(modelId: string): MetadataExtractor | undefined {
-    const pplxModelPrefix = 'sonar';
-    const type = modelId.startsWith(pplxModelPrefix)
-        ? 'pplx'
-        : 'openai';
+function extraMetadataExtractor(): MetadataExtractor | undefined {
     return {
         extractMetadata: ({ parsedBody }: { parsedBody: unknown }) => {
             const body = parsedBody as Record<string, any>;
             return Promise.resolve({
-                [type]: {
+                openai: {
                     citations: body.citations || body.choices?.[0]?.delta?.annotations,
                 },
             });
@@ -107,15 +103,13 @@ function extraMetadataExtractor(modelId: string): MetadataExtractor | undefined 
                     if (citations.length > 0) {
                         return;
                     }
-                    const chunkCitations = type === 'pplx'
-                        ? parsedChunk.citations
-                        : parsedChunk.choices?.[0]?.delta?.annotations;
+                    const chunkCitations = parsedChunk.citations || parsedChunk.choices?.[0]?.delta?.annotations;
                     if (chunkCitations && chunkCitations.length > 0) {
                         citations.push(...chunkCitations);
                     }
                 },
                 buildMetadata: () => ({
-                    [type]: {
+                    openai: {
                         citations,
                     },
                 }),
@@ -209,13 +203,6 @@ interface MockParams {
 function mockParams({ modelId, config, provider, options }: MockParams) {
     const extraParams = (config[`${provider.toUpperCase()}_API_EXTRA_PARAMS` as keyof AgentUserConfig] as Record<string, Record<string, any>>) || {};
     const { PARAMS_MODIFIER: modifier } = config;
-
-    if (provider === 'openai') {
-        const searchModelRegex = /gpt-4o-(?:mini-)?search/;
-        if (searchModelRegex.test(modelId)) {
-            options.web_search_options = {};
-        }
-    }
 
     return paramsModifier(modelId, options, modifier, extraParams);
 }

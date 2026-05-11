@@ -1,5 +1,4 @@
 [vars]
-LANGUAGE = "en"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 CHAT_WHITE_LIST = "123456789"
 UPSTASH_REDIS_REST_URL = "https://your-redis.upstash.io"
@@ -12,10 +11,11 @@ AI_TTS_PROVIDER = "openai"
 
 OPENAI_API_KEY = "sk-..."
 OPENAI_API_BASE = "https://api.openai.com/v1"
-OPENAI_CHAT_MODEL = "gpt-4o-mini"
-OPENAI_VISION_MODEL = "gpt-4o-mini"
-OPENAI_STT_MODEL = "whisper-1"
-OPENAI_TTS_MODEL = "tts-1"
+OPENAI_CHAT_MODEL = "gpt-5.4-mini"
+OPENAI_VISION_MODEL = "gpt-5.4-mini"
+OPENAI_STT_MODEL = "gpt-4o-mini-transcribe"
+OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
+OPENAI_IMAGE_MODEL = "gpt-image-1.5"
 OPENAI_TTS_VOICE = "alloy"
 
 # Optional: enable OpenAI provider-side tools when using the Responses API.
@@ -23,7 +23,7 @@ OPENAI_TTS_VOICE = "alloy"
 # OPENAI_WEB_SEARCH_CONTEXT_SIZE = "high"
 
 # Optional: use a dedicated model for MCP or built-in tool steps.
-# TOOL_MODEL = "gpt-4.1-mini"
+# TOOL_MODEL = "gpt-5.4"
 
 # Optional: change text/audio behavior.
 # TEXT_OUTPUT = "audio"
@@ -32,9 +32,6 @@ OPENAI_TTS_VOICE = "alloy"
 # Optional: configure scheduled deletion in local mode.
 # EXPIRED_TIME = 60
 # CRON_CHECK_TIME = "*/5 * * * *"
-
-# Optional: enable direct Perplexity access through /pplx.
-# PPLX_COOKIE = "your-perplexity-cookie"
 
 # To enable a generic MCP server:
 # USE_MCP = ["demo"]
@@ -55,11 +52,11 @@ OPENAI_TTS_VOICE = "alloy"
 # AI_TTS_PROVIDER = "oailike"
 # OAILIKE_API_KEY = "your-key"
 # OAILIKE_API_BASE = "https://your-api.example.com/v1"
-# OAILIKE_CHAT_MODEL = "your-chat-model"
-# OAILIKE_VISION_MODEL = "your-vision-model"
-# OAILIKE_IMAGE_MODEL = "your-image-model"
+# OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
+# OAILIKE_VISION_MODEL = "gpt-5.4-mini"
+# OAILIKE_IMAGE_MODEL = "gpt-image-1.5"
 # OAILIKE_STT_MODEL = "your-stt-model"
-# OAILIKE_TTS_MODEL = "your-tts-model"
+# OAILIKE_TTS_MODEL = "gpt-4o-mini-tts"
 
 # Optional: force explicit endpoint mode.
 # OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"

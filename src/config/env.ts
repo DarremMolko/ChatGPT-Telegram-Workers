@@ -5,7 +5,6 @@ import { initializeMcp } from '../mcp';
 import { blockCommand } from '../telegram/command';
 import {
     AgentShareConfig,
-    DalleAIConfig,
     DefineKeys,
     EnvironmentConfig,
     ExtraUserConfig,
@@ -18,7 +17,6 @@ export type AgentUserConfig = Record<string, any>
     & DefineKeys
     & AgentShareConfig
     & OpenAIConfig
-    & DalleAIConfig
     & OpenAILikeConfig
     & ExtraUserConfig;
 
@@ -28,16 +26,10 @@ function createAgentUserConfig(): AgentUserConfig {
         new DefineKeys(),
         new AgentShareConfig(),
         new OpenAIConfig(),
-        new DalleAIConfig(),
         new OpenAILikeConfig(),
         new ExtraUserConfig(),
     );
 }
-
-export const ENV_KEY_MAPPER: Record<string, string> = {
-    CHAT_MODEL: 'OPENAI_CHAT_MODEL',
-    API_KEY: 'OPENAI_API_KEY',
-};
 
 const SUPPORTED_CHAT_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_IMAGE_PROVIDERS = new Set(['openai', 'oailike']);
@@ -99,7 +91,6 @@ class Environment extends EnvironmentConfig {
         ]);
 
         ConfigMerger.merge(this.USER_CONFIG, source);
-        this.migrateOldEnv(source);
         this.normalizeConfig();
         this.USER_CONFIG.DEFINE_KEYS = this.USER_CONFIG.DEFINE_KEYS.filter(key => Object.keys(this.USER_CONFIG).includes(key));
         this.I18N = loadI18n('en');
@@ -135,39 +126,7 @@ class Environment extends EnvironmentConfig {
         }
     }
 
-    private migrateOldEnv(source: any) {
-        // 兼容旧版 TELEGRAM_TOKEN
-        if (source.TELEGRAM_TOKEN && !this.TELEGRAM_AVAILABLE_TOKENS.includes(source.TELEGRAM_TOKEN)) {
-            if (source.BOT_NAME && this.TELEGRAM_AVAILABLE_TOKENS.length === this.TELEGRAM_BOT_NAME.length) {
-                this.TELEGRAM_BOT_NAME.push(source.BOT_NAME);
-            }
-            this.TELEGRAM_AVAILABLE_TOKENS.push(source.TELEGRAM_TOKEN);
-        }
-
-        // 兼容旧版 OPENAI_API_DOMAIN
-        if (source.OPENAI_API_DOMAIN && !this.USER_CONFIG.OPENAI_API_BASE) {
-            this.USER_CONFIG.OPENAI_API_BASE = `${source.OPENAI_API_DOMAIN}/v1`;
-        }
-
-        // 兼容旧版API_KEY
-        if (source.API_KEY && this.USER_CONFIG.OPENAI_API_KEY.length === 0) {
-            this.USER_CONFIG.OPENAI_API_KEY = source.API_KEY.split(',');
-        }
-
-        // 兼容旧版CHAT_MODEL
-        if (source.CHAT_MODEL && !this.USER_CONFIG.OPENAI_CHAT_MODEL) {
-            this.USER_CONFIG.OPENAI_CHAT_MODEL = source.CHAT_MODEL;
-        }
-
-        // 兼容旧的AI_PROVIDER
-        if (source.AI_PROVIDER) {
-            this.USER_CONFIG.AI_CHAT_PROVIDER = source.AI_PROVIDER;
-        }
-    }
-
     private normalizeConfig() {
-        this.LANGUAGE = 'en';
-
         if (!SUPPORTED_CHAT_PROVIDERS.has(this.USER_CONFIG.AI_CHAT_PROVIDER)) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = 'openai';
         }

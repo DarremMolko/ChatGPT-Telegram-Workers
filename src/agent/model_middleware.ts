@@ -484,9 +484,8 @@ export function metaDataExtractor(metadata: any, provider: string, content: stri
     switch (provider) {
         case 'openai.chat':
         case 'openai.responses':
-            return addCitationLinks(content, metadata?.openai?.citations ?? []);
         case 'oailike':
-            return addCitationLinks(content, metadata?.pplx?.citations?.length > 0 ? metadata.pplx.citations : (metadata?.openai?.citations ?? []));
+            return addCitationLinks(content, metadata?.openai?.citations ?? []);
         default:
             return content;
     }

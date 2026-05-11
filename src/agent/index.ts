@@ -1,7 +1,7 @@
 import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ChatAgent, ImageAgent, TTSAgent } from './types';
 import { ENV } from '../config/env';
-import { Dalle, OpenAI, OpenAIASR, OpenAITTS } from './openai';
+import { OpenAI, OpenAIASR, OpenAIImage, OpenAITTS } from './openai';
 import { OpenAILike, OpenAILikeASR, OpenAILikeImage, OpenAILikeTTS } from './openailike';
 
 export const CHAT_AGENTS: ChatAgent[] = [
@@ -22,7 +22,7 @@ export function loadChatLLM(context: AgentUserConfig): ChatAgent {
 }
 
 export const IMAGE_AGENTS: ImageAgent[] = [
-    new Dalle(),
+    new OpenAIImage(),
     new OpenAILikeImage(),
 ];
 

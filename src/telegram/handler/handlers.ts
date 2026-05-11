@@ -108,7 +108,7 @@ export class MessageFilter implements MessageHandler<WorkerContextBase> {
             return new Response('success', { status: 200 });
         }
         const messageInfo = extractMessageInfo(message, context.SHARE_CONTEXT.botId);
-        const supportMessageType = ENV.ENABLE_FILE === false ? ['text'] : ENV.SUPPORT_FORMAT;
+        const supportMessageType = ENV.SUPPORT_FORMAT;
         const types = [messageInfo.original_type, messageInfo.type];
         if (!types.every(type => supportMessageType.includes(type!))) {
             log.info(`[MESSAGE FILTER] Not supported message type: ${types.join(', ')}`);
@@ -132,13 +132,6 @@ export class CommandHandler implements MessageHandler<WorkerContext> {
 export class InitUserConfig implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
         Object.assign(context, { USER_CONFIG: (await WorkerContext.from(context.SHARE_CONTEXT, context.MIDDLE_CONTEXT)).USER_CONFIG });
-
-        // 兼容旧的DROPS_OPENAI_PARAMS
-        const paramsModifier = new Set((context as WorkerContext).USER_CONFIG.PARAMS_MODIFIER);
-        for (const [model, params] of Object.entries((context as WorkerContext).USER_CONFIG.DROPS_OPENAI_PARAMS)) {
-            paramsModifier.add(`${model}:${params.split(',').map(param => `-${param}`).join('|')}`);
-        }
-        (context as WorkerContext).USER_CONFIG.PARAMS_MODIFIER = Array.from(paramsModifier);
         return null;
     };
 }

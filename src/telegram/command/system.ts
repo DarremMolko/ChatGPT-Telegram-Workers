@@ -11,17 +11,16 @@ import { authChecker } from '.';
 import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadASRLLM, loadChatLLM, loadImageGen, loadTTSLLM, TTS_AGENTS } from '../../agent';
 import { loadHistory } from '../../agent/chat';
 import { updateModels } from '../../agent/models';
-import { ENV, ENV_KEY_MAPPER } from '../../config/env';
+import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
-import { getLogSingleton, log } from '../../log';
+import { log } from '../../log';
 import { updateMcp } from '../../mcp';
-import { WssRequest } from '../../utils/others/wsrequest';
 import { getStats } from '../../utils/stats';
 import { createTelegramBotAPI } from '../api';
-import { chatWithLLM, OnStreamHander, sendImages, tts } from '../handler/chat';
+import { chatWithLLM, sendImages, tts } from '../handler/chat';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
-import { chunkArray, getTelegramFile, isCfWorker, isTelegramChatTypeGroup, UUIDv4 } from '../utils/tg_utils';
+import { chunkArray, getTelegramFile, isTelegramChatTypeGroup } from '../utils/tg_utils';
 
 export const COMMAND_AUTH_CHECKER = {
     default(chatType: string): string[] | null {
@@ -203,9 +202,8 @@ export class SetEnvCommandHandler extends RenewConfig {
         if (kv === -1) {
             return sender.sendPlainText(ENV.I18N.command.help.setenv);
         }
-        let key = subcommand.slice(0, kv);
+        const key = subcommand.slice(0, kv);
         const value = subcommand.slice(kv + 1);
-        key = ENV_KEY_MAPPER[key] || key;
         if (!Object.keys(context.USER_CONFIG).includes(key)) {
             return sender.sendPlainText(`Key ${key} not found`);
         }
@@ -227,8 +225,7 @@ export class SetEnvsCommandHandler extends RenewConfig {
             const values = JSON.parse(subcommand);
             const configKeys = Object.keys(context.USER_CONFIG);
             for (const ent of Object.entries(values)) {
-                let [key, value] = ent;
-                key = ENV_KEY_MAPPER[key] || key;
+                const [key, value] = ent;
                 if (!configKeys.includes(key)) {
                     return sender.sendPlainText(`Key ${key} not found`);
                 }
@@ -478,10 +475,6 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
         }
 
         switch (key) {
-            // 兼容旧版命令
-            case 'AI_PROVIDER':
-                key = 'AI_CHAT_PROVIDER';
-                break;
             case 'SYSTEM_INIT_MESSAGE':
                 mappedValue = value && (context.USER_CONFIG.PROMPT[value] || value);
                 break;
@@ -530,71 +523,6 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             await authChecker(this, message, context);
         }
     }
-}
-
-export class PerplexityCommandHandler implements CommandHandler {
-    command = '/pplx';
-    needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
-    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        if (isCfWorker) {
-            return sender.sendPlainText('Due to the limitation of browser, Perplexity is not supported in worker / browser');
-        }
-        if (!ENV.PPLX_COOKIE) {
-            return sender.sendPlainText('Perplexity cookie is not set');
-        }
-        const supportedModes = ['internet', 'scholar', 'writing', 'wolfram', 'youtube', 'reddit'];
-        const match = subcommand.split(' ')[0];
-        const mode = supportedModes.find(m => match === m) || 'internet';
-        if (mode === match) {
-            subcommand = subcommand.slice(match.length).trim();
-        }
-        if (!subcommand) {
-            return sender.sendPlainText('Please input your query');
-        }
-        const perplexityMessageData = {
-            version: '2.9',
-            source: 'default',
-            attachments: [],
-            language: 'en-GB',
-            timezone: 'Europe/London',
-            search_focus: mode,
-            frontend_uuid: UUIDv4(),
-            mode: 'concise',
-            is_related_query: false,
-            is_default_related_query: false,
-            visitor_id: UUIDv4(),
-            frontend_context_uuid: UUIDv4(),
-            prompt_source: 'user',
-            query_source: 'home',
-        };
-
-        const perplexityMessage = [`42["perplexity_ask", "${subcommand}", ${JSON.stringify(perplexityMessageData)}]`];
-
-        const perplexityWsUrl = 'wss://www.perplexity.ai/socket.io/?EIO=4&transport=websocket';
-        const perplexityWsOptions = {
-            headers: {
-                'Cookie': ENV.PPLX_COOKIE,
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'priority': 'u=1, i',
-                'Referer': 'https://www.perplexity.ai/',
-            },
-            rejectUnauthorized: false,
-        };
-        const resp = await sender.sendRichText('Perplexity is asking...').then(r => r.json());
-        // sender.update({
-        //     message_id: resp.result.message_id,
-        // });
-
-        const onStream = OnStreamHander(sender, context, subcommand);
-        const logs = getLogSingleton({ config: context.USER_CONFIG });
-        logs.model = `Perplexity ${mode}`;
-        logs.start_time = Date.now();
-        const result = await WssRequest(perplexityWsUrl, null, perplexityWsOptions, perplexityMessage, { onStream }).catch(console.error);
-        logs.end_time = Date.now();
-        await onStream.end?.(result);
-        return new Response('success');
-    };
 }
 
 export class InlineCommandHandler implements CommandHandler {

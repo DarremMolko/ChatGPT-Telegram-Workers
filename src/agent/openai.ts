@@ -33,7 +33,7 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
             case 'image':
                 return ctx.OPENAI_VISION_MODEL;
             case 'file':
-                return 'gpt-4o-audio-preview';
+                return 'gpt-audio';
             default:
                 return ctx.OPENAI_CHAT_MODEL;
         }
@@ -50,25 +50,23 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
     };
 }
 
-export class Dalle extends OpenAIBase implements ImageAgent {
-    readonly modelKey = 'DALL_E_MODEL';
+export class OpenAIImage extends OpenAIBase implements ImageAgent {
+    readonly modelKey = 'OPENAI_IMAGE_MODEL';
 
     model = (ctx: AgentUserConfig): string => {
-        return ctx.DALL_E_MODEL;
+        return ctx.OPENAI_IMAGE_MODEL;
     };
 
     @Logger
     request = async (prompt: string, context: AgentUserConfig, extraParams?: Record<string, any>): Promise<ImageResult> => {
         const {
             n = 1,
-            size = '1024x1024',
-            style = 'vivid',
-            quality = 'hd',
+            size,
             referenceImages,
             mask,
         } = extraParams || {};
 
-        const modelId = extraParams?.model || context.DALL_E_MODEL;
+        const modelId = extraParams?.model || context.OPENAI_IMAGE_MODEL;
 
         // 智能选择模型：
         // - 编辑模式：只有 dall-e-2 和 gpt-image-* 支持编辑
@@ -113,10 +111,9 @@ export class Dalle extends OpenAIBase implements ImageAgent {
             n,
             model: actualModel,
         };
-        if (body.model === 'dall-e-3') {
-            body.size = size || context.DALL_E_IMAGE_SIZE;
-            body.style = style || context.DALL_E_IMAGE_STYLE;
-            body.quality = quality || context.DALL_E_IMAGE_QUALITY;
+        const imageSize = size || context.OPENAI_IMAGE_SIZE;
+        if (imageSize && imageSize !== 'auto') {
+            body.size = imageSize;
         }
         return requestText2Image(url, header, body, this.render);
     };
