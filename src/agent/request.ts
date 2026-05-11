@@ -10,7 +10,7 @@ import { log } from '../log';
 import { SEGMENTATION_MARK } from '../telegram/utils/md2tgmd';
 import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
-import { AIMiddleware, metaDataExtractor } from './model_middleware';
+import { AIMiddleware, metaDataExtractor, stripToolPlanningPrefix, TOOL_ANSWER_MARKER } from './model_middleware';
 import { Stream } from './stream';
 
 export interface SseChatCompatibleOptions {
@@ -279,6 +279,24 @@ function thinkingExtractor(messageInfo: MessageInfo) {
         return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
     };
 
+    const maybeStartToolAnswer = () => {
+        const rawBuffer = messageInfo.toolAnswerBuffer ?? '';
+        const strippedBuffer = stripToolPlanningPrefix(rawBuffer);
+        if (!strippedBuffer) {
+            return null;
+        }
+        const answerReady = TOOL_ANSWER_MARKER.test(strippedBuffer)
+            || (strippedBuffer.length >= 24 && /[.!?:]\s*$/u.test(strippedBuffer))
+            || strippedBuffer.length >= 80
+            || /\n/.test(strippedBuffer);
+        if (!answerReady) {
+            return null;
+        }
+        messageInfo.toolAnswerStarted = true;
+        messageInfo.toolAnswerBuffer = '';
+        return strippedBuffer;
+    };
+
     return (data: TextStreamPart<any>) => {
         if (messageInfo.deferStream) {
             switch (data.type) {
@@ -350,7 +368,14 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     return appendRetained(`\n>✹\n${SEGMENTATION_MARK}\n`);
                 case 'text-delta':
                     messageInfo.stepStartContent ??= messageInfo.content;
-                    return messageInfo.hadToolResults ? data.text : '';
+                    if (!messageInfo.hadToolResults) {
+                        return '';
+                    }
+                    if (messageInfo.toolAnswerStarted) {
+                        return data.text;
+                    }
+                    messageInfo.toolAnswerBuffer = `${messageInfo.toolAnswerBuffer ?? ''}${data.text}`;
+                    return maybeStartToolAnswer();
                 case 'text-end':
                     return '';
                 case 'source':

@@ -25,6 +25,8 @@ export interface MessageInfo {
     pendingStepRetainedReset?: boolean;
     deferStream?: boolean;
     hadToolResults?: boolean;
+    toolAnswerBuffer?: string;
+    toolAnswerStarted?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
@@ -46,6 +48,8 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 messageInfo.stepStartContent = undefined;
                 messageInfo.stepRetainedContent = undefined;
                 messageInfo.pendingStepRetainedReset = false;
+                messageInfo.toolAnswerBuffer = '';
+                messageInfo.toolAnswerStarted = false;
             }
             currentModel = model;
             if (activeTools.length > 0) {
@@ -133,6 +137,8 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
 
                 if (messageInfo.deferStream) {
                     messageInfo.hadToolResults = true;
+                    messageInfo.toolAnswerBuffer = '';
+                    messageInfo.toolAnswerStarted = false;
                     messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}`;
                     onStream?.send(messageInfo.content.trimEnd() || '...');
                     messageInfo.pendingStepRetainedReset = true;
@@ -195,7 +201,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             if (text && text.trim()) {
                 log.info(`Final response text length: ${text.length}`);
                 if (messageInfo.deferStream && toolResults.length === 0) {
-                    messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}${text}`;
+                    messageInfo.content = `${messageInfo.stepStartContent ?? ''}${messageInfo.stepRetainedContent ?? ''}${stripToolPlanningPrefix(text) || text}`;
                 }
             }
 
@@ -219,6 +225,31 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             step++;
         },
     };
+}
+
+const TOOL_PLANNING_PREFIX = /^(?:the user\b|user asked\b|i (?:have|found|need|should|will|can|already|now)\b|let me\b|first\b|to answer\b|voy a\b|primero\b|necesito\b|ya tengo\b|tengo\b|con (?:los|la|el) datos\b|para responder\b)/i;
+export const TOOL_ANSWER_MARKER = /^(?:#{1,6}\s|\|.*\||[-•*]\s|\d+\.\s|[📌✅💨💧🔆]|☀️|🌡️|🌧️|👁️)/u;
+const TOOL_ANSWER_SECTION_MARKER = /\n(?=#{1,6}\s|\|.*\||[-•*]\s|\d+\.\s|[📌✅💨💧🔆]|☀️|🌡️|🌧️|👁️)/u;
+
+export function stripToolPlanningPrefix(text: string): string {
+    let remaining = text.trimStart();
+    for (let i = 0; i < 4; i++) {
+        if (!TOOL_PLANNING_PREFIX.test(remaining)) {
+            return remaining;
+        }
+        const answerMarker = remaining.match(TOOL_ANSWER_SECTION_MARKER);
+        if (answerMarker?.index !== undefined) {
+            remaining = remaining.slice(answerMarker.index + 1).trimStart();
+            continue;
+        }
+        const paragraphBreak = remaining.match(/\n\s*\n/);
+        if (paragraphBreak?.index !== undefined) {
+            remaining = remaining.slice(paragraphBreak.index + paragraphBreak[0].length).trimStart();
+            continue;
+        }
+        return '';
+    }
+    return remaining;
 }
 
 function warpMessages(params: LanguageModelV3CallOptions, activeTools: string[], isResponseApi: boolean, rawSystemPrompt: string | undefined) {
