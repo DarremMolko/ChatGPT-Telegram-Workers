@@ -37,7 +37,6 @@ export class OpenAILike extends OpenAILikeBase implements ChatAgent {
             system: params.system,
             messages: params.messages,
             cache: params.cache,
-            runtimeContext: params.runtimeContext,
             abortSignal: params.abortSignal,
         }, context), onStream);
     };

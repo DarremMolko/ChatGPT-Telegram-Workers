@@ -30,10 +30,6 @@ OPENAI_TTS_VOICE = "alloy"
 # Optional: use a dedicated model for MCP or built-in tool steps.
 # TOOL_MODEL = "gpt-5.4"
 
-# Optional: inject local group-management tools in group chats.
-# Supported values: "user_profile", "recent_history", "search_history"
-# GROUP_MANAGEMENT = ["user_profile", "recent_history", "search_history"]
-
 # Optional: change text/audio behavior.
 # TEXT_OUTPUT = "audio"
 # AUDIO_OUTPUT = "audio"

@@ -40,7 +40,6 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
             model,
             system: params.system,
             messages: params.messages,
-            runtimeContext: params.runtimeContext,
             abortSignal: params.abortSignal,
         }, context), onStream);
     };
