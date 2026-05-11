@@ -14,7 +14,7 @@ import { clearLog, getLog, log } from '../../log';
 import { imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
-import { escape } from '../utils/md2tgmd';
+import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
 
@@ -667,14 +667,14 @@ function mergeLogMessages(text: string, config: AgentUserConfig | undefined): st
     if (!config?.ENABLE_SHOWINFO) {
         return content;
     }
-    const info = getLog(config, { isParagraph: true }).trim();
+    const info = getLog(config).trim();
     if (!info) {
         return content;
     }
     if (ENV.LOG_POSITION_ON_TOP) {
-        return `[${info}] ${content}`;
+        return `${info}\n${SEGMENTATION_MARK}\n${content}`;
     }
-    return `${content}\n[${info}]`;
+    return `${content}\n${SEGMENTATION_MARK}\n${info}`;
 }
 
 // MIME type mapping for common file extensions
