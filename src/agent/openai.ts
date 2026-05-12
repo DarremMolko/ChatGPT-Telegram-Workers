@@ -10,6 +10,7 @@ import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
+import { buildOpenAIImageSettings } from './openai_image';
 import { resolveOpenAIChatModel } from './model_selector';
 import { requestChatCompletionsV2 } from './request';
 
@@ -55,18 +56,19 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
     @Logger
     request = async (prompt: string, context: AgentUserConfig, extraParams?: Record<string, any>): Promise<ImageResult> => {
         const {
-            n = 1,
+            modelId,
+            n,
             size,
             referenceImages,
             mask,
-        } = extraParams || {};
-
-        const modelId = extraParams?.model || context.OPENAI_IMAGE_MODEL;
+            isEditMode,
+            generationBody,
+            providerOptions,
+        } = buildOpenAIImageSettings('openai', context, extraParams);
 
         // 智能选择模型：
         // - 编辑模式：只有 dall-e-2 和 gpt-image-* 支持编辑
         // - 生成模式：使用配置的模型
-        const isEditMode = (referenceImages && referenceImages.length > 0) || mask;
         const actualModel = isEditMode
             ? (modelId === 'dall-e-3' ? 'dall-e-2' : modelId) // dall-e-3 不支持编辑，降级到 dall-e-2
             : modelId;
@@ -86,7 +88,8 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
                 }).image(actualModel) as unknown as ImageModelV3,
                 prompt: generatePrompt,
                 n,
-                size: size as any,
+                ...(size ? { size: size as any } : {}),
+                ...(providerOptions ? { providerOptions } : {}),
             });
 
             return {
@@ -103,13 +106,9 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
         };
         const body: any = {
             prompt,
-            n,
+            ...generationBody,
             model: actualModel,
         };
-        const imageSize = size || context.OPENAI_IMAGE_SIZE;
-        if (imageSize && imageSize !== 'auto') {
-            body.size = imageSize;
-        }
         return requestText2Image(url, header, body, this.render);
     };
 
@@ -175,6 +174,7 @@ export class OpenAITTS extends OpenAIBase implements TTSAgent {
                 model: context.OPENAI_TTS_MODEL,
                 input: text,
                 voice: context.OPENAI_TTS_VOICE,
+                ...(context.OPENAI_TTS_PROMPT ? { instructions: context.OPENAI_TTS_PROMPT } : {}),
                 response_format: 'opus',
                 speed: 1,
                 ...context.OPENAI_TTS_EXTRA_PARAMS,

@@ -8,7 +8,7 @@ export default {
             help: 'Get command help',
             new: 'Start a new conversation',
             start: 'Show your chat ID and start a new conversation',
-            img: 'Generate an image. Reply to an image with `/img ...` to edit it through the OpenAI image flow.',
+            img: 'Generate an image. Reply to an image with `/img ...` to edit it through the OpenAI-compatible image flow.',
             version: 'Show the current build version',
             setenv: 'Set one stored user-config key. Format: `/setenv KEY=VALUE`',
             setenvs: 'Set multiple stored user-config keys at once. Format: `/setenvs{"KEY":"VALUE"}`',

@@ -199,7 +199,7 @@ export class OpenAIConfig {
     // OpenAI TTS Model
     OPENAI_TTS_MODEL = 'gpt-4o-mini-tts';
     // OpenAI TTS Extra Params
-    OPENAI_TTS_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
+    OPENAI_TTS_EXTRA_PARAMS: Record<string, any> = {};
 
     OPENAI_TTS_VOICE = 'alloy';
     OPENAI_MODELS = [];
@@ -221,8 +221,8 @@ export class OpenAIConfig {
     };
 
     // OpenAI Server-Side Tools (Responses API only)
-    // 可用工具列表：webSearch, codeInterpreter, fileSearch, imageGeneration, mcp
-    OPENAI_BUILDIN = ['webSearch', 'codeInterpreter', 'fileSearch', 'imageGeneration', 'mcp'];
+    // 可用工具列表：webSearch, codeInterpreter, fileSearch, imageGeneration, shell, mcp
+    OPENAI_BUILDIN = ['webSearch', 'codeInterpreter', 'fileSearch', 'imageGeneration', 'shell', 'mcp'];
     // 启用的工具列表（为保持向后兼容，也支持使用 OPENAI_ENABLE_* 开关）
     USE_OPENAI_BUILDIN: string[] = [];
 
@@ -251,8 +251,18 @@ export class OpenAIConfig {
     OPENAI_IMAGE_OUTPUT_COMPRESSION = 100; // 输出压缩等级 (0-100)
     OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png'; // 输出格式
     OPENAI_IMAGE_PARTIAL_IMAGES = 0; // 流式模式下生成的部分图片数量 (0-3)
+    OPENAI_IMAGE_MODERATION: 'auto' | 'low' = 'auto'; // 图片安全过滤等级
     OPENAI_IMAGE_QUALITY: 'auto' | 'low' | 'medium' | 'high' = 'auto'; // 图片质量
     OPENAI_IMAGE_SIZE: 'auto' | '1024x1024' | '1024x1536' | '1536x1024' = 'auto'; // 图片尺寸
+
+    // Hosted Shell - OpenAI 响应式 Shell 工具
+    OPENAI_ENABLE_SHELL = false;
+    OPENAI_SHELL_ENVIRONMENT: 'containerAuto' | 'containerReference' = 'containerAuto';
+    OPENAI_SHELL_CONTAINER_ID = '';
+    OPENAI_SHELL_FILE_IDS: string[] = [];
+    OPENAI_SHELL_MEMORY_LIMIT: '1g' | '4g' | '16g' | '64g' = '4g';
+    OPENAI_SHELL_NETWORK_POLICY: 'default' | 'disabled' | 'allowlist' = 'default';
+    OPENAI_SHELL_ALLOWED_DOMAINS: string[] = [];
 
     // MCP - Model Context Protocol
     OPENAI_ENABLE_MCP = false;
@@ -279,17 +289,30 @@ export class OpenAILikeConfig {
     OAILIKE_IMAGE_MODEL = 'gpt-image-1.5';
     // oailike vision model
     OAILIKE_VISION_MODEL = 'gpt-5.4-mini';
+    // oailike image background
+    OAILIKE_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto';
+    // oailike image input fidelity
+    OAILIKE_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low';
+    // oailike image moderation
+    OAILIKE_IMAGE_MODERATION: 'auto' | 'low' = 'auto';
+    // oailike image output compression
+    OAILIKE_IMAGE_OUTPUT_COMPRESSION = 100;
+    // oailike image output format
+    OAILIKE_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png';
+    // oailike image quality
+    OAILIKE_IMAGE_QUALITY: 'auto' | 'low' | 'medium' | 'high' = 'auto';
     // oailike image size
-    OAILIKE_IMAGE_SIZE = '1024x1024';
+    OAILIKE_IMAGE_SIZE: 'auto' | '1024x1024' | '1024x1536' | '1536x1024' = '1024x1024';
     // oailike asr model
-    OAILIKE_STT_MODEL = 'FunAudioLLM/SenseVoiceSmall';
+    OAILIKE_STT_MODEL = 'gpt-4o-mini-transcribe';
     OAILIKE_STT_EXTRA_PARAMS: Record<string, string> = {};
     // oailike tts model
     OAILIKE_TTS_MODEL = 'gpt-4o-mini-tts';
     // oailike tts extra params
-    OAILIKE_TTS_EXTRA_PARAMS: Record<string, Record<string, any>> = {};
+    OAILIKE_TTS_EXTRA_PARAMS: Record<string, any> = {};
     // oailike tts voice
     OAILIKE_TTS_VOICE = 'alloy';
+    OAILIKE_TTS_PROMPT = '';
     // OAILIKE API Extra Params, key is model name prefix, separated by commas; value is extra Params, support path(camelCase), split by '.'
     // for example: OAILIKE_API_EXTRA_PARAMS = { 'gpt-5.4,gpt-5.4-mini': { 'reasoningEffort': 'high' } };
     OAILIKE_API_EXTRA_PARAMS: Record<string, Record<string, any>> = {};

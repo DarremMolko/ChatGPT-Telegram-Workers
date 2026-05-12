@@ -1,11 +1,15 @@
+import type { ImageModelV3 } from '@ai-sdk/provider';
 import type { UserModelMessage } from 'ai';
 import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage } from './types';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateImage } from 'ai';
 import { log, Logger } from '../log';
-import { buildProviderApiUrl } from './api_base';
+import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
+import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
 import { renderImage } from './openai';
 import { requestChatCompletionsV2 } from './request';
 
@@ -50,18 +54,67 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
     };
 
     @Logger
-    request = async (prompt: string, context: AgentUserConfig): Promise<ImageResult> => {
+    request = async (prompt: string, context: AgentUserConfig, extraParams?: Record<string, any>): Promise<ImageResult> => {
+        const {
+            modelId,
+            n,
+            size,
+            referenceImages,
+            mask,
+            isEditMode,
+            generationBody,
+            providerOptions,
+        } = buildOpenAIImageSettings('oailike', context, extraParams);
+        const supportsOpenAIImageFlow = isOpenAIImageModel(modelId);
+
+        if (isEditMode) {
+            if (!supportsOpenAIImageFlow) {
+                throw new Error('Image editing on the oailike provider requires a gpt-image-* or dall-e-* model.');
+            }
+
+            const actualModel = modelId === 'dall-e-3' ? 'dall-e-2' : modelId;
+            const openaiApiBase = resolveProviderApiBase('oailike', context).rootURL;
+            const generatePrompt = referenceImages && referenceImages.length > 0
+                ? { text: prompt, images: referenceImages, ...(mask && { mask }) }
+                : prompt;
+
+            const { images } = await generateImage({
+                model: createOpenAI({
+                    apiKey: context.OAILIKE_API_KEY || undefined,
+                    baseURL: openaiApiBase,
+                }).image(actualModel) as unknown as ImageModelV3,
+                prompt: generatePrompt,
+                n,
+                ...(size ? { size: size as any } : {}),
+                ...(providerOptions ? { providerOptions } : {}),
+            });
+
+            return {
+                raw: images.map(img => new Blob([Buffer.from(img.uint8Array)], { type: 'image/png' })),
+                text: prompt,
+            };
+        }
+
         const url = buildProviderApiUrl('oailike', context, '/images/generations');
         const header = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${context.OAILIKE_API_KEY}`,
         };
+
+        if (supportsOpenAIImageFlow) {
+            return requestText2Image(url, header, {
+                prompt,
+                ...generationBody,
+                model: modelId,
+            }, this.render);
+        }
+
         const body: any = {
             prompt,
-            image_size: context.OAILIKE_IMAGE_SIZE,
-            model: context.OAILIKE_IMAGE_MODEL,
+            image_size: extraParams?.size || context.OAILIKE_IMAGE_SIZE,
+            model: modelId,
             // num_inference_steps: 10,
-            batch_size: 4,
+            batch_size: n,
             ...context.OAILIKE_API_EXTRA_PARAMS,
         };
         return requestText2Image(url, header, body, this.render);
@@ -132,6 +185,7 @@ export class OpenAILikeTTS extends OpenAILikeBase {
                 model: context.OAILIKE_TTS_MODEL,
                 input: text,
                 voice: context.OAILIKE_TTS_VOICE,
+                ...(context.OAILIKE_TTS_PROMPT ? { instructions: context.OAILIKE_TTS_PROMPT } : {}),
                 response_format: 'opus',
                 ...context.OAILIKE_TTS_EXTRA_PARAMS,
             }),

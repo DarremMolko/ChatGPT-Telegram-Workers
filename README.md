@@ -209,8 +209,8 @@ Two tool layers remain:
 
 2. OpenAI Responses built-in tools
    - Enabled through `USE_OPENAI_BUILDIN` or `OPENAI_ENABLE_*`
-   - Only available when the effective OpenAI path uses the Responses API
-   - Includes web search, code interpreter, file search, image generation, and provider-side MCP
+   - Available for `openai` and `oailike` when the effective path uses the Responses API
+   - Includes web search, code interpreter, file search, image generation, hosted shell, and provider-side MCP
 
 `TOOL_MODEL` can keep tool-calling steps on a separate model. It accepts either:
 
@@ -229,6 +229,8 @@ Defaults when you keep the root `/v1` base:
 
 - `openai` -> `v1/responses`
 - `oailike` -> `v1/chat/completions`
+
+Set `OAILIKE_API_BASE` to `/v1/responses` when you want the `oailike` provider to use OpenAI Responses features such as built-in tools.
 
 Non-chat endpoints such as `/models`, `/images`, and `/audio` still resolve against the stripped root API base automatically.
 

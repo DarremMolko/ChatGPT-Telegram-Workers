@@ -21,7 +21,31 @@ export interface MessageInfo {
     occured_error?: boolean;
 }
 
-const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'mcp']);
+const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'shell', 'mcp']);
+
+function hasRequestedOpenAIResponsesTools(config: AgentUserConfig): boolean {
+    return config.OPENAI_ENABLE_WEB_SEARCH
+        || config.OPENAI_ENABLE_CODE_INTERPRETER
+        || config.OPENAI_ENABLE_FILE_SEARCH
+        || config.OPENAI_ENABLE_IMAGE_GENERATION
+        || config.OPENAI_ENABLE_SHELL
+        || config.OPENAI_ENABLE_MCP
+        || config.USE_OPENAI_BUILDIN.length > 0;
+}
+
+function selectImageToolConfig(config: AgentUserConfig, provider: 'openai' | 'oailike') {
+    const prefix = provider.toUpperCase();
+    return {
+        background: config[`${prefix}_IMAGE_BACKGROUND`],
+        inputFidelity: config[`${prefix}_IMAGE_INPUT_FIDELITY`],
+        model: config[`${prefix}_IMAGE_MODEL`],
+        moderation: config[`${prefix}_IMAGE_MODERATION`],
+        outputCompression: config[`${prefix}_IMAGE_OUTPUT_COMPRESSION`],
+        outputFormat: config[`${prefix}_IMAGE_OUTPUT_FORMAT`],
+        quality: config[`${prefix}_IMAGE_QUALITY`],
+        size: config[`${prefix}_IMAGE_SIZE`],
+    };
+}
 
 export async function AIMiddleware({ config, activeTools, onStream, toolChoice, messageInfo }: { config: AgentUserConfig; activeTools: string[]; onStream: ChatStreamTextHandler | null; toolChoice: ToolChoice[] | []; messageInfo: MessageInfo }): Promise<Record<string, ((...args: any[]) => any)>> {
     let step = 0;
@@ -371,7 +395,8 @@ export async function warpLLMParams({ system, messages, model, cache, abortSigna
 
     const manualToolChoiceNames = [...activeToolNames];
     const activeTools = [...manualToolChoiceNames];
-    const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
+    const requestedOpenAIResponsesTools = hasRequestedOpenAIResponsesTools(context);
+    const effectiveTarget = (activeTools.length > 0 || requestedOpenAIResponsesTools) && context.TOOL_MODEL
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
                 agent: getAgentProvider(model),
@@ -379,9 +404,10 @@ export async function warpLLMParams({ system, messages, model, cache, abortSigna
                 useResponsesApi: model.provider.endsWith('.responses'),
             };
 
-    if (effectiveTarget.agent === 'openai' && effectiveTarget.useResponsesApi) {
+    if (effectiveTarget.useResponsesApi) {
         const { openai } = await import('@ai-sdk/openai');
         const openaiTools = openai.tools;
+        const imageToolConfig = selectImageToolConfig(context, effectiveTarget.agent === 'oailike' ? 'oailike' : 'openai');
 
         if (context.USE_OPENAI_BUILDIN.includes('webSearch') || context.OPENAI_ENABLE_WEB_SEARCH) {
             const webSearchConfig: any = {
@@ -435,16 +461,47 @@ export async function warpLLMParams({ system, messages, model, cache, abortSigna
 
         if (context.USE_OPENAI_BUILDIN.includes('imageGeneration') || context.OPENAI_ENABLE_IMAGE_GENERATION) {
             tools.image_generation = openaiTools.imageGeneration({
-                background: context.OPENAI_IMAGE_BACKGROUND,
-                inputFidelity: context.OPENAI_IMAGE_INPUT_FIDELITY,
-                model: context.OPENAI_IMAGE_MODEL,
-                outputCompression: context.OPENAI_IMAGE_OUTPUT_COMPRESSION,
-                outputFormat: context.OPENAI_IMAGE_OUTPUT_FORMAT,
+                background: imageToolConfig.background,
+                inputFidelity: imageToolConfig.inputFidelity,
+                model: imageToolConfig.model,
+                ...(imageToolConfig.moderation === 'auto' ? { moderation: imageToolConfig.moderation } : {}),
+                outputCompression: imageToolConfig.outputCompression,
+                outputFormat: imageToolConfig.outputFormat,
                 partialImages: context.OPENAI_IMAGE_PARTIAL_IMAGES,
-                quality: context.OPENAI_IMAGE_QUALITY,
-                size: context.OPENAI_IMAGE_SIZE,
+                quality: imageToolConfig.quality,
+                size: imageToolConfig.size,
             });
             activeTools.push('image_generation');
+        }
+
+        if (context.USE_OPENAI_BUILDIN.includes('shell') || context.OPENAI_ENABLE_SHELL) {
+            const shellConfig: any = {};
+            if (context.OPENAI_SHELL_ENVIRONMENT === 'containerReference' && context.OPENAI_SHELL_CONTAINER_ID) {
+                shellConfig.environment = {
+                    type: 'containerReference',
+                    containerId: context.OPENAI_SHELL_CONTAINER_ID,
+                };
+            } else {
+                shellConfig.environment = {
+                    type: 'containerAuto',
+                    memoryLimit: context.OPENAI_SHELL_MEMORY_LIMIT,
+                };
+                if (context.OPENAI_SHELL_FILE_IDS.length > 0) {
+                    shellConfig.environment.fileIds = context.OPENAI_SHELL_FILE_IDS;
+                }
+                if (context.OPENAI_SHELL_NETWORK_POLICY === 'disabled') {
+                    shellConfig.environment.networkPolicy = {
+                        type: 'disabled',
+                    };
+                } else if (context.OPENAI_SHELL_NETWORK_POLICY === 'allowlist' && context.OPENAI_SHELL_ALLOWED_DOMAINS.length > 0) {
+                    shellConfig.environment.networkPolicy = {
+                        type: 'allowlist',
+                        allowedDomains: context.OPENAI_SHELL_ALLOWED_DOMAINS,
+                    };
+                }
+            }
+            tools.shell = openaiTools.shell(shellConfig);
+            activeTools.push('shell');
         }
 
         if (context.USE_OPENAI_BUILDIN.includes('mcp') || context.OPENAI_ENABLE_MCP) {
@@ -495,8 +552,8 @@ export async function warpLLMParams({ system, messages, model, cache, abortSigna
             }
         }
 
-        if (context.OPENAI_ENABLE_WEB_SEARCH || context.OPENAI_ENABLE_CODE_INTERPRETER || context.OPENAI_ENABLE_FILE_SEARCH || context.OPENAI_ENABLE_IMAGE_GENERATION || context.OPENAI_ENABLE_MCP || context.USE_OPENAI_BUILDIN.length > 0) {
-            log.info(`[warpLLMParams] OpenAI server-side tools enabled: ${activeTools.filter(t => OPENAI_PROVIDER_TOOLS.has(t)).join(', ')}`);
+        if (requestedOpenAIResponsesTools) {
+            log.info(`[warpLLMParams] Responses tools enabled for ${effectiveTarget.agent}: ${activeTools.filter(t => OPENAI_PROVIDER_TOOLS.has(t)).join(', ')}`);
         }
     }
 

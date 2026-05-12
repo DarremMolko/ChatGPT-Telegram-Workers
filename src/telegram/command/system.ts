@@ -8,6 +8,7 @@ import type { MessageSender } from '../utils/send';
 import type { CommandHandler, InlineItem, ScopeType } from './types';
 import { authChecker } from '.';
 import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadImageGen, TTS_AGENTS } from '../../agent';
+import { resolveProviderApiBase } from '../../agent/api_base';
 import { loadHistory } from '../../agent/chat';
 import { updateModels } from '../../agent/models';
 import { ENV } from '../../config/env';
@@ -745,9 +746,9 @@ export class InlineCommandHandler implements CommandHandler {
             //     }),
             // },
         ];
-        if (chatAgent === 'openai') {
+        if ((chatAgent === 'openai' || chatAgent === 'oailike') && resolveProviderApiBase(chatAgent, context).llmMode === 'responses') {
             inlines.push({
-                label: 'OpenAI Tools',
+                label: 'Responses Tools',
                 config_key: 'USE_OPENAI_BUILDIN',
                 type: 'checkbox',
                 value: context.OPENAI_BUILDIN,
