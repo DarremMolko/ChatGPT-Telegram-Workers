@@ -108,10 +108,6 @@ Important:
 | `GROUP_CHAT_BOT_ENABLE` | Master group-chat enable switch. | `true` |
 | `GROUP_CHAT_BOT_SHARE_MODE` | If `true`, a group shares one history/config scope. If `false`, each user in the group gets an individual scope. | `true` |
 | `GROUP_INCLUDE_USERNAME` | Prefix group messages with a user identifier before sending them to the LLM. | `false` |
-| `BLOCK_COMMANDS` | Disable specific built-in commands, for example `["/history"]`. | `[]` |
-| `HIDE_COMMAND_BUTTONS` | Remove specific commands from Telegram command menus without disabling the command itself. | `[]` |
-| `BLOCK_AGENTS` | Disable specific provider agents, for example `["oailike"]`. | `[]` |
-| `SHOW_REPLY_BUTTON` | Show `/new` and `/redo` reply keyboard buttons in private chats. | `false` |
 
 ### Custom Commands
 

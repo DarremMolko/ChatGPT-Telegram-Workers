@@ -107,9 +107,3 @@ export async function customInfo(
     }
     return plain.split('\n').map(line => `\`${line}\``).join('\n');
 }
-
-export function blockAgent() {
-    const agents = CHAT_AGENTS.filter(item => !ENV.BLOCK_AGENTS.includes(item.name));
-    CHAT_AGENTS.length = 0;
-    CHAT_AGENTS.push(...agents);
-}

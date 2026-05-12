@@ -1,9 +1,7 @@
 import type { APIGuard, CommandConfig, MCPTransport, RedisStorage } from './types';
 import { execSync } from 'node:child_process';
-import { blockAgent } from '../agent';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
-import { blockCommand } from '../telegram/command';
 import {
     AgentShareConfig,
     DefineKeys,
@@ -136,11 +134,6 @@ class Environment extends EnvironmentConfig {
 
         // 异步初始化 mcp
         this.asyncInit();
-
-        // block agents
-        blockAgent();
-        // block commands
-        blockCommand();
     }
 
     private mergeCommands(prefix: string, descriptionPrefix: string, scopePrefix: string, source: any, target: Record<string, CommandConfig>) {

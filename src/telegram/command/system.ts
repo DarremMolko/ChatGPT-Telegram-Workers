@@ -22,7 +22,7 @@ import { chatWithLLM, mergeLogMessages, sendImages, stt, tts } from '../handler/
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
-import { chunkArray, getMessageText, getMessageTextWithoutBotShowInfo, getTelegramFile, isTelegramChatTypeGroup, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
+import { chunkArray, getMessageText, getMessageTextWithoutBotShowInfo, getTelegramFile, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
 import { sendCommandError } from './error';
 
 export const COMMAND_AUTH_CHECKER = {
@@ -243,20 +243,11 @@ class BaseNewCommandHandler {
             chat_id: message.chat.id,
             message_thread_id: (message.is_topic_message && message.message_thread_id) || undefined,
             text,
-        };
-        if (ENV.SHOW_REPLY_BUTTON && !isTelegramChatTypeGroup(message.chat.type)) {
-            params.reply_markup = {
-                keyboard: [[{ text: '/new' }, { text: '/redo' }]],
-                selective: true,
-                resize_keyboard: true,
-                one_time_keyboard: false,
-            };
-        } else {
-            params.reply_markup = {
+            reply_markup: {
                 remove_keyboard: true,
                 selective: true,
-            };
-        }
+            },
+        };
         const resp = createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage(params);
         return checkIsNeedTagIds({ chatType: message.chat.type, message }, resp, 'tip');
     }

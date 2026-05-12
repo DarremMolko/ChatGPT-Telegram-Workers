@@ -8,10 +8,8 @@ const { sendPlainTextMock, ttsHandleMock } = vi.hoisted(() => ({
 
 vi.mock('../../config/env', () => ({
     ENV: {
-        BLOCK_COMMANDS: [],
         CUSTOM_COMMAND: {},
         DEV_MODE: false,
-        HIDE_COMMAND_BUTTONS: [],
         I18N: {
             command: {
                 help: {},

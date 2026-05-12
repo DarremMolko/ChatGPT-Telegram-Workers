@@ -132,9 +132,6 @@ export function commandsBindScope(): Record<string, Telegram.SetMyCommandsParams
         all_chat_administrators: [],
     };
     for (const cmd of SYSTEM_COMMANDS) {
-        if (ENV.HIDE_COMMAND_BUTTONS.includes(cmd.command)) {
-            continue;
-        }
         if (cmd.scopes) {
             for (const scope of cmd.scopes) {
                 if (!scopeCommandMap[scope]) {
@@ -188,10 +185,4 @@ export async function authChecker(command: CommandHandler, message: Telegram.Mes
         return;
     }
     throw new Error(`Permission denied, need ${describeCommandAccess(accessLevel)}`);
-}
-
-export function blockCommand() {
-    const commands = SYSTEM_COMMANDS.filter(item => !ENV.BLOCK_COMMANDS.includes(item.command));
-    SYSTEM_COMMANDS.length = 0;
-    SYSTEM_COMMANDS.push(...commands);
 }

@@ -44,12 +44,10 @@ vi.mock('../../agent/models', () => ({
 vi.mock('../../config/env', () => ({
     ENV: {
         ADMIN_WHITE_LIST: ['2'],
-        BLOCK_COMMANDS: [],
         CUSTOM_COMMAND: {},
         DEV_MODE: false,
         EXTRA_MESSAGE_CONTEXT: true,
         GROUP_CHAT_BOT_SHARE_MODE: false,
-        HIDE_COMMAND_BUTTONS: [],
         I18N: {
             command: {
                 help: {},

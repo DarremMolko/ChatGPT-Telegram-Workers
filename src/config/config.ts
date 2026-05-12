@@ -56,16 +56,8 @@ export class EnvironmentConfig {
 
     // -- 特性开关 --
     //
-    // 隐藏部分命令按钮
-    HIDE_COMMAND_BUTTONS: string[] = [];
-    // 禁用部分命令
-    BLOCK_COMMANDS: string[] = [];
-    // 显示快捷回复按钮
-    SHOW_REPLY_BUTTON = false;
     // 额外引用消息开关
     EXTRA_MESSAGE_CONTEXT = false;
-    // 禁用Agent
-    BLOCK_AGENTS: string[] = [];
 
     // -------------
 
