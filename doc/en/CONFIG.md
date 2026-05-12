@@ -321,7 +321,7 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | `MAX_RETRIES` | AI SDK retry count. | `0` |
 | `TEXT_HANDLE_TYPE` | How text input is processed: `text`, `tts`, or `chat`. | `text` |
 | `TEXT_OUTPUT` | Output type for text input: `text` or `audio`. | `text` |
-| `AUDIO_HANDLE_TYPE` | How audio input is processed: `stt`, `audio`, or `chat`. | `stt` |
+| `AUDIO_HANDLE_TYPE` | How audio input is processed: `stt` for transcription only, `audio` for transcript then chat, or `chat` to send audio directly to a compatible multimodal chat model. | `stt` |
 | `AUDIO_OUTPUT` | Output type for audio input: `text` or `audio`. | `text` |
 | `AUDIO_PROMPT` | Default prompt used when audio arrives without text. | long default prompt |
 | `ENABLE_SHOWINFO` | Include the model/log footer in normal replies. | `false` |
@@ -348,6 +348,29 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
   - transcribe audio, ask the LLM, then synthesize the answer back to speech
 - `chat` handle modes
   - pass file/audio content directly to a compatible multimodal chat model
+
+### Audio Mode Examples
+
+- `AUDIO_HANDLE_TYPE=stt`, `AUDIO_OUTPUT=text`
+  - best when you only want a transcript, such as meeting notes, voicemail transcription, or exporting spoken content as text
+- `AUDIO_HANDLE_TYPE=audio`, `AUDIO_OUTPUT=text`
+  - best when you want the bot to first transcribe the recording and then answer based on that transcript, such as "summarize this voice message" or "answer the question in this recording"
+- `AUDIO_HANDLE_TYPE=audio`, `AUDIO_OUTPUT=audio`
+  - best when you want a full voice-to-voice flow: transcribe the recording, generate a reply, then send the reply back as speech
+- `AUDIO_HANDLE_TYPE=chat`, `AUDIO_OUTPUT=text`
+  - best when the selected chat model can understand raw audio directly and you want more than a plain transcript
+  - useful for cases such as:
+  - identifying tone, hesitation, emphasis, or emotion
+  - evaluating pronunciation or speaking style
+  - analyzing clips where non-text audio cues matter, not just the spoken words
+
+### Choosing `chat` For Audio
+
+- `chat` bypasses the explicit ASR step and sends the audio file to the chat model itself
+- use it only with a provider and chat model that support direct audio input
+- if you mainly need a clean transcript, `stt` is usually the simpler choice
+- if you want transcript-first reasoning that works broadly across providers, use `audio`
+- in the current implementation, `chat` is most practical with `AUDIO_OUTPUT=text`
 
 ## Prompting And Aliases
 
