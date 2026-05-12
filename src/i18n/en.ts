@@ -21,7 +21,7 @@ export default {
             set: 'Apply temporary or stored user-config overrides with shortcut flags',
             history: 'Export stored chat history as JSON. Format: `/history [n]`',
             settings: 'Open the inline settings UI',
-            tts: 'Generate speech from text. Use `-v` to override the active TTS voice.',
+            tts: 'Generate speech from text, or reply to a text message with `/tts`. Use `-v` to override the active TTS voice and `-i` for TTS instructions on compatible models.',
             map: 'Manage `/set` key and value aliases',
             block: 'Add or remove a user from the current chat blocklist',
             blocklist: 'Show or clear the current chat blocklist',

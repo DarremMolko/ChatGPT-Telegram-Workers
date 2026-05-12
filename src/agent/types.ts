@@ -51,6 +51,10 @@ export interface ChatStreamTextHandler {
     clearHeartbeat?: () => void;
 }
 
+export interface TTSRequestOptions {
+    instructions?: string;
+}
+
 export type ImageAgentRequest = (prompt: string, context: AgentUserConfig, extraParams?: Record<string, any>) => Promise<ImageResult>;
 export type HistoryModifier = (history: HistoryItem[], message: UserModelMessage | null) => HistoryModifierResult;
 
@@ -85,7 +89,7 @@ export interface ImageResult extends Pick<UnionData, 'url' | 'raw' | 'text'> {
 
 export type ASRAgentRequest = (audio: Blob, context: AgentUserConfig) => Promise<string>;
 
-export type TTSAgentRequest = (text: string, context: AgentUserConfig) => Promise<Blob>;
+export type TTSAgentRequest = (text: string, context: AgentUserConfig, options?: TTSRequestOptions) => Promise<Blob>;
 
 export type Image2ImageAgentRequest = (message: any, context: AgentUserConfig) => Promise<string | string[] | Blob>;
 

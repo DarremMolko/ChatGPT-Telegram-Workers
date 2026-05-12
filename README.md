@@ -182,7 +182,7 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/redo [text]` | Re-run the previous user turn | Optional replacement text |
 | `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
 | `/img <prompt>` | Generate an image | Reply to an image to edit it through OpenAI image editing |
-| `/tts [-v voice] <text>` | Generate speech from text | Uses the active TTS provider |
+| `/tts [-v voice] [-i instructions] <text>` | Generate speech from text | Also works when you reply to a text message; `-i` sends TTS instructions on compatible models |
 | `/set ...` | Apply shortcut-based stored or temporary config changes | Supports inline message continuation; `RELAX_AUTH_KEYS` only affects temporary `/set` usage |
 | `/setenv KEY=VALUE` | Store one user-config key | Works on the stored user-config surface |
 | `/setenvs {...}` | Store multiple user-config keys | JSON input |

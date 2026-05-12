@@ -1,6 +1,6 @@
 import type { FilePart, ImagePart, TextPart, UserModelMessage } from 'ai';
 import type * as Telegram from 'telegram-bot-api-types';
-import type { ChatStreamTextHandler, HistoryModifier, ImageResult, LLMChatRequestParams } from '../../agent/types';
+import type { ChatStreamTextHandler, HistoryModifier, ImageResult, LLMChatRequestParams, TTSRequestOptions } from '../../agent/types';
 import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { ChosenInlineSender } from '../utils/send';
@@ -630,12 +630,12 @@ export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: 
     return sender.sendMediaGroup(medias);
 }
 
-export async function tts(text: string, config: AgentUserConfig): Promise<Blob> {
+export async function tts(text: string, config: AgentUserConfig, options?: TTSRequestOptions): Promise<Blob> {
     const agent = loadTTSLLM(config);
     if (!agent) {
         throw new Error(`TTS agent ${config.AI_TTS_PROVIDER} not found, available: ${TTS_AGENTS.map(a => a.name).join(', ')}`);
     }
-    return agent.request(text, config);
+    return agent.request(text, config, options);
 }
 
 async function asr(audio: Blob, config: AgentUserConfig) {

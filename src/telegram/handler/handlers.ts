@@ -11,7 +11,7 @@ import { createTelegramBotAPI } from '../api';
 import { handleCommandMessage } from '../command';
 import { isAuthorized } from '../query';
 import { MessageSender } from '../utils/send';
-import { extractMessageInfo, isTelegramChatTypeGroup } from '../utils/tg_utils';
+import { extractMessageInfo, getMergedQuoteText, getMessageText, isTelegramChatTypeGroup } from '../utils/tg_utils';
 import { HandleChunkMessage, HandleMediaGroupMessage, substituteMessage } from './msg_trimer';
 
 export class SaveLastMessage implements MessageHandler<WorkerContextBase> {
@@ -203,26 +203,11 @@ export class MergeQuote implements MessageHandler<WorkerContext> {
     handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
         const isReplyMe = message.reply_to_message?.from?.id === Number(context.SHARE_CONTEXT.botId);
         const quoteText = message.quote?.text || '';
-        const replyText = message.reply_to_message?.text || message.reply_to_message?.caption || '';
+        const replyText = getMessageText(message.reply_to_message);
         // 开启引用消息且
         // 不是回复bot且包含回复消息 或 是引用消息 则将回复/引用消息和当前消息合并
         if (ENV.EXTRA_MESSAGE_CONTEXT && ((!isReplyMe && replyText) || quoteText)) {
-            // Get the user identifier of the person being replied to
-            let attributedQuote = quoteText || replyText;
-            if (!isReplyMe && message.reply_to_message?.from) {
-                const replyUser = message.reply_to_message.from;
-                let replyUserInfo = '';
-                if (replyUser.username) {
-                    replyUserInfo = `@${replyUser.username} (ID:${replyUser.id})`;
-                } else if (replyUser.last_name) {
-                    replyUserInfo = `${replyUser.first_name} ${replyUser.last_name} (ID:${replyUser.id})`;
-                } else {
-                    replyUserInfo = `${replyUser.first_name} (ID:${replyUser.id})`;
-                }
-                // Add user attribution at the END of the quoted message
-                attributedQuote = `${attributedQuote} — ${replyUserInfo}`;
-            }
-            message.text = `${message.text || message.caption || ''}\n> ${attributedQuote}`;
+            message.text = `${getMessageText(message)}\n> ${getMergedQuoteText(message, context.SHARE_CONTEXT.botId)}`;
         }
         return null;
     };

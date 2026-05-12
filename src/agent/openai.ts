@@ -1,7 +1,7 @@
 import type { ImageModelV3 } from '@ai-sdk/provider';
 import type { UserModelMessage } from 'ai';
 import type { AgentUserConfig } from '../config/env';
-import type { ASRAgent, ChatAgent, ChatStreamTextHandler, GeneratedImage, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSAgent } from './types';
+import type { ASRAgent, ChatAgent, ChatStreamTextHandler, GeneratedImage, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSAgent, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
 import { log, Logger } from '../log';
@@ -10,9 +10,10 @@ import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
-import { buildOpenAIImageSettings } from './openai_image';
 import { resolveOpenAIChatModel } from './model_selector';
+import { buildOpenAIImageSettings } from './openai_image';
 import { requestChatCompletionsV2 } from './request';
+import { resolveTTSInstructions } from './tts';
 
 export class OpenAIBase {
     readonly name = 'openai';
@@ -161,12 +162,13 @@ export class OpenAITTS extends OpenAIBase implements TTSAgent {
         return ctx.OPENAI_TTS_MODEL;
     };
 
-    request = async (text: string, context: AgentUserConfig): Promise<Blob> => {
+    request = async (text: string, context: AgentUserConfig, options?: TTSRequestOptions): Promise<Blob> => {
         const url = buildProviderApiUrl('openai', context, '/audio/speech');
         const headers = {
             'Authorization': `Bearer ${this.apikey(context)}`,
             'Content-Type': 'application/json',
         };
+        const instructions = resolveTTSInstructions('openai', context, options);
         const resp = await fetch(url, {
             method: 'POST',
             headers,
@@ -174,7 +176,7 @@ export class OpenAITTS extends OpenAIBase implements TTSAgent {
                 model: context.OPENAI_TTS_MODEL,
                 input: text,
                 voice: context.OPENAI_TTS_VOICE,
-                ...(context.OPENAI_TTS_PROMPT ? { instructions: context.OPENAI_TTS_PROMPT } : {}),
+                ...(instructions ? { instructions } : {}),
                 response_format: 'opus',
                 speed: 1,
                 ...context.OPENAI_TTS_EXTRA_PARAMS,

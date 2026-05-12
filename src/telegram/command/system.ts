@@ -1,7 +1,7 @@
 /* eslint-disable no-cond-assign */
 import type { UserModelMessage } from 'ai';
 import type * as Telegram from 'telegram-bot-api-types';
-import type { HistoryItem } from '../../agent/types';
+import type { HistoryItem, TTSRequestOptions } from '../../agent/types';
 import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
@@ -22,7 +22,7 @@ import { chatWithLLM, sendImages, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
-import { chunkArray, getTelegramFile, isTelegramChatTypeGroup } from '../utils/tg_utils';
+import { chunkArray, getMessageText, getTelegramFile, isTelegramChatTypeGroup, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
 
 export const COMMAND_AUTH_CHECKER = {
     default(chatType: string): string[] | null {
@@ -873,25 +873,37 @@ export class TTSCommandHandler implements CommandHandler {
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
     needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        if (ENV.EXTRA_MESSAGE_CONTEXT && message.reply_to_message?.from?.id !== context.SHARE_CONTEXT.botId) {
-            const reply_text = message.reply_to_message?.text || message.reply_to_message?.caption || '';
-            reply_text && (subcommand = subcommand.substring(0, subcommand.length - (reply_text.length + '\n> '.length)));
-        }
-        const { flags, remainingText } = tokenizeSubcommand(subcommand);
-        if (remainingText === '') {
-            return sender.sendPlainText('Please input your text');
+        const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
+            ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
+            : subcommand.trim();
+        const { flags, remainingText } = tokenizeSubcommand(cleanedSubcommand);
+        const replyText = getMessageText(message.reply_to_message).trim();
+        const text = remainingText || replyText;
+        if (text === '') {
+            return sender.sendPlainText('Please input your text or reply to a message');
         }
         const agentName = context.USER_CONFIG.AI_TTS_PROVIDER;
+        let requestOptions: TTSRequestOptions | undefined;
         for (const { flag, value } of flags) {
             if (flag === 'v') {
+                if (value === undefined) {
+                    return sender.sendPlainText('Please provide a voice after -v');
+                }
                 context.USER_CONFIG[`${agentName.toUpperCase()}_TTS_VOICE`] = value;
+            } else if (flag === 'i' || flag === 'instructions') {
+                if (value === undefined) {
+                    return sender.sendPlainText('Please provide instructions after -i');
+                }
+                requestOptions = { instructions: value };
             }
         }
         await sender.sendPlainText(`Using agent ${context.USER_CONFIG.AI_TTS_PROVIDER} to generate audio...`);
-        const audio = await tts(remainingText, context.USER_CONFIG);
+        const audio = requestOptions
+            ? await tts(text, context.USER_CONFIG, requestOptions)
+            : await tts(text, context.USER_CONFIG);
         console.log(`audio size: ${(audio.size / 1024 / 1024).toFixed(3)}mb`);
         sendAction(context.SHARE_CONTEXT.botToken, sender.context.chat_id, 'upload_voice');
-        const resp = await sender.sendVoice(audio, context.USER_CONFIG.AUDIO_CONTAINS_TEXT ? remainingText : undefined);
+        const resp = await sender.sendVoice(audio, context.USER_CONFIG.AUDIO_CONTAINS_TEXT ? text : undefined);
         if (resp.ok) {
             return sender.api.deleteMessage({ chat_id: sender.context.chat_id, message_id: sender.context.message_id! });
         }

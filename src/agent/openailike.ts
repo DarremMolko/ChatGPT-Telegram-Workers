@@ -1,7 +1,7 @@
 import type { ImageModelV3 } from '@ai-sdk/provider';
 import type { UserModelMessage } from 'ai';
 import type { AgentUserConfig } from '../config/env';
-import type { ASRAgent, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage } from './types';
+import type { ASRAgent, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
 import { log, Logger } from '../log';
@@ -9,9 +9,10 @@ import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
-import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
 import { renderImage } from './openai';
+import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
 import { requestChatCompletionsV2 } from './request';
+import { resolveTTSInstructions } from './tts';
 
 export class OpenAILikeBase {
     readonly name = 'oailike';
@@ -172,12 +173,13 @@ export class OpenAILikeTTS extends OpenAILikeBase {
         return ctx.OAILIKE_TTS_MODEL;
     };
 
-    readonly request = async (text: string, context: AgentUserConfig): Promise<Blob> => {
+    readonly request = async (text: string, context: AgentUserConfig, options?: TTSRequestOptions): Promise<Blob> => {
         const url = buildProviderApiUrl('oailike', context, '/audio/speech');
         const headers = {
             'Authorization': `Bearer ${context.OAILIKE_API_KEY}`,
             'Content-Type': 'application/json',
         };
+        const instructions = resolveTTSInstructions('oailike', context, options);
         const resp = await fetch(url, {
             method: 'POST',
             headers,
@@ -185,7 +187,7 @@ export class OpenAILikeTTS extends OpenAILikeBase {
                 model: context.OAILIKE_TTS_MODEL,
                 input: text,
                 voice: context.OAILIKE_TTS_VOICE,
-                ...(context.OAILIKE_TTS_PROMPT ? { instructions: context.OAILIKE_TTS_PROMPT } : {}),
+                ...(instructions ? { instructions } : {}),
                 response_format: 'opus',
                 ...context.OAILIKE_TTS_EXTRA_PARAMS,
             }),

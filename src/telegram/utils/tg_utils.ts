@@ -53,6 +53,50 @@ export interface UnionData {
     raw?: Blob[];
 }
 
+export function getMessageText(message?: Pick<Telegram.Message, 'text' | 'caption'> | null): string {
+    return message?.text || message?.caption || '';
+}
+
+function formatReplyUserInfo(user: Telegram.User): string {
+    if (user.username) {
+        return `@${user.username} (ID:${user.id})`;
+    }
+    if (user.last_name) {
+        return `${user.first_name} ${user.last_name} (ID:${user.id})`;
+    }
+    return `${user.first_name} (ID:${user.id})`;
+}
+
+export function getMergedQuoteText(message: Telegram.Message, currentBotId: number): string {
+    const quoteText = message.quote?.text || '';
+    const replyText = getMessageText(message.reply_to_message);
+    const mergedQuoteText = quoteText || replyText;
+    if (mergedQuoteText === '') {
+        return '';
+    }
+    if (message.reply_to_message?.from?.id === Number(currentBotId) || !message.reply_to_message?.from) {
+        return mergedQuoteText;
+    }
+    return `${mergedQuoteText} — ${formatReplyUserInfo(message.reply_to_message.from)}`;
+}
+
+export function stripMergedQuoteFromCommandText(subcommand: string, message: Telegram.Message, currentBotId: number): string {
+    const trimmedSubcommand = subcommand.trim();
+    const mergedQuoteText = getMergedQuoteText(message, currentBotId);
+    if (mergedQuoteText === '') {
+        return trimmedSubcommand;
+    }
+    const mergedQuoteBlock = `> ${mergedQuoteText}`;
+    if (trimmedSubcommand === mergedQuoteBlock) {
+        return '';
+    }
+    const mergedQuoteSuffix = `\n${mergedQuoteBlock}`;
+    if (trimmedSubcommand.endsWith(mergedQuoteSuffix)) {
+        return trimmedSubcommand.slice(0, -mergedQuoteSuffix.length).trim();
+    }
+    return trimmedSubcommand;
+}
+
 function assertWithinDownloadLimit(fileSize: number | undefined, type: string) {
     const maxSize = Number(ENV.TELEGRAM_FILE_DOWNLOAD_MAX_SIZE);
     if (!Number.isFinite(maxSize) || maxSize <= 0 || !fileSize) {
