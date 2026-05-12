@@ -7,6 +7,7 @@ import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
 import { describeCommandAccess, hasCommandAccess, resolveCommandAccess } from '../access';
 import { MessageSender } from '../utils/send';
+import { sendCommandError } from './error';
 import {
     BlocklistCommandHandler,
     BlockUserCommandHandler,
@@ -92,7 +93,7 @@ async function handleSystemCommand(message: Telegram.Message, raw: string, comma
         const subcommand = raw.substring(command.command.length).trim();
         return command.handle(message, subcommand, context, sender);
     } catch (e) {
-        return sender.sendRichText(`<pre><code class="language-error">${(e as Error).message}</code></pre>`, 'HTML', 'tip');
+        return sendCommandError(sender, e, { redactions: [context.SHARE_CONTEXT.botToken] });
     }
 }
 

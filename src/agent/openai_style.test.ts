@@ -125,6 +125,22 @@ describe('requestOpenAIStyleSpeech', () => {
             voice: 'nova',
         });
     });
+
+    it('extracts concise provider error messages from failed speech requests', async () => {
+        fetchMock.mockResolvedValue(new Response(JSON.stringify({
+            error: {
+                message: 'voice not supported by model',
+            },
+        }), {
+            status: 400,
+            statusText: 'Bad Request',
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        await expect(requestOpenAIStyleSpeech(oailikeDescriptor, 'Hello there', createContext()))
+            .rejects
+            .toThrow('400 Bad Request\n\nvoice not supported by model');
+    });
 });
 
 describe('requestOpenAIStyleTranscription', () => {

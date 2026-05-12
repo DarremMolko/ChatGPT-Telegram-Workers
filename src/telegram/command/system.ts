@@ -23,6 +23,7 @@ import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_req
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
 import { chunkArray, getMessageText, getMessageTextWithoutBotShowInfo, getTelegramFile, isTelegramChatTypeGroup, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
+import { sendCommandError } from './error';
 
 export const COMMAND_AUTH_CHECKER = {
     admin(_chatType: string): string[] {
@@ -202,11 +203,13 @@ export class ImgCommandHandler implements CommandHandler {
             const resp = await sendImages(img, ENV.SEND_IMAGE_AS_FILE, sender, context.USER_CONFIG);
 
             if (!resp.ok) {
-                return sender.sendPlainText(`\`\`\`Error\n${resp.statusText} ${await resp.text()}\n\`\`\``);
+                return sendCommandError(sender, new Error(`${resp.status} ${resp.statusText}\n\n${await resp.text()}`), {
+                    redactions: [context.SHARE_CONTEXT.botToken],
+                });
             }
             return resp;
         } catch (e) {
-            return sender.sendRichText(`\`\`\`Error\n${(e as Error).message}\n\`\`\``);
+            return sendCommandError(sender, e, { redactions: [context.SHARE_CONTEXT.botToken] });
         }
     };
 }
@@ -534,7 +537,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             return sender.sendRichText(`<pre><code class="language-update">${msg}</code></pre>`, 'HTML', 'tip');
         } catch (e) {
             log.error(`/set error: ${(e as Error).message}`);
-            return sender.sendRichText(`<pre><code class="language-error">${(e as Error).message}</code></pre>`, 'HTML', 'tip');
+            return sendCommandError(sender, e, { redactions: [context.SHARE_CONTEXT.botToken] });
         }
     };
 

@@ -37,7 +37,7 @@ export function buildOpenAIStyleTranscriptionFormData(descriptor: OpenAIStylePro
 }
 
 function extractOpenAIStyleErrorMessage(resp: any): string | undefined {
-    return resp?.error?.message;
+    return resp?.error?.message || resp?.error || resp?.message;
 }
 
 function parseOpenAIStyleTranscriptionResponse(descriptor: OpenAIStyleProviderDescriptor, resp: any): string {
@@ -95,5 +95,27 @@ export async function requestOpenAIStyleSpeech(descriptor: OpenAIStyleProviderDe
     if (resp.ok) {
         return resp.blob();
     }
-    throw new Error(`${resp.status} ${resp.statusText}\n\n${await resp.text()}`);
+    const body = await resp.text();
+    const parsed = tryParseJson(body);
+    const detail = extractOpenAIStyleErrorMessage(parsed) || summarizeErrorBody(body);
+    throw new Error(detail ? `${resp.status} ${resp.statusText}\n\n${detail}` : `${resp.status} ${resp.statusText}`);
+}
+
+function tryParseJson(value: string): unknown | undefined {
+    try {
+        return JSON.parse(value);
+    } catch {
+        return undefined;
+    }
+}
+
+function summarizeErrorBody(body: string): string {
+    const trimmed = body.trim();
+    if (trimmed === '') {
+        return '';
+    }
+    if (trimmed.startsWith('<')) {
+        return trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    return trimmed;
 }
