@@ -96,7 +96,10 @@ function resolveBotShowInfoRange(message: MessageTextLike | null | undefined, te
 }
 
 function getEntityCoverage(textLength: number, entities: Telegram.MessageEntity[], types: Set<Telegram.MessageEntityType>): boolean[] {
-    const coverage = Array.from({ length: textLength }).fill(false);
+    const coverage: boolean[] = [];
+    for (let i = 0; i < textLength; i++) {
+        coverage.push(false);
+    }
     for (const entity of entities) {
         if (!types.has(entity.type)) {
             continue;
