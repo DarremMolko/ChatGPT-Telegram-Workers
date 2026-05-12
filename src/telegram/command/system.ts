@@ -18,7 +18,7 @@ import { formatLocalDateTime } from '../../utils/others/time';
 import { getStats } from '../../utils/stats';
 import { addRuntimeAdmin, canManageRuntimeConfigForAccess, canViewSensitiveConfigForAccess, isOwner, isPrivilegedUser, isSensitiveRuntimeConfigKey, removeRuntimeAdmin, resolveRuntimeConfigAccessLevel, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
-import { chatWithLLM, sendImages, tts } from '../handler/chat';
+import { chatWithLLM, mergeLogMessages, sendImages, stt, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
@@ -967,6 +967,27 @@ export class TTSCommandHandler implements CommandHandler {
             return sender.api.deleteMessage({ chat_id: sender.context.chat_id, message_id: sender.context.message_id! });
         }
         throw new Error(`Failed to send voice message: ${resp.status} ${await resp.json().then(j => j.description)}`);
+    };
+}
+
+export class STTCommandHandler implements CommandHandler {
+    command = '/stt';
+    scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
+    handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const messageInfo = context.MIDDLE_CONTEXT.messageInfo;
+        if (!messageInfo?.id?.length || !['audio', 'voice'].includes(messageInfo.type)) {
+            return sender.sendPlainText('Please send or reply to an audio or voice message');
+        }
+
+        await sender.sendPlainText(`Using agent ${context.USER_CONFIG.AI_ASR_PROVIDER} to transcribe audio...`);
+        const [audio] = await getTelegramFile(messageInfo.id, context.SHARE_CONTEXT.botToken, 'blob') as Blob[];
+        if (!audio) {
+            throw new Error('Audio file not found');
+        }
+
+        const text = await stt(audio, context.USER_CONFIG);
+        return sender.sendRichText(mergeLogMessages(text, context.USER_CONFIG));
     };
 }
 

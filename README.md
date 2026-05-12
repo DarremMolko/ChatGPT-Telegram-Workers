@@ -19,7 +19,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing and Telegram text/image/audio/PDF inputs |
 | Streaming | Telegram replies stream through the normal message edit/send path |
 | Images | `/img` generation for both provider families; reply-to-image editing through the OpenAI image path |
-| Speech | Telegram voice/audio input via STT, text-to-speech output via `/tts`, and configurable text/audio workflows |
+| Speech | Telegram voice/audio input via STT, explicit `/stt` transcription, text-to-speech output via `/tts`, and configurable text/audio workflows |
 | Tools | Generic MCP groups and OpenAI Responses built-in tools |
 | Persistence | Redis-backed chat history, stored user config, scheduled deletions, and transient Telegram state |
 | Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, `/stop`, per-chat blocklists, and history export |
@@ -182,6 +182,7 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/redo [text]` | Re-run the previous user turn | Optional replacement text |
 | `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
 | `/img <prompt>` | Generate an image | Reply to an image to edit it through OpenAI image editing |
+| `/stt` | Transcribe an audio or voice message | Use it as the audio caption or reply to an audio message |
 | `/tts [-v voice] [-i instructions] <text>` | Generate speech from text | Also works when you reply to a text message; `-i` sends TTS instructions on compatible models |
 | `/set ...` | Apply stored runtime config changes | Supports inline message continuation when followed by normal chat text |
 | `/setenv KEY=VALUE` | Store one user-config key | Works on the stored user-config surface |

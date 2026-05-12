@@ -551,7 +551,7 @@ async function handleAudio(
 ): Promise<Response | string> {
     const url = (params.content as FilePart[]).at(-1)?.data as string;
     const audio = await fetch(url).then(b => b.blob());
-    const text = await asr(audio, context.USER_CONFIG);
+    const text = await stt(audio, context.USER_CONFIG);
     context.MIDDLE_CONTEXT.history.push({ role: 'user', content: text });
     const sender = streamSender.sender!;
     if (handleKey.endsWith('text') || !ENV.HIDE_MIDDLE_MESSAGE) {
@@ -638,7 +638,7 @@ export async function tts(text: string, config: AgentUserConfig, options?: TTSRe
     return agent.request(text, config, options);
 }
 
-async function asr(audio: Blob, config: AgentUserConfig) {
+export async function stt(audio: Blob, config: AgentUserConfig) {
     const agent = loadASRLLM(config);
     if (!agent) {
         throw new Error('ASR agent not found');
@@ -651,7 +651,7 @@ async function asr(audio: Blob, config: AgentUserConfig) {
     return agent.request(audio, config);
 }
 
-function mergeLogMessages(text: string, config: AgentUserConfig | undefined): string {
+export function mergeLogMessages(text: string, config: AgentUserConfig | undefined): string {
     const content = text.trim();
     if (!config?.ENABLE_SHOWINFO) {
         return content;

@@ -1,9 +1,10 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { runtimeAdminStore, redisMock, sendActionMock, ttsMock } = vi.hoisted(() => {
+const { getTelegramFileMock, runtimeAdminStore, redisMock, sendActionMock, sttMock, ttsMock } = vi.hoisted(() => {
     const store = new Map<string, string>();
     return {
+        getTelegramFileMock: vi.fn(),
         runtimeAdminStore: store,
         redisMock: {
             delete: vi.fn(async (key: string) => store.delete(key)),
@@ -14,6 +15,7 @@ const { runtimeAdminStore, redisMock, sendActionMock, ttsMock } = vi.hoisted(() 
             }),
         },
         sendActionMock: vi.fn(),
+        sttMock: vi.fn(),
         ttsMock: vi.fn(),
     };
 });
@@ -96,7 +98,9 @@ vi.mock('../api', () => ({
 
 vi.mock('../handler/chat', () => ({
     chatWithLLM: vi.fn(),
+    mergeLogMessages: vi.fn((text: string) => text),
     sendImages: vi.fn(),
+    stt: sttMock,
     tts: ttsMock,
 }));
 
@@ -119,12 +123,12 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     return {
         ...actual,
         chunkArray: vi.fn(),
-        getTelegramFile: vi.fn(),
+        getTelegramFile: getTelegramFileMock,
         isTelegramChatTypeGroup: vi.fn(() => false),
     };
 });
 
-const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, PromoteCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
+const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
 
 function createReplyMessage(
     text: string,
@@ -177,12 +181,18 @@ function createMessage(
 
 function createContext() {
     return {
+        MIDDLE_CONTEXT: {
+            messageInfo: {
+                type: 'text',
+            },
+        },
         SHARE_CONTEXT: {
             botId: 999,
             configStoreKey: 'user_config:123:999',
             botToken: 'bot-token',
         },
         USER_CONFIG: {
+            AI_ASR_PROVIDER: 'openai',
             AI_TTS_PROVIDER: 'openai',
             AUDIO_CONTAINS_TEXT: true,
             BLOCKLIST: [],
@@ -213,11 +223,13 @@ function createSender() {
 
 describe('tTSCommandHandler', () => {
     beforeEach(() => {
+        getTelegramFileMock.mockReset();
         runtimeAdminStore.clear();
         redisMock.delete.mockClear();
         redisMock.get.mockClear();
         redisMock.put.mockClear();
         sendActionMock.mockReset();
+        sttMock.mockReset();
         ttsMock.mockReset();
     });
 
@@ -320,6 +332,58 @@ describe('tTSCommandHandler', () => {
             instructions: 'voz feliz y serena.',
         });
         expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Hola. Hoy es un hermoso día, verdad?');
+    });
+
+    it('transcribes a replied voice message with /stt', async () => {
+        getTelegramFileMock.mockResolvedValue([new Blob(['audio'])]);
+        sttMock.mockResolvedValue('Transcribed reply');
+        const handler = new STTCommandHandler();
+        const message = createMessage('/stt');
+        const sender = createSender();
+        const context = createContext();
+        context.MIDDLE_CONTEXT.messageInfo = {
+            type: 'voice',
+            id: ['voice-file-id'],
+        };
+
+        await handler.handle(message, '', context, sender);
+
+        expect(getTelegramFileMock).toHaveBeenCalledWith(['voice-file-id'], 'bot-token', 'blob');
+        expect(sttMock).toHaveBeenCalledWith(expect.any(Blob), context.USER_CONFIG);
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Using agent openai to transcribe audio...');
+        expect(sender.sendRichText).toHaveBeenCalledWith('Transcribed reply');
+    });
+
+    it('transcribes an audio message when /stt is used as the caption', async () => {
+        getTelegramFileMock.mockResolvedValue([new Blob(['audio'])]);
+        sttMock.mockResolvedValue('Caption transcription');
+        const handler = new STTCommandHandler();
+        const message = createMessage('/stt');
+        const sender = createSender();
+        const context = createContext();
+        context.MIDDLE_CONTEXT.messageInfo = {
+            type: 'audio',
+            id: ['audio-file-id'],
+        };
+
+        await handler.handle(message, '', context, sender);
+
+        expect(getTelegramFileMock).toHaveBeenCalledWith(['audio-file-id'], 'bot-token', 'blob');
+        expect(sttMock).toHaveBeenCalledWith(expect.any(Blob), context.USER_CONFIG);
+        expect(sender.sendRichText).toHaveBeenCalledWith('Caption transcription');
+    });
+
+    it('rejects /stt without an audio or voice target', async () => {
+        const handler = new STTCommandHandler();
+        const message = createMessage('/stt');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '', context, sender);
+
+        expect(getTelegramFileMock).not.toHaveBeenCalled();
+        expect(sttMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please send or reply to an audio or voice message');
     });
 
     it('promotes a replied user into the runtime admin list', async () => {

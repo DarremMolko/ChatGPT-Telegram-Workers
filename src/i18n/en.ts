@@ -21,6 +21,7 @@ export default {
             set: 'Apply temporary or stored user-config overrides with shortcut flags',
             history: 'Export stored chat history as JSON. Format: `/history [n]`',
             settings: 'Open the inline settings UI',
+            stt: 'Transcribe speech to text from an audio or voice message. Use it as an audio caption or reply to an audio message with `/stt`.',
             tts: 'Generate speech from text, or reply to a text message with `/tts`. Use `-v` to override the active TTS voice and `-i` for TTS instructions on compatible models.',
             map: 'Manage `/set` key and value aliases',
             promote: 'Grant admin access to a user by reply or user ID',
