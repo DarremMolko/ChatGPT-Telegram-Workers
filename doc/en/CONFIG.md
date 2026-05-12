@@ -147,8 +147,7 @@ This creates `/fast`.
 ### Image Generation And Editing Notes
 
 - `/img` works with both provider families
-- reply-to-image editing is currently wired through the OpenAI image flow
-- `oailike` image support is generation-focused
+- reply-to-image editing works through the active OpenAI-compatible image flow, including `oailike`
 
 Telegram document notes:
 

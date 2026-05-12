@@ -10,7 +10,7 @@ import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
 import { renderImage } from './openai';
-import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
+import { buildOpenAIImageSettings, isOpenAIImageModel, resolveImageEditModel } from './openai_image';
 import { createOpenAIStyleHeaders, requestOpenAIStyleSpeech, requestOpenAIStyleTranscription } from './openai_style';
 import { requestChatCompletionsV2 } from './request';
 
@@ -76,14 +76,8 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
             generationBody,
             providerOptions,
         } = buildOpenAIImageSettings('oailike', context, extraParams);
-        const supportsOpenAIImageFlow = isOpenAIImageModel(modelId);
 
         if (isEditMode) {
-            if (!supportsOpenAIImageFlow) {
-                throw new Error('Image editing on the oailike provider requires a gpt-image-* or dall-e-* model.');
-            }
-
-            const actualModel = modelId === 'dall-e-3' ? 'dall-e-2' : modelId;
             const openaiApiBase = resolveProviderApiBase('oailike', context).rootURL;
             const generatePrompt = referenceImages && referenceImages.length > 0
                 ? { text: prompt, images: referenceImages, ...(mask && { mask }) }
@@ -93,7 +87,7 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
                 model: createOpenAI({
                     apiKey: context.OAILIKE_API_KEY || undefined,
                     baseURL: openaiApiBase,
-                }).image(actualModel) as unknown as ImageModelV3,
+                }).image(resolveImageEditModel('oailike', modelId)) as unknown as ImageModelV3,
                 prompt: generatePrompt,
                 n,
                 ...(size ? { size: size as any } : {}),
@@ -106,6 +100,7 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
             };
         }
 
+        const supportsOpenAIImageFlow = isOpenAIImageModel(modelId);
         const url = buildProviderApiUrl('oailike', context, '/images/generations');
         const header = createOpenAIStyleHeaders(resolveOpenAILikeApiKey(context), {
             'Content-Type': 'application/json',

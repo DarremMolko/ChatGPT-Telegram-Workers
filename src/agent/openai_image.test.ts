@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
+import { buildOpenAIImageSettings, isOpenAIImageModel, resolveImageEditModel } from './openai_image';
 
 const baseContext: any = {
     OPENAI_IMAGE_MODEL: 'gpt-image-2',
@@ -31,6 +31,12 @@ describe('isOpenAIImageModel', () => {
 });
 
 describe('buildOpenAIImageSettings', () => {
+    it('only remaps edit models for the native OpenAI provider', () => {
+        expect(resolveImageEditModel('openai', 'dall-e-3')).toBe('dall-e-2');
+        expect(resolveImageEditModel('oailike', 'dall-e-3')).toBe('dall-e-3');
+        expect(resolveImageEditModel('oailike', 'vendor/special-edit-model')).toBe('vendor/special-edit-model');
+    });
+
     it('builds current generation params and omits auto-only fields from the request body', () => {
         const settings = buildOpenAIImageSettings('openai', baseContext);
 

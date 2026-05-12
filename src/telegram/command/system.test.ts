@@ -1,10 +1,11 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getTelegramFileMock, runtimeAdminStore, redisMock, sendActionMock, sttMock, ttsMock } = vi.hoisted(() => {
+const { getTelegramFileMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sttMock, ttsMock } = vi.hoisted(() => {
     const store = new Map<string, string>();
     return {
         getTelegramFileMock: vi.fn(),
+        loadImageGenMock: vi.fn(),
         runtimeAdminStore: store,
         redisMock: {
             delete: vi.fn(async (key: string) => store.delete(key)),
@@ -15,6 +16,7 @@ const { getTelegramFileMock, runtimeAdminStore, redisMock, sendActionMock, sttMo
             }),
         },
         sendActionMock: vi.fn(),
+        sendImagesMock: vi.fn(),
         sttMock: vi.fn(),
         ttsMock: vi.fn(),
     };
@@ -26,7 +28,7 @@ vi.mock('../../agent', () => ({
     IMAGE_AGENTS: [],
     TTS_AGENTS: [],
     customInfo: vi.fn(),
-    loadImageGen: vi.fn(),
+    loadImageGen: loadImageGenMock,
 }));
 
 vi.mock('../../agent/api_base', () => ({
@@ -97,7 +99,7 @@ vi.mock('../api', () => ({
 vi.mock('../handler/chat', () => ({
     chatWithLLM: vi.fn(),
     mergeLogMessages: vi.fn((text: string) => text),
-    sendImages: vi.fn(),
+    sendImages: sendImagesMock,
     stt: sttMock,
     tts: ttsMock,
 }));
@@ -126,7 +128,7 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     };
 });
 
-const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
+const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
 
 function createReplyMessage(
     text: string,
@@ -222,11 +224,13 @@ function createSender() {
 describe('tTSCommandHandler', () => {
     beforeEach(() => {
         getTelegramFileMock.mockReset();
+        loadImageGenMock.mockReset();
         runtimeAdminStore.clear();
         redisMock.delete.mockClear();
         redisMock.get.mockClear();
         redisMock.put.mockClear();
         sendActionMock.mockReset();
+        sendImagesMock.mockReset();
         sttMock.mockReset();
         ttsMock.mockReset();
     });
@@ -382,6 +386,35 @@ describe('tTSCommandHandler', () => {
         expect(getTelegramFileMock).not.toHaveBeenCalled();
         expect(sttMock).not.toHaveBeenCalled();
         expect(sender.sendPlainText).toHaveBeenCalledWith('Please send or reply to an audio or voice message');
+    });
+
+    it('passes replied images through to the oailike image agent for /img edits', async () => {
+        getTelegramFileMock.mockResolvedValue(['base64-image']);
+        const request = vi.fn(async () => ({
+            raw: [new Blob(['png'])],
+            text: 'make it neon',
+        }));
+        loadImageGenMock.mockReturnValue({
+            name: 'oailike',
+            request,
+        });
+        sendImagesMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new ImgCommandHandler();
+        const message = createMessage('/img make it neon');
+        const sender = createSender();
+        const context = createContext();
+        context.MIDDLE_CONTEXT.messageInfo = {
+            type: 'photo',
+            id: ['photo-file-id'],
+        };
+
+        const response = await handler.handle(message, 'make it neon', context, sender);
+
+        expect(response.ok).toBe(true);
+        expect(getTelegramFileMock).toHaveBeenCalledWith(['photo-file-id'], 'bot-token', 'base64');
+        expect(request).toHaveBeenCalledWith('make it neon', context.USER_CONFIG, {
+            referenceImages: ['base64-image'],
+        });
     });
 
     it('promotes a replied user into the runtime admin list', async () => {

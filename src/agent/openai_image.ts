@@ -34,6 +34,12 @@ export function isOpenAIImageModel(modelId: string): boolean {
         || normalized.startsWith('chatgpt-image-');
 }
 
+export function resolveImageEditModel(provider: ImageProvider, modelId: string): string {
+    return provider === 'openai' && modelId === 'dall-e-3'
+        ? 'dall-e-2'
+        : modelId;
+}
+
 export function buildOpenAIImageSettings(provider: ImageProvider, context: AgentUserConfig, extraParams: Record<string, any> = {}): OpenAIImageSettings {
     const modelId = String(extraParams.model || configValue(context, provider, 'IMAGE_MODEL') || '').trim();
     const referenceImages = extraParams.referenceImages as any[] | undefined;

@@ -11,7 +11,7 @@ import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
 import { resolveOpenAIChatModel } from './model_selector';
-import { buildOpenAIImageSettings } from './openai_image';
+import { buildOpenAIImageSettings, resolveImageEditModel } from './openai_image';
 import { createOpenAIStyleHeaders, requestOpenAIStyleSpeech, requestOpenAIStyleTranscription } from './openai_style';
 import { requestChatCompletionsV2 } from './request';
 
@@ -81,7 +81,7 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
         // - 编辑模式：只有 dall-e-2 和 gpt-image-* 支持编辑
         // - 生成模式：使用配置的模型
         const actualModel = isEditMode
-            ? (modelId === 'dall-e-3' ? 'dall-e-2' : modelId) // dall-e-3 不支持编辑，降级到 dall-e-2
+            ? resolveImageEditModel('openai', modelId) // dall-e-3 不支持编辑，降级到 dall-e-2
             : modelId;
         const openaiApiBase = resolveProviderApiBase('openai', context).rootURL;
 
