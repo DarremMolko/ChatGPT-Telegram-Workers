@@ -157,6 +157,8 @@ class Environment extends EnvironmentConfig {
     }
 
     private normalizeConfig() {
+        this.OWNER_ID = `${this.OWNER_ID || ''}`.trim();
+        this.ADMIN_WHITE_LIST = Array.from(new Set(this.ADMIN_WHITE_LIST.map((id: string) => `${id}`.trim()).filter(Boolean)));
         if (!SUPPORTED_CHAT_PROVIDERS.has(this.USER_CONFIG.AI_CHAT_PROVIDER)) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = 'openai';
         }

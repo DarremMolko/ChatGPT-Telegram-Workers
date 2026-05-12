@@ -23,6 +23,8 @@ export default {
             settings: 'Open the inline settings UI',
             tts: 'Generate speech from text, or reply to a text message with `/tts`. Use `-v` to override the active TTS voice and `-i` for TTS instructions on compatible models.',
             map: 'Manage `/set` key and value aliases',
+            promote: 'Grant admin access to a user by reply or user ID',
+            demote: 'Remove runtime admin access from a user by reply or user ID',
             block: 'Add or remove a user from the current chat blocklist',
             blocklist: 'Show or clear the current chat blocklist',
         },
@@ -55,7 +57,7 @@ export default {
         },
     },
     whitelist: {
-        not_in_user_whitelist: '🔒 Access Denied\n\nUser ID: {ID}\nAdd to: CHAT_WHITE_LIST',
+        not_in_user_whitelist: '🔒 Access Denied\n\nUser ID: {ID}\nPrivate chats and commands require OWNER_ID or ADMIN_WHITE_LIST access.',
         not_in_group_whitelist: '🔒 Access Denied\n\nGroup ID: {ID}\nAdd to: CHAT_GROUP_WHITE_LIST',
     },
 };

@@ -25,10 +25,10 @@ export class EnvironmentConfig {
 
     // --  权限相关 --
     //
-    // 允许所有人使用
-    I_AM_A_GENEROUS_PERSON = false;
-    // 白名单
-    CHAT_WHITE_LIST: string[] = [];
+    // Bot owner. Has full access to sensitive commands and settings.
+    OWNER_ID = '';
+    // Additional runtime admins. They can chat in private and use non-sensitive runtime controls.
+    ADMIN_WHITE_LIST: string[] = [];
 
     // -- 群组相关 --
     //
@@ -118,8 +118,6 @@ export class EnvironmentConfig {
     // 开发模式
     DEV_MODE = false;
 
-    // Only relax /set command temporarily modifies permissions
-    RELAX_AUTH_KEYS: string[] = [];
     // inline query send interval
     INLINE_QUERY_SEND_INTERVAL = 2000;
     // inline query show info

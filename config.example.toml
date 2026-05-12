@@ -1,6 +1,8 @@
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
-CHAT_WHITE_LIST = "123456789"
+OWNER_ID = "123456789"
+# Optional static bootstrap admins. The owner can add more runtime admins later with /promote.
+# ADMIN_WHITE_LIST = "987654321"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 
 AI_CHAT_PROVIDER = "openai"

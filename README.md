@@ -39,7 +39,7 @@ There are two configuration layers:
    - Modified through `/set`, `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/settings`
    - Covers provider choice, model choice, MCP selection, tool model, temperatures, output modes, and similar chat-level behavior
 
-`CHAT_WHITE_LIST` users are runtime admins for the stored per-chat config surface. Deployment-only environment settings still come from `config.toml` or process env.
+`OWNER_ID` has full control over sensitive commands and runtime settings. `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add or remove extra runtime admins with `/promote` and `/demote`. Admins can use commands and manage non-sensitive per-chat runtime settings. Users outside both lists can only chat with the bot in allowlisted groups and cannot use commands or private chats.
 
 ## Quick Start
 
@@ -62,7 +62,7 @@ cp config.example.toml config.toml
 ```toml
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
-CHAT_WHITE_LIST = "123456789"
+OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
@@ -74,7 +74,7 @@ OPENAI_VISION_MODEL = "gpt-5.4-mini"
 ```toml
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
-CHAT_WHITE_LIST = "123456789"
+OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 
 AI_CHAT_PROVIDER = "oailike"
@@ -177,13 +177,13 @@ The cron expression follows the local process timezone. In Docker, that means th
 | Command | Purpose | Notes |
 | --- | --- | --- |
 | `/help` | Show command help | Good first check after deployment |
-| `/start` | Show your chat ID and start a new chat | Useful for whitelist setup |
+| `/start` | Show your chat ID and start a new chat | Useful for owner/admin setup |
 | `/new` | Clear the current chat history | Resets the active conversation |
 | `/redo [text]` | Re-run the previous user turn | Optional replacement text |
 | `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
 | `/img <prompt>` | Generate an image | Reply to an image to edit it through OpenAI image editing |
 | `/tts [-v voice] [-i instructions] <text>` | Generate speech from text | Also works when you reply to a text message; `-i` sends TTS instructions on compatible models |
-| `/set ...` | Apply shortcut-based stored or temporary config changes | Supports inline message continuation; `RELAX_AUTH_KEYS` only affects temporary `/set` usage |
+| `/set ...` | Apply stored runtime config changes | Supports inline message continuation when followed by normal chat text |
 | `/setenv KEY=VALUE` | Store one user-config key | Works on the stored user-config surface |
 | `/setenvs {...}` | Store multiple user-config keys | JSON input |
 | `/delenv KEY` | Delete one stored user-config key | Removes the override |
@@ -192,11 +192,11 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/map` | Manage `/set` shortcut aliases | Edits `MAPPING_KEY` and `MAPPING_VALUE` |
 | `/system` | Show runtime, provider, and usage info | Good for debugging active models |
 | `/version` | Show build timestamp and git SHA | Useful in bug reports |
-| `/history [n]` | Export stored history as JSON | Whitelist-only |
-| `/block` | Add or remove a blocked user ID | Whitelist-only |
-| `/blocklist` | Show or clear the blocklist | Whitelist-only |
-
-`RELAX_AUTH_KEYS` only changes the auth behavior of temporary `/set` usage with trailing text. Example: `/set -tp 0.2 tell me a joke`. It does not relax persisted `/set` updates such as `/set -tp 0.2`, and it does not affect `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, or `/settings`.
+| `/history [n]` | Export stored history as JSON | Owner-only |
+| `/promote [user_id]` | Grant runtime admin access | Owner-only; also works by replying to a user's message |
+| `/demote [user_id]` | Remove runtime admin access | Owner-only; cannot remove IDs pinned in `ADMIN_WHITE_LIST` |
+| `/block` | Add or remove a blocked user ID | Owner-only |
+| `/blocklist` | Show or clear the blocklist | Owner-only |
 
 ## Tooling
 
@@ -239,6 +239,7 @@ Non-chat endpoints such as `/models`, `/images`, and `/audio` still resolve agai
 Redis stores:
 
 - chat history
+- runtime admin list
 - stored per-chat user configuration
 - blocklists
 - scheduled deletion state

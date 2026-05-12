@@ -7,6 +7,7 @@ import { WorkerContext } from '../../config/context';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
 import { recordUserActivity } from '../../utils/stats';
+import { canAccessGroupChat, canUsePrivateChat, isPrivilegedUser } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { handleCommandMessage } from '../command';
 import { isAuthorized } from '../query';
@@ -58,16 +59,12 @@ export class EnvChecker implements MessageHandler<WorkerContextBase> {
 
 export class WhiteListFilter implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
-        if (ENV.I_AM_A_GENEROUS_PERSON) {
-            return null;
-        }
         const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
 
         // 判断私聊消息
         if (message.chat.type === 'private') {
-            // 白名单判断
-            if (!ENV.CHAT_WHITE_LIST.includes(`${message.chat.id}`)) {
-                log.error(`[WHITE LIST] ${message.chat.id} ${message.from?.username ?? message.from?.first_name ?? ''} not in white list`);
+            if (!await canUsePrivateChat(message.from?.id ?? message.chat.id, context.SHARE_CONTEXT.botId)) {
+                log.error(`[ACCESS] ${message.chat.id} ${message.from?.username ?? message.from?.first_name ?? ''} not allowed in private chat`);
                 const text = ENV.I18N.whitelist.not_in_user_whitelist.replace('{ID}', `${message.chat.id}`);
                 return sender.sendPlainText(text);
             }
@@ -80,9 +77,8 @@ export class WhiteListFilter implements MessageHandler<WorkerContextBase> {
             if (!ENV.GROUP_CHAT_BOT_ENABLE) {
                 throw new Error('Not support');
             }
-            // 白名单判断
-            if (!ENV.CHAT_GROUP_WHITE_LIST.includes(`${message.chat.id}`)) {
-                log.error(`[WHITELIST] ${message.chat.id} ${message.chat.username ?? ''} not in whitelist`);
+            if (!canAccessGroupChat(message.chat.id)) {
+                log.error(`[ACCESS] ${message.chat.id} ${message.chat.username ?? ''} not in group allowlist`);
                 const text = ENV.I18N.whitelist.not_in_group_whitelist.replace('{ID}', `${message.chat.id}`);
                 return sender.sendPlainText(text);
             }
@@ -228,8 +224,7 @@ export class BlocklistFilter implements MessageHandler<WorkerContext> {
     handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
         const blocklist = context.USER_CONFIG.BLOCKLIST;
         const userId = message.from?.id?.toString() ?? '';
-        // if user in global whitelist, not block
-        if (!ENV.CHAT_WHITE_LIST.includes(userId) && blocklist.includes(userId)) {
+        if (!await isPrivilegedUser(userId, context.SHARE_CONTEXT.botId) && blocklist.includes(userId)) {
             log.info(`[BLOCK] ${message.from?.id} ${message.from?.username ?? message.from?.first_name ?? ''} in blocklist`);
             return new Response('success', { status: 200 });
         }

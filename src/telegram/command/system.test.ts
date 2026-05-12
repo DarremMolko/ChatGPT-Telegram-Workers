@@ -1,10 +1,22 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendActionMock, ttsMock } = vi.hoisted(() => ({
-    sendActionMock: vi.fn(),
-    ttsMock: vi.fn(),
-}));
+const { runtimeAdminStore, redisMock, sendActionMock, ttsMock } = vi.hoisted(() => {
+    const store = new Map<string, string>();
+    return {
+        runtimeAdminStore: store,
+        redisMock: {
+            delete: vi.fn(async (key: string) => store.delete(key)),
+            get: vi.fn(async (key: string) => store.get(key) ?? null),
+            put: vi.fn(async (key: string, value: string) => {
+                store.set(key, value);
+                return true;
+            }),
+        },
+        sendActionMock: vi.fn(),
+        ttsMock: vi.fn(),
+    };
+});
 
 vi.mock('../../agent', () => ({
     ASR_AGENTS: [],
@@ -29,8 +41,8 @@ vi.mock('../../agent/models', () => ({
 
 vi.mock('../../config/env', () => ({
     ENV: {
+        ADMIN_WHITE_LIST: ['2'],
         BLOCK_COMMANDS: [],
-        CHAT_WHITE_LIST: [],
         CUSTOM_COMMAND: {},
         DEV_MODE: false,
         EXTRA_MESSAGE_CONTEXT: true,
@@ -41,6 +53,8 @@ vi.mock('../../config/env', () => ({
                 help: {},
             },
         },
+        OWNER_ID: '1',
+        REDIS: redisMock,
     },
 }));
 
@@ -110,7 +124,7 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     };
 });
 
-const { TTSCommandHandler } = await import('./system');
+const { DemoteCommandHandler, PromoteCommandHandler, TTSCommandHandler } = await import('./system');
 
 function createReplyMessage(text: string): Telegram.Message {
     return {
@@ -181,6 +195,10 @@ function createSender() {
 
 describe('tTSCommandHandler', () => {
     beforeEach(() => {
+        runtimeAdminStore.clear();
+        redisMock.delete.mockClear();
+        redisMock.get.mockClear();
+        redisMock.put.mockClear();
         sendActionMock.mockReset();
         ttsMock.mockReset();
     });
@@ -227,5 +245,42 @@ describe('tTSCommandHandler', () => {
             instructions: 'speak slowly',
         });
         expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Custom narration');
+    });
+
+    it('promotes a replied user into the runtime admin list', async () => {
+        const handler = new PromoteCommandHandler();
+        const message = createMessage('/promote', 'Hello from reply');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '', context, sender);
+
+        expect(redisMock.put).toHaveBeenCalledWith('admin_whitelist:999', JSON.stringify(['789']));
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Promoted Alice (789) to admin');
+    });
+
+    it('demotes a runtime admin by explicit user id', async () => {
+        runtimeAdminStore.set('admin_whitelist:999', JSON.stringify(['789']));
+        const handler = new DemoteCommandHandler();
+        const message = createMessage('/demote 789');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '789', context, sender);
+
+        expect(redisMock.delete).toHaveBeenCalledWith('admin_whitelist:999');
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Demoted user 789 from admin');
+    });
+
+    it('refuses to demote an env-pinned admin at runtime', async () => {
+        const handler = new DemoteCommandHandler();
+        const message = createMessage('/demote 2');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '2', context, sender);
+
+        expect(redisMock.delete).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('user 2 is pinned in ADMIN_WHITE_LIST and cannot be demoted at runtime');
     });
 });

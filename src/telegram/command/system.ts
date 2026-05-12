@@ -6,7 +6,6 @@ import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
 import type { CommandHandler, InlineItem, ScopeType } from './types';
-import { authChecker } from '.';
 import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadImageGen, TTS_AGENTS } from '../../agent';
 import { resolveProviderApiBase } from '../../agent/api_base';
 import { loadHistory } from '../../agent/chat';
@@ -17,6 +16,7 @@ import { log } from '../../log';
 import { updateMcp } from '../../mcp';
 import { formatLocalDateTime } from '../../utils/others/time';
 import { getStats } from '../../utils/stats';
+import { addRuntimeAdmin, canManageRuntimeConfigForAccess, canViewSensitiveConfigForAccess, isOwner, isPrivilegedUser, isSensitiveRuntimeConfigKey, removeRuntimeAdmin, resolveRuntimeConfigAccessLevel, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { chatWithLLM, sendImages, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
@@ -25,24 +25,11 @@ import { checkIsNeedTagIds, sendAction } from '../utils/send';
 import { chunkArray, getMessageText, getTelegramFile, isTelegramChatTypeGroup, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
 
 export const COMMAND_AUTH_CHECKER = {
-    default(chatType: string): string[] | null {
-        if (isTelegramChatTypeGroup(chatType)) {
-            return ['administrator', 'creator'];
-        }
-        return null;
+    admin(_chatType: string): string[] {
+        return ['admin'];
     },
-    shareModeGroup(chatType: string): string[] | null {
-        if (isTelegramChatTypeGroup(chatType)) {
-            // 每个人在群里有上下文的时候，不限制
-            if (!ENV.GROUP_CHAT_BOT_SHARE_MODE) {
-                return null;
-            }
-            return ['administrator', 'creator'];
-        }
-        return null;
-    },
-    whiteList(_chatType: string): string[] {
-        return ['whitelist'];
+    owner(_chatType: string): string[] {
+        return ['owner'];
     },
 };
 
@@ -81,24 +68,14 @@ function describeAgentConfig(
     };
 }
 
-function isWhitelistAdmin(userId?: number): boolean {
-    return userId !== undefined && ENV.CHAT_WHITE_LIST.includes(userId.toString());
-}
-
 function isSensitiveEnvKey(key: string): boolean {
-    return key.endsWith('KEY')
-        || key.endsWith('TOKEN')
-        || key.endsWith('SECRET')
-        || key.endsWith('COOKIE')
-        || key.endsWith('ID')
-        || key.endsWith('API')
-        || key.endsWith('CREDENTIALS');
+    return isSensitiveRuntimeConfigKey(key);
 }
 
 abstract class RenewConfig implements CommandHandler {
     abstract command: string;
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth: (chatType: string) => string[] | null = COMMAND_AUTH_CHECKER.shareModeGroup;
+    needAuth: (chatType: string) => string[] | null = COMMAND_AUTH_CHECKER.owner;
     abstract handle: (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender) => Promise<Response | null>;
     store = async (data: Record<string, any>, context: WorkerContext, isStore: boolean = true): Promise<void> => {
         Object.keys(data).forEach((key) => {
@@ -218,7 +195,7 @@ class BaseNewCommandHandler {
 export class NewCommandHandler extends BaseNewCommandHandler implements CommandHandler {
     command = '/new';
     scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, _subcommand: string, context: WorkerContext): Promise<Response> => {
         return BaseNewCommandHandler.handle(false, message, _subcommand, context);
     };
@@ -311,7 +288,7 @@ export class ClearEnvCommandHandler extends RenewConfig {
 export class VersionCommandHandler implements CommandHandler {
     command = '/version';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.default;
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (_message: Telegram.Message, _subcommand: string, _context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const current = {
             ts: ENV.BUILD_TIMESTAMP,
@@ -327,7 +304,7 @@ export class VersionCommandHandler implements CommandHandler {
 export class SystemCommandHandler implements CommandHandler {
     command = '/system';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.default;
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const stats = getStats(String(context.SHARE_CONTEXT.botId));
         const chatAgent = describeAgentConfig(context.USER_CONFIG.AI_CHAT_PROVIDER, context, CHAT_AGENTS);
@@ -443,7 +420,7 @@ export class EchoCommandHandler implements CommandHandler {
 
 export class SetCommandHandler extends RenewConfig implements CommandHandler {
     command = '/set';
-    relaxAuth = true;
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (
         message: Telegram.Message,
         subcommand: string,
@@ -473,7 +450,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
                 }
                 updatedKeys.push(result);
             }
-            await this.RelaxAuthCheck(message, context, updatedKeys, needUpdate);
+            this.ensureRuntimeConfigAccess(message, updatedKeys);
             if (needUpdate && updatedKeys.length > 0 && context.SHARE_CONTEXT?.configStoreKey) {
                 await this.store({}, context);
                 const suffixWhiteList = ['_PROVIDER', '_MODEL', '_MODELS', '_TOOLS', '_TYPE', '_OUTPUT', '_AGENT', '_TEMPERATURE', 'MAPPING_KEY', 'MAPPING_VALUE', 'USE_MCP', 'USE_OPENAI_BUILDIN'];
@@ -587,9 +564,12 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
         return key;
     }
 
-    private async RelaxAuthCheck(message: Telegram.Message, context: WorkerContext, keys: string[], needUpdate: boolean) {
-        if (needUpdate || (keys.length > 0 && keys.some(key => !ENV.RELAX_AUTH_KEYS.includes(key)))) {
-            await authChecker(this, message, context);
+    private ensureRuntimeConfigAccess(message: Telegram.Message, keys: string[]) {
+        if (keys.length === 0) {
+            return;
+        }
+        if (resolveRuntimeConfigAccessLevel(keys) === 'owner' && !isOwner(message.from?.id)) {
+            throw new Error('Permission denied, need owner');
         }
     }
 }
@@ -597,11 +577,12 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
 export class InlineCommandHandler implements CommandHandler {
     command = '/settings';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, _subcommand: string, context: WorkerContext, _sender?: MessageSender): Promise<Response> => {
-        const showAllEnvs = isWhitelistAdmin(message.from?.id);
-        const defaultInlines = await this.defaultInlines(context.USER_CONFIG, { showAllEnvs });
-        const settingMsg = this.settingsMessage(context.USER_CONFIG, defaultInlines, { callBack: '', showSensitiveValues: showAllEnvs });
+        const access = await resolveUserAccess(message.from?.id, context.SHARE_CONTEXT.botId);
+        const showSensitiveValues = canViewSensitiveConfigForAccess(access);
+        const defaultInlines = await this.defaultInlines(context.USER_CONFIG, { access });
+        const settingMsg = this.settingsMessage(context.USER_CONFIG, defaultInlines, { callBack: '', showSensitiveValues });
         const headKeyboard = [
             {
                 text: 'Select a setting',
@@ -631,13 +612,14 @@ export class InlineCommandHandler implements CommandHandler {
         });
     };
 
-    defaultInlines = async (context: AgentUserConfig, options: { showAllEnvs?: boolean } = {}): Promise<InlineItem[]> => {
+    defaultInlines = async (context: AgentUserConfig, options: { access?: Awaited<ReturnType<typeof resolveUserAccess>> } = {}): Promise<InlineItem[]> => {
         const allChatAgents = CHAT_AGENTS.map(agent => agent.name);
         const allImageAgents = IMAGE_AGENTS.map(agent => agent.name);
         const allTTSAgents = TTS_AGENTS.map(agent => agent.name);
         const allASRAgents = ASR_AGENTS.map(agent => agent.name);
         const chatAgent = context.AI_CHAT_PROVIDER;
-        const { showAllEnvs = false } = options;
+        const access = options.access ?? { userId: '', isOwner: false, isAdmin: false };
+        const showSensitiveValues = canViewSensitiveConfigForAccess(access);
         const configKeyHandler = (type: string) => {
             if (type === 'Tool') {
                 return 'TOOL_MODEL';
@@ -645,11 +627,10 @@ export class InlineCommandHandler implements CommandHandler {
             const agent = context[`AI_${(type === 'Image' ? 'IMAGE' : 'CHAT')}_PROVIDER`];
             return `${agent.toUpperCase()}_${type.toUpperCase()}_MODEL`;
         };
-        const envs = showAllEnvs
+        const envs = (showSensitiveValues
             ? Object.keys(context)
-            : ENV.ENVS_VARIABLES.length === 0
-                ? Object.keys(context).filter(key => !isSensitiveEnvKey(key))
-                : ENV.ENVS_VARIABLES;
+            : (ENV.ENVS_VARIABLES.length === 0 ? Object.keys(context) : ENV.ENVS_VARIABLES)
+                    .filter(key => canManageRuntimeConfigForAccess(access, key)));
         const inlines: InlineItem[] = [
             {
                 label: 'Chat Agent',
@@ -754,7 +735,14 @@ export class InlineCommandHandler implements CommandHandler {
                 value: context.OPENAI_BUILDIN,
             });
         }
-        const result = (ENV.CALLBACK_MENU.length === 0 ? inlines.sort((a, b) => a.label.localeCompare(b.label)) : ENV.CALLBACK_MENU.map(key => inlines.find(inline => inline.config_key.endsWith(key))).filter(Boolean) as InlineItem[]);
+        const filteredInlines = inlines.filter((inline) => {
+            if (inline.config_key === 'ENVS') {
+                return inline.value.length > 0;
+            }
+            return inline.config_key === ''
+                || canManageRuntimeConfigForAccess(access, inline.config_key);
+        });
+        const result = (ENV.CALLBACK_MENU.length === 0 ? filteredInlines.sort((a, b) => a.label.localeCompare(b.label)) : ENV.CALLBACK_MENU.map(key => filteredInlines.find(inline => inline.config_key.endsWith(key))).filter(Boolean) as InlineItem[]);
         return result;
     };
 
@@ -798,7 +786,7 @@ export class InlineCommandHandler implements CommandHandler {
 export class HistoryCommandHandler implements CommandHandler {
     command = '/history';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.whiteList;
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const length = Number.parseInt(subcommand.trim()) || ENV.STORE_HISTORY_LENGTH;
         const history = await loadHistory(context.SHARE_CONTEXT.chatHistoryKey, length);
@@ -871,7 +859,7 @@ export class MapCommandHandler extends RenewConfig {
 export class TTSCommandHandler implements CommandHandler {
     command = '/tts';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.shareModeGroup;
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
             ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
@@ -911,10 +899,76 @@ export class TTSCommandHandler implements CommandHandler {
     };
 }
 
+function resolveTargetUser(message: Telegram.Message, subcommand: string): { targetId: string; targetUser?: Telegram.User } {
+    const replyUser = message.reply_to_message?.from;
+    const explicitId = subcommand.trim().match(/^(\d+)/)?.[1] || '';
+    return {
+        targetId: explicitId || (replyUser?.id?.toString() ?? ''),
+        targetUser: !explicitId || explicitId === replyUser?.id?.toString() ? replyUser : undefined,
+    };
+}
+
+function describeTargetUser(targetId: string, targetUser?: Telegram.User): string {
+    if (!targetUser) {
+        return `user ${targetId}`;
+    }
+    if (targetUser.username) {
+        return `@${targetUser.username} (${targetId})`;
+    }
+    const name = [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ');
+    return name ? `${name} (${targetId})` : `user ${targetId}`;
+}
+
+export class PromoteCommandHandler implements CommandHandler {
+    command = '/promote';
+    scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.owner;
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const { targetId, targetUser } = resolveTargetUser(message, subcommand);
+        if (!targetId) {
+            return sender.sendPlainText('Reply to a user or provide a valid user id');
+        }
+        if (targetId === context.SHARE_CONTEXT.botId.toString()) {
+            return sender.sendPlainText('You cannot promote the bot');
+        }
+        if (isOwner(targetId)) {
+            return sender.sendPlainText('The owner already has full access');
+        }
+        if (await isPrivilegedUser(targetId, context.SHARE_CONTEXT.botId)) {
+            return sender.sendPlainText(`${describeTargetUser(targetId, targetUser)} is already an admin`);
+        }
+        await addRuntimeAdmin(targetId, context.SHARE_CONTEXT.botId);
+        return sender.sendPlainText(`Promoted ${describeTargetUser(targetId, targetUser)} to admin`);
+    };
+}
+
+export class DemoteCommandHandler implements CommandHandler {
+    command = '/demote';
+    scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.owner;
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const { targetId, targetUser } = resolveTargetUser(message, subcommand);
+        if (!targetId) {
+            return sender.sendPlainText('Reply to a user or provide a valid user id');
+        }
+        if (isOwner(targetId)) {
+            return sender.sendPlainText('You cannot demote the owner');
+        }
+        const result = await removeRuntimeAdmin(targetId, context.SHARE_CONTEXT.botId);
+        if (result.blockedByConfig) {
+            return sender.sendPlainText(`${describeTargetUser(targetId, targetUser)} is pinned in ADMIN_WHITE_LIST and cannot be demoted at runtime`);
+        }
+        if (!result.removed) {
+            return sender.sendPlainText(`${describeTargetUser(targetId, targetUser)} is not a runtime admin`);
+        }
+        return sender.sendPlainText(`Demoted ${describeTargetUser(targetId, targetUser)} from admin`);
+    };
+}
+
 export class BlockUserCommandHandler implements CommandHandler {
     command = '/block';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.whiteList;
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const replyId = message.reply_to_message?.from?.id;
         let blockedId = replyId?.toString() ?? '';
@@ -928,8 +982,8 @@ export class BlockUserCommandHandler implements CommandHandler {
         if (!blockedId) {
             return sender.sendPlainText('Please input a valid user id');
         }
-        if (ENV.CHAT_WHITE_LIST.includes(blockedId) && op === '+') {
-            return sender.sendPlainText('You cannot block a user in the chat whitelist');
+        if (await isPrivilegedUser(blockedId, context.SHARE_CONTEXT.botId) && op === '+') {
+            return sender.sendPlainText('You cannot block the owner or an admin');
         }
         if (blockedId === context.SHARE_CONTEXT.botId.toString()) {
             return sender.sendPlainText('You cannot block the bot');
@@ -960,7 +1014,7 @@ export class BlockUserCommandHandler implements CommandHandler {
 export class BlocklistCommandHandler implements CommandHandler {
     command = '/blocklist';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
-    needAuth = COMMAND_AUTH_CHECKER.whiteList;
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const blocklist = context.USER_CONFIG.BLOCKLIST;
         const isClear = subcommand.trim() === 'clear';

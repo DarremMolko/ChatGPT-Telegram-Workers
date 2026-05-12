@@ -5,8 +5,8 @@ import type { MessageSender } from '../utils/send';
 import type { ChosenInlineQueryHandler, InlineQueryHandler } from './types';
 import { loadChatLLM } from '../../agent';
 import { resolveSystemMessage } from '../../agent/chat';
-import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
+import { canUseCommands, canUseInlineQuery } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { SetCommandHandler } from '../command/system';
 import { catchError } from '../handler';
@@ -70,11 +70,11 @@ export class AnswerChatInlineQuery implements AnswerInlineQueryType {
 
 class CheckInlineQueryWhiteList implements InlineQueryHandler<InlineQueryContext> {
     handle = async (_inlineQuery: Telegram.InlineQuery, context: InlineQueryContext): Promise<Response | null> => {
-        if (ENV.CHAT_WHITE_LIST.includes(`${context.from.id}`)) {
+        if (await canUseInlineQuery(context.from.id, context.token)) {
             return null;
         }
-        log.error(`User ${context.from.username}, id: ${context.from.id} not in the white list`);
-        return new Response(`User ${context.from.id} not in the white list`, { status: 403 });
+        log.error(`User ${context.from.username}, id: ${context.from.id} is not allowed to use inline queries`);
+        return new Response(`User ${context.from.id} is not allowed to use inline queries`, { status: 403 });
     };
 }
 
@@ -166,6 +166,9 @@ export class HandlerInlineQuery implements InlineQueryHandler<InlineQueryContext
 
 export class AnswerInlineQuery implements ChosenInlineQueryHandler<ChosenInlineWorkerContext> {
     handle = async (chosenInline: Telegram.ChosenInlineResult, context: ChosenInlineWorkerContext): Promise<Response | null> => {
+        if (!await canUseCommands(chosenInline.from.id, context.botToken)) {
+            return new Response('Not authorized', { status: 403 });
+        }
         const answer = new AnswerChatInlineQuery();
         return answer.handler(chosenInline, context);
     };

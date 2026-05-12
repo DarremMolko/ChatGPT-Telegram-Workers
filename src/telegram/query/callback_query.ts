@@ -8,6 +8,7 @@ import { WorkerContextBase } from '../../config/context';
 import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log/logger';
+import { canManageRuntimeConfigForAccess, canUseCommandsForAccess, canViewSensitiveConfigForAccess, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { InlineCommandHandler } from '../command/system';
 import { catchError } from '../handler';
@@ -24,8 +25,12 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         const authorized = isAuthorized(query.from?.id ?? 0, keyboard);
         // 未授权
         if (!authorized) {
-            log.error(`[CALLBACK QUERY] User ${context.from.first_name}, id: ${context.from.id} not in the white list`);
+            log.error(`[CALLBACK QUERY] User ${context.from.first_name}, id: ${context.from.id} is not authorized for this callback`);
             return this.sendAlert(api, context.query_id, `⚠️ This is not your operation`, true);
+        }
+        const access = await resolveUserAccess(query.from?.id, context.SHARE_CONTEXT.botId);
+        if (!canUseCommandsForAccess(access)) {
+            return this.sendAlert(api, context.query_id, '⚠️ You are not allowed to use settings', true);
         }
         // 不支持的回调查询类型
         if (!query.data || !(query.message as Telegram.Message)?.reply_markup) {
@@ -43,16 +48,16 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         const [row = 5, col = 3] = ENV.CALLBACK_QUERY_RC.split('x').map(Number);
         const pageLength = row * col;
         const queryHandler = new InlineCommandHandler();
-        const showSensitiveValues = ENV.CHAT_WHITE_LIST.includes(query.from.id.toString());
-        const defaltData = await queryHandler.defaultInlines(context.USER_CONFIG, { showAllEnvs: showSensitiveValues });
+        const showSensitiveValues = canViewSensitiveConfigForAccess(access);
+        const defaltData = await queryHandler.defaultInlines(context.USER_CONFIG, { access });
         const pageIndexData = keyboard.flat().find(i => i.callback_data?.startsWith('PAGE_INDEX:'))?.callback_data?.replace('PAGE_INDEX:', '');
         const pathDetail = keyboard[0]?.[0]?.callback_data || '';
         let { path, data, pageIndex, pageNum, newCallBackData, configKey, label, callback } = getNextpage({ pathDetail, pageIndexData, callbackData: query.data, inlineList: defaltData, pageLength });
 
         try {
             if (query.data === 'fresh' || (configKey.endsWith('_MODEL') && data.length === 0)) {
-                if (configKey === 'USE_MCP' && query.from?.id && !(ENV.CHAT_WHITE_LIST.includes(query.from.id.toString()))) {
-                    throw new Error('This operation is only accessible to the white list');
+                if (configKey && !canManageRuntimeConfigForAccess(access, configKey)) {
+                    throw new Error('This operation requires higher privileges');
                 }
                 data = await callback?.(context, configKey) || [];
                 this.sendAlert(api, context.query_id, `✅ ${label} updated successfully`, false);
@@ -79,7 +84,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
                 callback,
             },
         );
-        const newData = await queryHandler.defaultInlines(context.USER_CONFIG, { showAllEnvs: showSensitiveValues });
+        const newData = await queryHandler.defaultInlines(context.USER_CONFIG, { access });
         const settingMessage = queryHandler.settingsMessage(context.USER_CONFIG, newData, {
             key: configKey,
             callBack: typeof newCallBackData === 'number' ? data[newCallBackData] : '',
@@ -102,6 +107,10 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         const { data: dataList, configKey, newCallBack } = data;
         if (!Object.hasOwn(context.USER_CONFIG, configKey)) {
             return;
+        }
+        const access = await resolveUserAccess(context.from.id, context.SHARE_CONTEXT.botId);
+        if (!canManageRuntimeConfigForAccess(access, configKey)) {
+            throw new Error(`Permission denied to update ${configKey}`);
         }
         const oldValue = context.USER_CONFIG[configKey];
         const newValue = dataList[newCallBack];
@@ -268,8 +277,6 @@ export async function handleCallbackQuery(token: string, callbackQuery: Telegram
 export function isAuthorized(fromId: number, inline_keyboard: Array<Array<Telegram.InlineKeyboardButton>>) {
     const [id, _] = (inline_keyboard?.[0]?.[0]?.callback_data ?? '').split('.');
     return id === fromId.toString();
-    // const authorizedId = [id, ...ENV.CHAT_WHITE_LIST];
-    // return authorizedId.includes(fromId.toString());
 }
 
 function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, pageLength }: { pathDetail: string; pageIndexData: string | undefined; callbackData: number | string; inlineList: InlineItem[]; pageLength: number }) {

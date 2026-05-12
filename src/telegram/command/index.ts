@@ -5,14 +5,15 @@ import type { UnionData } from '../utils/tg_utils';
 import type { CommandHandler } from './types';
 import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
+import { describeCommandAccess, hasCommandAccess, resolveCommandAccess } from '../access';
 import { MessageSender } from '../utils/send';
-import { loadChatRoleWithContext } from './auth';
 import {
     BlocklistCommandHandler,
     BlockUserCommandHandler,
     CancelCommandHandler,
     ClearEnvCommandHandler,
     DelEnvCommandHandler,
+    DemoteCommandHandler,
     EchoCommandHandler,
     HelpCommandHandler,
     HistoryCommandHandler,
@@ -20,6 +21,7 @@ import {
     InlineCommandHandler,
     MapCommandHandler,
     NewCommandHandler,
+    PromoteCommandHandler,
     RedoCommandHandler,
     SetCommandHandler,
     SetEnvCommandHandler,
@@ -50,6 +52,8 @@ const SYSTEM_COMMANDS: CommandHandler[] = [
     new HistoryCommandHandler(),
     new MapCommandHandler(),
     new TTSCommandHandler(),
+    new PromoteCommandHandler(),
+    new DemoteCommandHandler(),
     new BlockUserCommandHandler(),
     new BlocklistCommandHandler(),
 ];
@@ -78,8 +82,7 @@ const SYSTEM_COMMANDS: CommandHandler[] = [
 async function handleSystemCommand(message: Telegram.Message, raw: string, command: CommandHandler, context: WorkerContext): Promise<Response | UnionData | ImageResult | null> {
     const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
     try {
-        // 如果存在权限条件
-        if (command.needAuth && !command.relaxAuth) {
+        if (!command.relaxAuth) {
             await authChecker(command, message, context);
         }
         const subcommand = raw.substring(command.command.length).trim();
@@ -173,27 +176,13 @@ export function commandsDocument(): { description: string; command: string }[] {
     }).filter(item => item.description !== '');
 }
 
-export async function authChecker(command: CommandHandler, message: Telegram.Message, context: WorkerContext) {
-    if (command.needAuth && command.needAuth(message.chat?.type ?? 'private')?.includes('whitelist')) {
-        if (ENV.CHAT_WHITE_LIST.includes(message.from?.id?.toString() ?? '')) {
-            return;
-        }
-        throw new Error('Permission denied, need whitelist');
-    }
-    if (ENV.CHAT_WHITE_LIST.includes(message.from?.id?.toString() ?? '')) {
+export async function authChecker(command: CommandHandler, message: Telegram.Message, _context: WorkerContext) {
+    const userId = message.from?.id ?? message.chat?.id;
+    const accessLevel = resolveCommandAccess(command.needAuth?.(message.chat?.type ?? 'private'));
+    if (await hasCommandAccess(userId, accessLevel, _context.SHARE_CONTEXT.botId)) {
         return;
     }
-    const roleList = command.needAuth!(message.chat?.type ?? 'private');
-    if (roleList) {
-        // 获取身份并判断
-        const chatRole = await loadChatRoleWithContext(message, context);
-        if (chatRole === null) {
-            throw new Error('Get chat role failed');
-        }
-        if (!roleList.includes(chatRole)) {
-            throw new Error(`Permission denied, need ${roleList.join(' or ')}`);
-        }
-    }
+    throw new Error(`Permission denied, need ${describeCommandAccess(accessLevel)}`);
 }
 
 export function blockCommand() {

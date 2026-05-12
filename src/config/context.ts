@@ -16,7 +16,6 @@ export class ShareContext {
     chatHistoryKey: string;
     lastMessageKey: string;
     configStoreKey: string;
-    groupAdminsKey?: string;
     telegraphAccessTokenKey?: string;
     readonly scheduleDeteleKey: string = 'schedule_detele_message';
     storeMediaMessageKey?: string;
@@ -71,7 +70,6 @@ export class ShareContext {
                     historyKey += `:${message.from.id}`;
                     configStoreKey += `:${message.from.id}`;
                 }
-                this.groupAdminsKey = `group_admin:${id}`;
                 if (message.from?.id) {
                     chunkMessageKey = chunkMessageKey ? `${chunkMessageKey}:${message.from.id}` : undefined;
                     storeMediaMessageKey = storeMediaMessageKey ? `${storeMediaMessageKey}:${message.from.id}` : undefined;

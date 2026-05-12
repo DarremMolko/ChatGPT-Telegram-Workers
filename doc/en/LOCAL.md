@@ -88,7 +88,7 @@ Minimal example:
 ```toml
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
-CHAT_WHITE_LIST = "123456789"
+OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
@@ -100,7 +100,8 @@ OpenAI-compatible example:
 ```toml
 [vars]
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
-CHAT_WHITE_LIST = "123456789"
+OWNER_ID = "123456789"
+ADMIN_WHITE_LIST = "234567890,345678901"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 
 AI_CHAT_PROVIDER = "oailike"
@@ -306,7 +307,7 @@ No plugin or custom tool directory mount is required in the simplified build.
 - Redis is the only supported backing store
 - webhook and polling modes both use the same Redis-backed history/config state
 - `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`
-- `CHAT_WHITE_LIST` admins can fully manage the stored per-chat user config surface through commands and `/settings`
+- `OWNER_ID` has full control over sensitive commands and settings, while `ADMIN_WHITE_LIST` seeds static admins and `/promote` or `/demote` manage extra runtime admins
 - generic MCP is the only remaining repo-level custom tool integration
 
 For the full runtime setting reference, see [CONFIG.md](./CONFIG.md).
