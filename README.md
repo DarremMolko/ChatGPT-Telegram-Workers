@@ -1,6 +1,6 @@
 # ChatGPT Telegram Workers
 
-[![Build and Push Docker Image](https://github.com/SzeMeng76/ChatGPT-Telegram-Workers/actions/workflows/build-docker.yml/badge.svg)](https://github.com/SzeMeng76/ChatGPT-Telegram-Workers/actions/workflows/build-docker.yml)
+[![Build and Push Docker Image](https://github.com/DarremMolko/ChatGPT-Telegram-Workers/actions/workflows/build-docker.yml/badge.svg)](https://github.com/DarremMolko/ChatGPT-Telegram-Workers/actions/workflows/build-docker.yml)
 
 Telegram bot for local and Docker deployment with OpenAI and OpenAI-compatible APIs.
 
