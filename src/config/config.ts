@@ -1,5 +1,4 @@
 import type { LogLevelType } from './types';
-import prompts_default from '../utils/others/prompt';
 
 // -- 只能通过环境变量覆盖的配置 --
 export class EnvironmentConfig {
@@ -346,7 +345,7 @@ export class ExtraUserConfig {
     // otherwise use the current agent and the specified model.
     // Keep empty to use the current agent chat model as function call model.
     TOOL_MODEL = '';
-    PROMPT: Record<string, string> = prompts_default;
+    PROMPT: Record<string, string> = {};
 
     // chat agent temperature
     CHAT_TEMPERATURE: number | undefined = undefined;

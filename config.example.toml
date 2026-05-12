@@ -100,6 +100,11 @@ OPENAI_TTS_VOICE = "alloy"
 # TEXT_OUTPUT = "audio"
 # AUDIO_OUTPUT = "audio"
 #
+# Optional: define named /set -p prompt presets.
+# Example TOML object form:
+# PROMPT = { reviewer = "Review the following code for correctness, regressions, and missing tests." }
+# If you set PROMPT in a real server environment variable instead of TOML, use a JSON string.
+#
 # Optional: cap Telegram attachment downloads at 20 MB.
 # TELEGRAM_FILE_DOWNLOAD_MAX_SIZE = 20971520
 #

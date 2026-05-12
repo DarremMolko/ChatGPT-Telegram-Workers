@@ -68,7 +68,7 @@ Important:
 
 - TOML arrays such as `["a", "b"]` are supported directly
 - string array env values can also be provided as comma-separated strings
-- object-like values such as `OPENAI_API_EXTRA_PARAMS` and `MCP_demo` must be JSON strings when provided through env text
+- object-like values such as `PROMPT`, `OPENAI_API_EXTRA_PARAMS`, and `MCP_demo` must be JSON strings when provided through env text
 
 ## Capability Summary
 
@@ -354,7 +354,7 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | Variable | Description | Default |
 | --- | --- | --- |
 | `SYSTEM_INIT_MESSAGE` | Base system prompt. | English helper prompt |
-| `PROMPT` | Named prompt presets used by `/set -p ...`. | bundled defaults |
+| `PROMPT` | Named prompt presets used by `/set -p ...`. | `{}` |
 | `MAPPING_KEY` | `/set` shortcut-to-key mapping string. | built-in mapping |
 | `MAPPING_VALUE` | `/set` alias-to-value mapping string. | `''` |
 | `ENABLE_ALIAS` | Show alias name instead of raw model ID in output logs when possible. | `false` |
