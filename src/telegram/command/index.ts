@@ -91,7 +91,7 @@ async function handleSystemCommand(message: Telegram.Message, raw: string, comma
             await authChecker(command, message, context);
         }
         const subcommand = raw.substring(command.command.length).trim();
-        return command.handle(message, subcommand, context, sender);
+        return await command.handle(message, subcommand, context, sender);
     } catch (e) {
         return sendCommandError(sender, e, { redactions: [context.SHARE_CONTEXT.botToken] });
     }
