@@ -4,15 +4,25 @@ import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
-import { log, Logger } from '../log';
+import { Logger } from '../log';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
 import { renderImage } from './openai';
 import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
+import { createOpenAIStyleHeaders, requestOpenAIStyleSpeech, requestOpenAIStyleTranscription } from './openai_style';
 import { requestChatCompletionsV2 } from './request';
-import { resolveTTSInstructions } from './tts';
+
+function resolveOpenAILikeApiKey(context: AgentUserConfig): string {
+    return context.OAILIKE_API_KEY || '';
+}
+
+const OAILIKE_AUDIO_PROVIDER = {
+    provider: 'oailike',
+    apiKey: resolveOpenAILikeApiKey,
+    transcriptionFilename: 'audio.mp3',
+} as const;
 
 export class OpenAILikeBase {
     readonly name = 'oailike';
@@ -97,10 +107,9 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
         }
 
         const url = buildProviderApiUrl('oailike', context, '/images/generations');
-        const header = {
+        const header = createOpenAIStyleHeaders(resolveOpenAILikeApiKey(context), {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${context.OAILIKE_API_KEY}`,
-        };
+        });
 
         if (supportsOpenAIImageFlow) {
             return requestText2Image(url, header, {
@@ -133,36 +142,7 @@ export class OpenAILikeASR extends OpenAILikeBase implements ASRAgent {
 
     @Logger
     request = async (audio: Blob, context: AgentUserConfig): Promise<string> => {
-        const url = buildProviderApiUrl('oailike', context, '/audio/transcriptions');
-        const header = {
-            Authorization: `Bearer ${context.OAILIKE_API_KEY}`,
-            Accept: 'application/json',
-        };
-        const formData = new FormData();
-        formData.append('file', audio, 'audio.mp3');
-        formData.append('model', context.OAILIKE_STT_MODEL);
-        if (context.OAILIKE_STT_EXTRA_PARAMS) {
-            Object.entries(context.OAILIKE_STT_EXTRA_PARAMS).forEach(([k, v]) => {
-                formData.append(k, v);
-            });
-        }
-        formData.append('response_format', 'json');
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers: header,
-            body: formData,
-            redirect: 'follow',
-        }).then(r => r.json());
-
-        if (resp.error?.message) {
-            throw new Error(resp.error.message);
-        }
-        if (resp.text === undefined) {
-            console.error(JSON.stringify(resp));
-            throw new Error(JSON.stringify(resp));
-        }
-        log.info(`Transcription: ${resp.text}`);
-        return resp.text;
+        return requestOpenAIStyleTranscription(OAILIKE_AUDIO_PROVIDER, audio, context);
     };
 }
 
@@ -174,28 +154,6 @@ export class OpenAILikeTTS extends OpenAILikeBase {
     };
 
     readonly request = async (text: string, context: AgentUserConfig, options?: TTSRequestOptions): Promise<Blob> => {
-        const url = buildProviderApiUrl('oailike', context, '/audio/speech');
-        const headers = {
-            'Authorization': `Bearer ${context.OAILIKE_API_KEY}`,
-            'Content-Type': 'application/json',
-        };
-        const instructions = resolveTTSInstructions('oailike', context, options);
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                model: context.OAILIKE_TTS_MODEL,
-                input: text,
-                voice: context.OAILIKE_TTS_VOICE,
-                ...(instructions ? { instructions } : {}),
-                response_format: 'opus',
-                ...context.OAILIKE_TTS_EXTRA_PARAMS,
-            }),
-        });
-        if (resp.ok) {
-            return resp.blob();
-        } else {
-            throw new Error(`${resp.status} ${resp.statusText}\n\n${await resp.text()}`);
-        }
+        return requestOpenAIStyleSpeech(OAILIKE_AUDIO_PROVIDER, text, context, options);
     };
 }
