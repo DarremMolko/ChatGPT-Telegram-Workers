@@ -25,8 +25,8 @@ The runtime has two layers of configuration.
 
 These come from:
 
-- `config.toml` under `[vars]`
-- process environment variables, which override TOML values in local and Docker mode
+- process environment variables
+- optional `config.toml` values under `[vars]`, overridden by real process env vars in local and Docker mode
 
 These settings define:
 
@@ -61,7 +61,7 @@ Important:
 
 - `OWNER_ID` has full access to sensitive commands and runtime settings
 - `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add extra runtime admins with `/promote`
-- deployment-only settings still come from `config.toml` or process env
+- deployment-only settings still come from process env or optional `config.toml`
 - not every environment key is editable at runtime
 
 ### Value Parsing Notes

@@ -10,78 +10,64 @@ Supported runtime choices:
 
 ## Files And Precedence
 
-The local adapter reads two files:
+The local adapter is controlled through environment-style keys.
 
-- `config.json`
-- `config.toml`
+You can provide those keys in either place:
 
-Example starter files:
+- the real server environment
+- `config.toml` under `[vars]`
 
-- `config.example.json` for webhook mode
-- `config.example.polling.json` for polling mode
-- `config.example.toml` for runtime env vars
+Example starter file:
+
+- `config.example.toml`
 
 At startup:
 
-1. `config.toml` is parsed
-2. keys under `[vars]` are loaded
-3. process environment variables override the TOML values
+1. if present, `config.toml` is parsed and keys under `[vars]` are loaded
+2. process environment variables override TOML values
+3. the local adapter mode is resolved from `LOCAL_*`, `PORT`, and `BASE_URL`
 
 This means Docker `environment:` values or shell exports win over file values.
 
-## `config.json`
+## Environment-Only Setup
 
-`config.json` controls the local adapter itself, not the bot’s provider settings.
-
-### Webhook Mode Example
-
-```json
-{
-  "mode": "webhook",
-  "server": {
-    "hostname": "0.0.0.0",
-    "port": 8787,
-    "baseURL": "https://your-domain.example.com"
-  }
-}
-```
-
-### Polling Mode Example
-
-```json
-{
-  "mode": "polling"
-}
-```
-
-Ready-to-copy file:
+Minimal webhook setup:
 
 ```bash
-cp config.example.polling.json config.json
+export LOCAL_MODE=webhook
+export PORT=8787
+export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+export OWNER_ID=123456789
+export REDIS_URL=rediss://default:your-password@your-redis-host:6379
+export OPENAI_API_KEY=sk-...
 ```
 
-### Optional Proxy Example
+Minimal polling setup:
 
-```json
-{
-  "mode": "polling",
-  "proxy": "http://127.0.0.1:7890"
-}
+```bash
+export LOCAL_MODE=polling
+export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+export OWNER_ID=123456789
+export REDIS_URL=rediss://default:your-password@your-redis-host:6379
+export OPENAI_API_KEY=sk-...
 ```
 
-### `config.json` Fields
+### Local Adapter Environment Keys
 
-| Field | Required | Description |
+| Variable | Required | Description |
 | --- | --- | --- |
-| `mode` | yes | `webhook` or `polling` |
-| `server.hostname` | webhook only | Host to bind the local HTTP server to |
-| `server.port` | webhook only | Port to listen on |
-| `server.baseURL` | webhook only | Public base URL used to construct Telegram webhook URLs |
-| `proxy` | no | HTTP/HTTPS proxy for outbound requests |
+| `LOCAL_MODE` | no | `webhook` or `polling`. If unset, webhook is inferred when server settings such as `PORT` are present, otherwise polling is used. |
+| `LOCAL_HOSTNAME` | no | Host to bind the local HTTP server to. Defaults to `0.0.0.0` in webhook mode. |
+| `LOCAL_PORT` | no | Port to listen on. `PORT` is also accepted and is useful on PaaS platforms. |
+| `LOCAL_BASE_URL` | no | Optional explicit base URL override for webhook URL generation. `BASE_URL` is also accepted. |
+| `LOCAL_PROXY` | no | HTTP/HTTPS proxy for outbound requests. |
+| `TOML_PATH` | no | Optional path to `config.toml`. |
+
+For Render, Koyeb, and similar platforms, `PORT` plus `LOCAL_MODE=webhook` is usually enough. The app can derive the public host from forwarded request headers when you open `/init`.
 
 ## `config.toml`
 
-`config.toml` contains the bot environment variables.
+`config.toml` is optional and contains the bot environment variables.
 
 Minimal example:
 
@@ -93,6 +79,23 @@ REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
+```
+
+Webhook example:
+
+```toml
+[vars]
+LOCAL_MODE = "webhook"
+LOCAL_PORT = 8787
+LOCAL_HOSTNAME = "0.0.0.0"
+LOCAL_BASE_URL = "https://your-domain.example.com"
+```
+
+Polling example:
+
+```toml
+[vars]
+LOCAL_MODE = "polling"
 ```
 
 OpenAI-compatible example:
@@ -127,7 +130,7 @@ Important:
 
 - `REDIS_URL` is required
 - `MCP_*` values must be JSON strings, not TOML inline tables
-- deployment-only settings stay in `config.toml` or process env
+- deployment-only settings stay in process env or optional `config.toml`
 - runtime chat-level settings are persisted in Redis and can be changed later through commands
 - Telegram streaming uses the normal message edit/send path in local and Docker deployments
 
@@ -166,7 +169,8 @@ After the server starts:
 
 Notes:
 
-- the public webhook URL is built from `server.baseURL`
+- the public webhook URL is built from the incoming request host by default
+- `LOCAL_BASE_URL` or `BASE_URL` can still override that when needed
 - `/init` must be re-run if you change domains or tokens
 - the local landing page is documentation only; it does not expose a `/telegram/:token/bot` route
 
@@ -282,8 +286,12 @@ Run the container:
 docker run -d \
   --name chatgpt-telegram-workers \
   -p 8787:8787 \
-  -v "$(pwd)/config.json:/app/config.json:ro" \
-  -v "$(pwd)/config.toml:/app/config.toml:ro" \
+  -e LOCAL_MODE=webhook \
+  -e PORT=8787 \
+  -e TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token \
+  -e OWNER_ID=123456789 \
+  -e REDIS_URL=rediss://default:your-password@your-redis-host:6379 \
+  -e OPENAI_API_KEY=sk-... \
   chatgpt-telegram-workers:latest
 ```
 
@@ -295,12 +303,7 @@ docker compose up --build
 
 ## Docker Compose Notes
 
-The provided `docker-compose.yaml` mounts only:
-
-- `config.json`
-- `config.toml`
-
-No plugin or custom tool directory mount is required in the simplified build.
+The provided `docker-compose.yaml` uses normal environment variables by default. Optional `config.toml` support remains available through `TOML_PATH`, but no separate `config.json` is needed.
 
 ## Operational Notes
 

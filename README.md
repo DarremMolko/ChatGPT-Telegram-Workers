@@ -30,8 +30,9 @@ This repository now intentionally focuses on a narrow runtime surface:
 There are two configuration layers:
 
 1. Deployment and environment settings
-   - Loaded from `config.toml` under `[vars]`
-   - Overridden by real process environment variables
+   - Loaded from process environment variables
+   - Optionally loaded from `config.toml` under `[vars]`
+   - Real process environment variables override TOML values when both are present
    - Covers Telegram tokens, Redis credentials, group policy, streaming/rendering defaults, and other runtime-wide behavior
 
 2. Stored per-chat user configuration
@@ -43,19 +44,38 @@ There are two configuration layers:
 
 ## Quick Start
 
-Copy the example files:
+Environment variables are now the primary configuration path. `config.toml` is an optional convenience file for defining the same keys under `[vars]`.
+
+### Minimal Environment-Only Webhook Example
 
 ```bash
-cp config.example.json config.json
+export LOCAL_MODE=webhook
+export PORT=8787
+export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+export OWNER_ID=123456789
+export REDIS_URL=rediss://default:your-password@your-redis-host:6379
+export OPENAI_API_KEY=sk-...
+export OPENAI_CHAT_MODEL=gpt-5.4-mini
+export OPENAI_VISION_MODEL=gpt-5.4-mini
+```
+
+### Minimal Environment-Only Polling Example
+
+```bash
+export LOCAL_MODE=polling
+export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
+export OWNER_ID=123456789
+export REDIS_URL=rediss://default:your-password@your-redis-host:6379
+export OPENAI_API_KEY=sk-...
+```
+
+### Optional `config.toml` Setup
+
+```bash
 cp config.example.toml config.toml
 ```
 
-If you want polling mode instead of webhooks:
-
-```bash
-cp config.example.polling.json config.json
-cp config.example.toml config.toml
-```
+Set `LOCAL_MODE` and any other values you need under `[vars]`.
 
 ### Minimal OpenAI Example
 
@@ -96,25 +116,20 @@ OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
 OAILIKE_VISION_MODEL = "gpt-5.4-mini"
 ```
 
-Choose a startup mode in `config.json`:
+You can also put the local adapter mode in `config.toml`:
 
-```json
-{
-  "mode": "webhook",
-  "server": {
-    "hostname": "0.0.0.0",
-    "port": 8787,
-    "baseURL": "https://your-domain.example.com"
-  }
-}
+```toml
+[vars]
+LOCAL_MODE = "webhook"
+LOCAL_PORT = 8787
+LOCAL_BASE_URL = "https://your-domain.example.com"
 ```
 
 Polling example:
 
-```json
-{
-  "mode": "polling"
-}
+```toml
+[vars]
+LOCAL_MODE = "polling"
 ```
 
 Start locally:
@@ -129,6 +144,8 @@ If you use `webhook` mode:
 1. Expose the server publicly
 2. Open `http://localhost:8787/init` or your deployed `/init`
 3. Let the bot bind Telegram webhooks and command menus automatically
+
+For PaaS deployments such as Render and Koyeb, `LOCAL_MODE=webhook` plus normal platform env vars is usually enough. The app can derive the public host from forwarded request headers, so `LOCAL_BASE_URL` is optional unless you need to force an override.
 
 If you use `polling` mode:
 

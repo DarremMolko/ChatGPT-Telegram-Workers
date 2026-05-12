@@ -4,7 +4,21 @@ import type { Router } from '../../utils/router';
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 
-function buildRequest(req: IncomingMessage, baseURL: string): Request {
+function readForwardedHeader(value: string | string[] | undefined): string | undefined {
+    const raw = Array.isArray(value) ? value[0] : value;
+    return raw?.split(',')[0]?.trim() || undefined;
+}
+
+function resolveBaseURL(req: IncomingMessage, fallbackBaseURL: string): string {
+    const fallback = new URL(fallbackBaseURL);
+    const protocol = readForwardedHeader(req.headers['x-forwarded-proto']) || fallback.protocol.replace(/:$/, '');
+    const host = readForwardedHeader(req.headers['x-forwarded-host'])
+        || readForwardedHeader(req.headers.host)
+        || fallback.host;
+    return `${protocol}://${host}`;
+}
+
+function buildRequest(req: IncomingMessage, baseURL?: string): Request {
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
         if (Array.isArray(value)) {
@@ -23,7 +37,8 @@ function buildRequest(req: IncomingMessage, baseURL: string): Request {
         init.body = Readable.toWeb(req) as unknown as BodyInit;
         (init as RequestInit & { duplex: 'half' }).duplex = 'half';
     }
-    return new Request(new URL(req.url || '/', baseURL), init);
+    const fallbackBaseURL = baseURL || 'http://127.0.0.1';
+    return new Request(new URL(req.url || '/', resolveBaseURL(req, fallbackBaseURL)), init);
 }
 
 async function writeResponse(
@@ -49,7 +64,7 @@ async function writeResponse(
 export function startLocalServer(
     port: number,
     hostname: string,
-    baseURL: string,
+    baseURL: string | undefined,
     router: Router,
 ) {
     const server = createServer(async (req: IncomingMessage, res: ServerResponse<IncomingMessage>) => {

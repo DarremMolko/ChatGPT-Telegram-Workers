@@ -51,7 +51,28 @@ OPENAI_TTS_VOICE = "alloy"
 # OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
 
 # -----------------------------------------------------------------------------
-# 3. Recommended Telegram Delivery Controls
+# 3. Local Adapter Delivery Mode
+# -----------------------------------------------------------------------------
+# The local adapter is controlled through environment-style keys.
+# You can define them here under [vars] or set them in the real server environment.
+#
+# Webhook example:
+# LOCAL_MODE = "webhook"
+# LOCAL_PORT = 8787
+# LOCAL_HOSTNAME = "0.0.0.0"
+# LOCAL_BASE_URL = "https://your-domain.example.com"
+#
+# Polling example:
+# LOCAL_MODE = "polling"
+#
+# Optional outbound proxy:
+# LOCAL_PROXY = "http://127.0.0.1:7890"
+#
+# If LOCAL_MODE is omitted, webhook is inferred when PORT, LOCAL_PORT, or
+# LOCAL_BASE_URL is set. Otherwise the adapter falls back to polling.
+
+# -----------------------------------------------------------------------------
+# 4. Recommended Telegram Delivery Controls
 # -----------------------------------------------------------------------------
 # These are not required, but they are useful in most real deployments.
 # Optional: restrict Telegram subscriptions to the update types this bot handles.
@@ -62,13 +83,13 @@ OPENAI_TTS_VOICE = "alloy"
 # TELEGRAM_DROP_PENDING_UPDATES = false
 
 # -----------------------------------------------------------------------------
-# 4. Optional Access Bootstrap
+# 5. Optional Access Bootstrap
 # -----------------------------------------------------------------------------
 # Optional static bootstrap admins. The owner can add more runtime admins later with /promote.
 # ADMIN_WHITE_LIST = "987654321"
 
 # -----------------------------------------------------------------------------
-# 5. Common Optional Runtime Tweaks
+# 6. Common Optional Runtime Tweaks
 # -----------------------------------------------------------------------------
 # These are common quality-of-life settings after the minimum setup is working.
 #
@@ -88,7 +109,7 @@ OPENAI_TTS_VOICE = "alloy"
 # Set SHOW_TOOL_ARGS_MAX_LENGTH = -1 to show full tool arguments.
 
 # -----------------------------------------------------------------------------
-# 6. Optional Debugging And Provider Extras
+# 7. Optional Debugging And Provider Extras
 # -----------------------------------------------------------------------------
 # Optional: enable detailed NDJSON debugging for reasoning and tool calls.
 # If DEBUG_MODE = true and DEBUG_LOG_FILE is omitted, the default path is:
@@ -101,7 +122,7 @@ OPENAI_TTS_VOICE = "alloy"
 # OPENAI_WEB_SEARCH_CONTEXT_SIZE = "high"
 
 # -----------------------------------------------------------------------------
-# 7. Optional Scheduled Cleanup
+# 8. Optional Scheduled Cleanup
 # -----------------------------------------------------------------------------
 # Optional: configure scheduled deletion in local mode.
 # The scheduler only tags bot messages whose type is listed below.
@@ -126,7 +147,7 @@ OPENAI_TTS_VOICE = "alloy"
 # SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
 
 # -----------------------------------------------------------------------------
-# 8. Advanced Optional MCP Setup
+# 9. Advanced Optional MCP Setup
 # -----------------------------------------------------------------------------
 # To enable a generic MCP server:
 # USE_MCP = ["demo"]

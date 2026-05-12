@@ -43,7 +43,7 @@ async function bindWebHookAction(request: RouterRequest): Promise<Response> {
     let html = `<h1>ChatGPT-Telegram-Workers</h1>`;
     html += `<h2>${domain}</h2>`;
     if (ENV.TELEGRAM_AVAILABLE_TOKENS.length === 0) {
-        html += `<p style="color: red">Please set the <strong>TELEGRAM_AVAILABLE_TOKENS</strong> value in your local <strong>config.toml</strong>.</p>`;
+        html += `<p style="color: red">Please set the <strong>TELEGRAM_AVAILABLE_TOKENS</strong> environment variable or define it in an optional <strong>config.toml</strong>.</p>`;
     } else {
         for (const [key, res] of Object.entries(result)) {
             html += `<h3>Bot: ${`${key.slice(0, 2)}***${key.slice(-2)}`}</h3>`;

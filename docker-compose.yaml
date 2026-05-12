@@ -4,7 +4,11 @@ services:
     build: .
     image: chatgpt-telegram-workers:latest
     ports:
-      - "8787:8787"
-    volumes:
-      - ./config.json:/app/config.json:ro # change `./config.json` to your local path
-      - ./config.toml:/app/config.toml:ro # change `./config.toml` to your local path
+      - "${PORT:-8787}:${PORT:-8787}"
+    environment:
+      LOCAL_MODE: ${LOCAL_MODE:-webhook}
+      PORT: ${PORT:-8787}
+      TELEGRAM_AVAILABLE_TOKENS: ${TELEGRAM_AVAILABLE_TOKENS}
+      OWNER_ID: ${OWNER_ID}
+      REDIS_URL: ${REDIS_URL}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}

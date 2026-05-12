@@ -1,5 +1,4 @@
 import type { TelegramBotAPI } from '../../telegram/api';
-import * as fs from 'node:fs';
 import { schedule } from 'node-cron';
 import worker from '../../';
 import { ENV } from '../../config/env';
@@ -8,27 +7,9 @@ import { createTelegramBotAPI } from '../../telegram/api';
 import { resolveTelegramAllowedUpdates } from '../../telegram/api/options';
 import { handleUpdate } from '../../telegram/handler';
 import { createRedisStorage } from '../../utils/cache/redis_store';
-import { applyProxy, loadLocalEnv } from './env';
+import { applyProxy, loadLocalEnv, resolveLocalConfig } from './env';
 import { normalizeGetUpdatesPayload, parseTelegramResponseBody } from './polling';
 import { startLocalServer } from './server';
-
-const {
-    CONFIG_PATH = '/app/config.json',
-    TOML_PATH = '/app/config.toml',
-} = process.env;
-
-interface Config {
-    server?: {
-        hostname?: string;
-        port?: number;
-        baseURL: string;
-    };
-    proxy?: string;
-    mode: 'webhook' | 'polling';
-}
-
-// 读取配置文件
-const config: Config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
 
 // long polling 模式
 async function runPolling() {
@@ -84,11 +65,12 @@ async function runPolling() {
 }
 
 async function main() {
+    const { TOML_PATH } = process.env;
+    const env = await loadLocalEnv(TOML_PATH);
+    const config = resolveLocalConfig(env, process.env);
     if (config.proxy) {
         applyProxy(config.proxy);
     }
-
-    const env = await loadLocalEnv(TOML_PATH);
     const { redis, label } = createRedisStorage(env);
     console.log(`redis: ${label} is ready`);
     ENV.merge({
