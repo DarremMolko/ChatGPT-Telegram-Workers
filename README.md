@@ -195,8 +195,9 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/history [n]` | Export stored history as JSON | Owner-only |
 | `/promote [user_id]` | Grant runtime admin access | Owner-only; also works by replying to a user's message |
 | `/demote [user_id]` | Remove runtime admin access | Owner-only; cannot remove IDs pinned in `ADMIN_WHITE_LIST` |
-| `/block` | Add or remove a blocked user ID | Owner-only |
-| `/blocklist` | Show or clear the blocklist | Owner-only |
+| `/block [user_id]` | Add a blocked user ID | Owner-only; also works by replying to a user's message |
+| `/unblock [user_id]` | Remove a blocked user ID | Owner-only; also works by replying to a user's message |
+| `/blocklist` | Show the blocklist | Owner-only |
 
 ## Tooling
 

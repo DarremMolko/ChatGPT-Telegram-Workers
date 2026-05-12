@@ -30,6 +30,7 @@ import {
     StopCommandHandler,
     SystemCommandHandler,
     TTSCommandHandler,
+    UnblockUserCommandHandler,
     VersionCommandHandler,
 } from './system';
 
@@ -55,6 +56,7 @@ const SYSTEM_COMMANDS: CommandHandler[] = [
     new PromoteCommandHandler(),
     new DemoteCommandHandler(),
     new BlockUserCommandHandler(),
+    new UnblockUserCommandHandler(),
     new BlocklistCommandHandler(),
 ];
 

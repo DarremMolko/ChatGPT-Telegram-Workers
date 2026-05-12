@@ -901,7 +901,7 @@ export class TTSCommandHandler implements CommandHandler {
 
 function resolveTargetUser(message: Telegram.Message, subcommand: string): { targetId: string; targetUser?: Telegram.User } {
     const replyUser = message.reply_to_message?.from;
-    const explicitId = subcommand.trim().match(/^(\d+)/)?.[1] || '';
+    const explicitId = subcommand.trim().match(/^[+-]?(\d+)/)?.[1] || '';
     return {
         targetId: explicitId || (replyUser?.id?.toString() ?? ''),
         targetUser: !explicitId || explicitId === replyUser?.id?.toString() ? replyUser : undefined,
@@ -917,6 +917,18 @@ function describeTargetUser(targetId: string, targetUser?: Telegram.User): strin
     }
     const name = [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ');
     return name ? `${name} (${targetId})` : `user ${targetId}`;
+}
+
+async function storeUserConfig(context: WorkerContext): Promise<void> {
+    await ENV.REDIS.put(
+        context.SHARE_CONTEXT.configStoreKey,
+        JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
+    );
+}
+
+function markUserConfigKey(context: WorkerContext, key: string): void {
+    context.USER_CONFIG.DEFINE_KEYS.push(key);
+    context.USER_CONFIG.DEFINE_KEYS = Array.from(new Set(context.USER_CONFIG.DEFINE_KEYS));
 }
 
 export class PromoteCommandHandler implements CommandHandler {
@@ -970,44 +982,46 @@ export class BlockUserCommandHandler implements CommandHandler {
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
     needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        const replyId = message.reply_to_message?.from?.id;
-        let blockedId = replyId?.toString() ?? '';
-
-        let op = '+';
-        if (subcommand) {
-            const [, operator, id] = subcommand.trim().match(/^([+-]?)(\d+)?/) ?? [];
-            id && (blockedId = id);
-            op = operator || '+';
+        const { targetId, targetUser } = resolveTargetUser(message, subcommand);
+        if (!targetId) {
+            return sender.sendPlainText('Reply to a user or provide a valid user id');
         }
-        if (!blockedId) {
-            return sender.sendPlainText('Please input a valid user id');
-        }
-        if (await isPrivilegedUser(blockedId, context.SHARE_CONTEXT.botId) && op === '+') {
+        if (await isPrivilegedUser(targetId, context.SHARE_CONTEXT.botId)) {
             return sender.sendPlainText('You cannot block the owner or an admin');
         }
-        if (blockedId === context.SHARE_CONTEXT.botId.toString()) {
+        if (targetId === context.SHARE_CONTEXT.botId.toString()) {
             return sender.sendPlainText('You cannot block the bot');
         }
         const blocklist = context.USER_CONFIG.BLOCKLIST;
-        if (blocklist.includes(blockedId) && op === '+') {
-            return sender.sendRichText(`User \`${blockedId}\` has already been blocked`, 'MarkdownV2', 'tip');
-        }
-        if (!blocklist.includes(blockedId) && op === '-') {
-            return sender.sendRichText(`User \`${blockedId}\` is not in the blocklist`, 'MarkdownV2', 'tip');
+        if (blocklist.includes(targetId)) {
+            return sender.sendPlainText(`${describeTargetUser(targetId, targetUser)} has already been blocked`);
         }
 
-        if (op === '+') {
-            blocklist.push(blockedId);
-        } else {
-            context.USER_CONFIG.BLOCKLIST = blocklist.filter(id => id !== blockedId);
+        blocklist.push(targetId);
+        markUserConfigKey(context, 'BLOCKLIST');
+        await storeUserConfig(context);
+        return sender.sendPlainText(`Blocked ${describeTargetUser(targetId, targetUser)}`);
+    };
+}
+
+export class UnblockUserCommandHandler implements CommandHandler {
+    command = '/unblock';
+    scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.owner;
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const { targetId, targetUser } = resolveTargetUser(message, subcommand);
+        if (!targetId) {
+            return sender.sendPlainText('Reply to a user or provide a valid user id');
         }
-        context.USER_CONFIG.DEFINE_KEYS.push('BLOCKLIST');
-        context.USER_CONFIG.DEFINE_KEYS = Array.from(new Set(context.USER_CONFIG.DEFINE_KEYS));
-        await ENV.REDIS.put(
-            context.SHARE_CONTEXT.configStoreKey,
-            JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
-        );
-        return sender.sendRichText(`${op === '+' ? 'Blocked' : 'Unblocked'} user ${replyId ?? message.reply_to_message!.from!.first_name ?? ''}, id: \`${blockedId}\``, 'MarkdownV2', 'tip');
+        const blocklist = context.USER_CONFIG.BLOCKLIST;
+        if (!blocklist.includes(targetId)) {
+            return sender.sendPlainText(`${describeTargetUser(targetId, targetUser)} is not in the blocklist`);
+        }
+
+        context.USER_CONFIG.BLOCKLIST = blocklist.filter(id => id !== targetId);
+        markUserConfigKey(context, 'BLOCKLIST');
+        await storeUserConfig(context);
+        return sender.sendPlainText(`Unblocked ${describeTargetUser(targetId, targetUser)}`);
     };
 }
 
@@ -1015,17 +1029,8 @@ export class BlocklistCommandHandler implements CommandHandler {
     command = '/blocklist';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
     needAuth = COMMAND_AUTH_CHECKER.owner;
-    handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+    handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const blocklist = context.USER_CONFIG.BLOCKLIST;
-        const isClear = subcommand.trim() === 'clear';
-        if (isClear) {
-            context.USER_CONFIG.BLOCKLIST = [];
-            await ENV.REDIS.put(
-                context.SHARE_CONTEXT.configStoreKey,
-                JSON.stringify(ConfigMerger.trim(context.USER_CONFIG)),
-            );
-            return sender.sendRichText(`Blocked users cleared`, 'MarkdownV2', 'tip');
-        }
         let tip = 'No blocked users';
         if (blocklist.length > 0) {
             tip = `Blocked users:\n${blocklist.map(id => `- \`${id}\``).join('\n')}`;

@@ -25,8 +25,9 @@ export default {
             map: 'Manage `/set` key and value aliases',
             promote: 'Grant admin access to a user by reply or user ID',
             demote: 'Remove runtime admin access from a user by reply or user ID',
-            block: 'Add or remove a user from the current chat blocklist',
-            blocklist: 'Show or clear the current chat blocklist',
+            block: 'Add a user to the current chat blocklist',
+            unblock: 'Remove a user from the current chat blocklist',
+            blocklist: 'Show the current chat blocklist',
         },
         new: {
             new_chat_start: 'A new conversation has started',

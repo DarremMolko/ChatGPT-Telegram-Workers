@@ -124,7 +124,7 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     };
 });
 
-const { DemoteCommandHandler, PromoteCommandHandler, TTSCommandHandler } = await import('./system');
+const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, PromoteCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
 
 function createReplyMessage(text: string): Telegram.Message {
     return {
@@ -165,11 +165,14 @@ function createContext() {
     return {
         SHARE_CONTEXT: {
             botId: 999,
+            configStoreKey: 'user_config:123:999',
             botToken: 'bot-token',
         },
         USER_CONFIG: {
             AI_TTS_PROVIDER: 'openai',
             AUDIO_CONTAINS_TEXT: true,
+            BLOCKLIST: [],
+            DEFINE_KEYS: [],
             OPENAI_TTS_VOICE: 'alloy',
         },
     } as any;
@@ -186,6 +189,7 @@ function createSender() {
             message_id: 1,
         },
         sendPlainText: vi.fn(async () => new Response('ok', { status: 200 })),
+        sendRichText: vi.fn(async () => new Response('ok', { status: 200 })),
         sendVoice: vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -282,5 +286,63 @@ describe('tTSCommandHandler', () => {
 
         expect(redisMock.delete).not.toHaveBeenCalled();
         expect(sender.sendPlainText).toHaveBeenCalledWith('user 2 is pinned in ADMIN_WHITE_LIST and cannot be demoted at runtime');
+    });
+
+    it('blocks a replied user into the current chat blocklist', async () => {
+        const handler = new BlockUserCommandHandler();
+        const message = createMessage('/block', 'Hello from reply');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '', context, sender);
+
+        expect(context.USER_CONFIG.BLOCKLIST).toEqual(['789']);
+        expect(context.USER_CONFIG.DEFINE_KEYS).toContain('BLOCKLIST');
+        expect(redisMock.put).toHaveBeenCalledWith('user_config:123:999', JSON.stringify(context.USER_CONFIG));
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Blocked Alice (789)');
+    });
+
+    it('unblocks a user by explicit id', async () => {
+        const handler = new UnblockUserCommandHandler();
+        const message = createMessage('/unblock 789');
+        const sender = createSender();
+        const context = createContext();
+        context.USER_CONFIG.BLOCKLIST = ['789'];
+
+        await handler.handle(message, '789', context, sender);
+
+        expect(context.USER_CONFIG.BLOCKLIST).toEqual([]);
+        expect(redisMock.put).toHaveBeenCalledWith('user_config:123:999', JSON.stringify(context.USER_CONFIG));
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Unblocked user 789');
+    });
+
+    it('rejects blocking an admin', async () => {
+        const handler = new BlockUserCommandHandler();
+        const message = createMessage('/block 2');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '2', context, sender);
+
+        expect(context.USER_CONFIG.BLOCKLIST).toEqual([]);
+        expect(redisMock.put).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('You cannot block the owner or an admin');
+    });
+
+    it('ignores extra blocklist arguments and still lists blocked users', async () => {
+        const handler = new BlocklistCommandHandler();
+        const message = createMessage('/blocklist clear');
+        const sender = createSender();
+        const context = createContext();
+        context.USER_CONFIG.BLOCKLIST = ['789'];
+
+        await handler.handle(message, 'clear', context, sender);
+
+        expect(context.USER_CONFIG.BLOCKLIST).toEqual(['789']);
+        expect(redisMock.put).not.toHaveBeenCalled();
+        expect(sender.sendRichText).toHaveBeenCalledWith('Blocked users:\n- `789`', 'MarkdownV2', 'tip', {
+            addQuote: true,
+            quoteExpandable: true,
+        });
     });
 });
