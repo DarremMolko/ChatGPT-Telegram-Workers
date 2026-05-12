@@ -9,6 +9,7 @@ const { getFileWithReturns, fetchMock } = vi.hoisted(() => ({
 vi.mock('../../config/env', () => ({
     ENV: {
         EXTRA_MESSAGE_CONTEXT: false,
+        LOG_POSITION_ON_TOP: false,
         TELEGRAM_PHOTO_SIZE_OFFSET: -1,
         TELEGRAM_API_DOMAIN: 'https://telegram.example.test/',
         TELEGRAM_FILE_DOWNLOAD_MAX_SIZE: 1024,
@@ -27,7 +28,8 @@ vi.mock('../api', () => ({
 
 vi.stubGlobal('fetch', fetchMock);
 
-const { extractMessageInfo, getTelegramFile } = await import('./tg_utils');
+const { ENV } = await import('../../config/env');
+const { extractMessageInfo, getMessageTextWithoutBotShowInfo, getTelegramFile } = await import('./tg_utils');
 
 function createDocumentMessage(mimeType: string, fileName = 'file.bin'): Telegram.Message {
     return {
@@ -53,6 +55,7 @@ function createDocumentMessage(mimeType: string, fileName = 'file.bin'): Telegra
 }
 
 beforeEach(() => {
+    ENV.LOG_POSITION_ON_TOP = false;
     getFileWithReturns.mockReset();
     fetchMock.mockReset();
 });
@@ -156,5 +159,36 @@ describe('getTelegramFile', () => {
 
         expect(fetchMock).toHaveBeenCalledWith('https://telegram.example.test/file/bot123456789:ABCdef_GHIjklMNOpqrSTUvwxYZ0123456789/audio/file.ogg', {});
         expect(result).toEqual(['aGVsbG8=']);
+    });
+});
+
+describe('getMessageTextWithoutBotShowInfo', () => {
+    it('strips SHOW_INFO quote lines appended to the bottom of a bot message', () => {
+        const message = {
+            text: 'Actual answer\nmodel 1.0s\n12,34',
+            entities: [
+                { type: 'blockquote', offset: 14, length: 10 },
+                { type: 'code', offset: 14, length: 10 },
+                { type: 'blockquote', offset: 25, length: 5 },
+                { type: 'code', offset: 25, length: 5 },
+            ],
+        } as Telegram.Message;
+
+        expect(getMessageTextWithoutBotShowInfo(message)).toBe('Actual answer');
+    });
+
+    it('strips SHOW_INFO quote lines prepended to the top of a bot message', () => {
+        ENV.LOG_POSITION_ON_TOP = true;
+        const message = {
+            text: 'model 1.0s\n12,34\nActual answer',
+            entities: [
+                { type: 'blockquote', offset: 0, length: 10 },
+                { type: 'code', offset: 0, length: 10 },
+                { type: 'blockquote', offset: 11, length: 5 },
+                { type: 'code', offset: 11, length: 5 },
+            ],
+        } as Telegram.Message;
+
+        expect(getMessageTextWithoutBotShowInfo(message)).toBe('Actual answer');
     });
 });

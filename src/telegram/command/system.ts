@@ -22,7 +22,7 @@ import { chatWithLLM, sendImages, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
-import { chunkArray, getMessageText, getTelegramFile, isTelegramChatTypeGroup, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
+import { chunkArray, getMessageText, getMessageTextWithoutBotShowInfo, getTelegramFile, isTelegramChatTypeGroup, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
 
 export const COMMAND_AUTH_CHECKER = {
     admin(_chatType: string): string[] {
@@ -110,6 +110,73 @@ function tokenizeSubcommand(subcommand: string): { flags: { flag: string; value:
 
     log.info(`flags: ${JSON.stringify(flags, null, 2)}, remainingText: ${text}`);
     return { flags, remainingText: text.trim() };
+}
+
+function splitCommandTokens(text: string): { value: string }[] {
+    const tokens: { value: string }[] = [];
+    let i = 0;
+
+    while (i < text.length) {
+        while (i < text.length && /\s/.test(text[i])) {
+            i++;
+        }
+        if (i >= text.length) {
+            break;
+        }
+
+        const quote = text[i];
+        if (quote === '"' || quote === '\'') {
+            i++;
+            let value = '';
+            while (i < text.length) {
+                if (text[i] === quote) {
+                    i++;
+                    break;
+                }
+                value += text[i];
+                i++;
+            }
+            tokens.push({ value });
+            continue;
+        }
+
+        const start = i;
+        while (i < text.length && !/\s/.test(text[i])) {
+            i++;
+        }
+        tokens.push({ value: text.slice(start, i) });
+    }
+
+    return tokens;
+}
+
+function tokenizeTTSSubcommand(subcommand: string): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
+    const tokens = splitCommandTokens(subcommand);
+    const flags: { flag: string; value: string | undefined }[] = [];
+    const remainingTokens: string[] = [];
+    const knownFlags = new Set(['-v', '-i', '-instructions']);
+
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i].value;
+        if (!knownFlags.has(token)) {
+            remainingTokens.push(token);
+            continue;
+        }
+
+        const nextToken = tokens[i + 1]?.value;
+        const hasValue = nextToken !== undefined && !knownFlags.has(nextToken);
+        flags.push({
+            flag: token.slice(1),
+            value: hasValue ? nextToken : undefined,
+        });
+        if (hasValue) {
+            i++;
+        }
+    }
+
+    const remainingText = remainingTokens.join(' ').trim();
+    log.info(`flags: ${JSON.stringify(flags, null, 2)}, remainingText: ${remainingText}`);
+    return { flags, remainingText };
 }
 
 export class ImgCommandHandler implements CommandHandler {
@@ -864,8 +931,12 @@ export class TTSCommandHandler implements CommandHandler {
         const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
             ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
             : subcommand.trim();
-        const { flags, remainingText } = tokenizeSubcommand(cleanedSubcommand);
-        const replyText = getMessageText(message.reply_to_message).trim();
+        const { flags, remainingText } = tokenizeTTSSubcommand(cleanedSubcommand);
+        const replyText = (
+            message.reply_to_message?.from?.id === Number(context.SHARE_CONTEXT.botId)
+                ? getMessageTextWithoutBotShowInfo(message.reply_to_message)
+                : getMessageText(message.reply_to_message)
+        ).trim();
         const text = remainingText || replyText;
         if (text === '') {
             return sender.sendPlainText('Please input your text or reply to a message');

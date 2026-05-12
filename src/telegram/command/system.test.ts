@@ -126,7 +126,13 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
 
 const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, PromoteCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
 
-function createReplyMessage(text: string): Telegram.Message {
+function createReplyMessage(
+    text: string,
+    options?: {
+        from?: Telegram.User;
+        entities?: Telegram.MessageEntity[];
+    },
+): Telegram.Message {
     return {
         message_id: 2,
         date: Math.floor(Date.now() / 1000),
@@ -134,16 +140,24 @@ function createReplyMessage(text: string): Telegram.Message {
             id: 123,
             type: 'private',
         } as Telegram.Chat,
-        from: {
+        from: options?.from || {
             id: 789,
             is_bot: false,
             first_name: 'Alice',
         },
         text,
+        entities: options?.entities,
     } as Telegram.Message;
 }
 
-function createMessage(text: string, replyText?: string): Telegram.Message {
+function createMessage(
+    text: string,
+    replyText?: string,
+    replyOptions?: {
+        from?: Telegram.User;
+        entities?: Telegram.MessageEntity[];
+    },
+): Telegram.Message {
     return {
         message_id: 1,
         date: Math.floor(Date.now() / 1000),
@@ -157,7 +171,7 @@ function createMessage(text: string, replyText?: string): Telegram.Message {
             first_name: 'User',
         },
         text,
-        reply_to_message: replyText ? createReplyMessage(replyText) : undefined,
+        reply_to_message: replyText ? createReplyMessage(replyText, replyOptions) : undefined,
     } as Telegram.Message;
 }
 
@@ -236,6 +250,31 @@ describe('tTSCommandHandler', () => {
         expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Custom narration');
     });
 
+    it('strips SHOW_INFO metadata when replying to this bot', async () => {
+        ttsMock.mockResolvedValue(new Blob(['audio']));
+        const handler = new TTSCommandHandler();
+        const message = createMessage('/tts', 'Actual answer\nmodel 1.0s\n12,34', {
+            from: {
+                id: 999,
+                is_bot: true,
+                first_name: 'Bot',
+            },
+            entities: [
+                { type: 'blockquote', offset: 14, length: 10 },
+                { type: 'code', offset: 14, length: 10 },
+                { type: 'blockquote', offset: 25, length: 5 },
+                { type: 'code', offset: 25, length: 5 },
+            ],
+        });
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '', context, sender);
+
+        expect(ttsMock).toHaveBeenCalledWith('Actual answer', context.USER_CONFIG);
+        expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Actual answer');
+    });
+
     it('passes command-level instructions through to the TTS request', async () => {
         ttsMock.mockResolvedValue(new Blob(['audio']));
         const handler = new TTSCommandHandler();
@@ -249,6 +288,38 @@ describe('tTSCommandHandler', () => {
             instructions: 'speak slowly',
         });
         expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Custom narration');
+    });
+
+    it('parses trailing voice and instructions flags after unquoted text', async () => {
+        ttsMock.mockResolvedValue(new Blob(['audio']));
+        const handler = new TTSCommandHandler();
+        const message = createMessage('/tts Hola. Hoy es un hermoso día, verdad? -v alloy -i "voz feliz y serena."');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'Hola. Hoy es un hermoso día, verdad? -v alloy -i "voz feliz y serena."', context, sender);
+
+        expect(context.USER_CONFIG.OPENAI_TTS_VOICE).toBe('alloy');
+        expect(ttsMock).toHaveBeenCalledWith('Hola. Hoy es un hermoso día, verdad?', context.USER_CONFIG, {
+            instructions: 'voz feliz y serena.',
+        });
+        expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Hola. Hoy es un hermoso día, verdad?');
+    });
+
+    it('parses trailing quoted flags after quoted text', async () => {
+        ttsMock.mockResolvedValue(new Blob(['audio']));
+        const handler = new TTSCommandHandler();
+        const message = createMessage('/tts "Hola. Hoy es un hermoso día, verdad?" -v "alloy" -i "voz feliz y serena."');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '"Hola. Hoy es un hermoso día, verdad?" -v "alloy" -i "voz feliz y serena."', context, sender);
+
+        expect(context.USER_CONFIG.OPENAI_TTS_VOICE).toBe('alloy');
+        expect(ttsMock).toHaveBeenCalledWith('Hola. Hoy es un hermoso día, verdad?', context.USER_CONFIG, {
+            instructions: 'voz feliz y serena.',
+        });
+        expect(sender.sendVoice).toHaveBeenCalledWith(expect.any(Blob), 'Hola. Hoy es un hermoso día, verdad?');
     });
 
     it('promotes a replied user into the runtime admin list', async () => {

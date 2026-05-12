@@ -57,6 +57,119 @@ export function getMessageText(message?: Pick<Telegram.Message, 'text' | 'captio
     return message?.text || message?.caption || '';
 }
 
+type MessageTextLike = Pick<Telegram.Message, 'text' | 'caption' | 'entities' | 'caption_entities'>;
+
+export function getMessageTextWithoutBotShowInfo(message?: MessageTextLike | null): string {
+    const text = getMessageText(message);
+    if (text === '') {
+        return text;
+    }
+
+    const infoRange = resolveBotShowInfoRange(message, text);
+    if (!infoRange) {
+        return text;
+    }
+    return `${text.slice(0, infoRange.start)}${text.slice(infoRange.end)}`.trim();
+}
+
+function resolveBotShowInfoRange(message: MessageTextLike | null | undefined, text: string): { start: number; end: number } | null {
+    const entities = message?.text !== undefined
+        ? (message.entities || [])
+        : (message?.caption_entities || []);
+    if (entities.length === 0) {
+        return null;
+    }
+
+    const quotedChars = getEntityCoverage(text.length, entities, new Set(['blockquote', 'expandable_blockquote']));
+    const codeChars = getEntityCoverage(text.length, entities, new Set(['code', 'pre']));
+    const resolvers = ENV.LOG_POSITION_ON_TOP
+        ? [resolveQuotedPrefixRange, resolveQuotedSuffixRange]
+        : [resolveQuotedSuffixRange, resolveQuotedPrefixRange];
+
+    for (const resolver of resolvers) {
+        const range = resolver(text, quotedChars, codeChars);
+        if (range) {
+            return range;
+        }
+    }
+    return null;
+}
+
+function getEntityCoverage(textLength: number, entities: Telegram.MessageEntity[], types: Set<Telegram.MessageEntityType>): boolean[] {
+    const coverage = Array.from({ length: textLength }).fill(false);
+    for (const entity of entities) {
+        if (!types.has(entity.type)) {
+            continue;
+        }
+        const start = Math.max(0, entity.offset);
+        const end = Math.min(textLength, entity.offset + entity.length);
+        for (let i = start; i < end; i++) {
+            coverage[i] = true;
+        }
+    }
+    return coverage;
+}
+
+function resolveQuotedSuffixRange(text: string, quotedChars: boolean[], codeChars: boolean[]): { start: number; end: number } | null {
+    let visibleEnd = text.length;
+    while (visibleEnd > 0 && /\s/.test(text[visibleEnd - 1])) {
+        visibleEnd--;
+    }
+    if (visibleEnd === 0 || !quotedChars[visibleEnd - 1]) {
+        return null;
+    }
+
+    let start = visibleEnd;
+    let sawCode = false;
+    for (let i = visibleEnd - 1; i >= 0; i--) {
+        if (quotedChars[i]) {
+            start = i;
+            sawCode ||= codeChars[i];
+            continue;
+        }
+        if (/\s/.test(text[i])) {
+            start = i;
+            continue;
+        }
+        break;
+    }
+
+    if (!sawCode) {
+        return null;
+    }
+    return { start, end: text.length };
+}
+
+function resolveQuotedPrefixRange(text: string, quotedChars: boolean[], codeChars: boolean[]): { start: number; end: number } | null {
+    let visibleStart = 0;
+    while (visibleStart < text.length && /\s/.test(text[visibleStart])) {
+        visibleStart++;
+    }
+    if (visibleStart >= text.length || !quotedChars[visibleStart]) {
+        return null;
+    }
+
+    let end = visibleStart;
+    let sawCode = false;
+    for (let i = visibleStart; i < text.length; i++) {
+        if (quotedChars[i]) {
+            end = i + 1;
+            sawCode ||= codeChars[i];
+            continue;
+        }
+        if (/\s/.test(text[i])) {
+            end = i + 1;
+            continue;
+        }
+        break;
+    }
+
+    if (!sawCode) {
+        return null;
+    }
+    return { start: 0, end };
+}
+
 function formatReplyUserInfo(user: Telegram.User): string {
     if (user.username) {
         return `@${user.username} (ID:${user.id})`;
