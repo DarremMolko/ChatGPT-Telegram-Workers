@@ -159,6 +159,8 @@ class Environment extends EnvironmentConfig {
     private normalizeConfig() {
         this.OWNER_ID = `${this.OWNER_ID || ''}`.trim();
         this.ADMIN_WHITE_LIST = Array.from(new Set(this.ADMIN_WHITE_LIST.map((id: string) => `${id}`.trim()).filter(Boolean)));
+        this.TELEGRAM_ALLOWED_UPDATES = Array.from(new Set(this.TELEGRAM_ALLOWED_UPDATES.map((type: string) => `${type}`.trim()).filter(Boolean)));
+        this.TELEGRAM_WEBHOOK_SECRET_TOKEN = `${this.TELEGRAM_WEBHOOK_SECRET_TOKEN || ''}`.trim();
         if (!SUPPORTED_CHAT_PROVIDERS.has(this.USER_CONFIG.AI_CHAT_PROVIDER)) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = 'openai';
         }

@@ -2,6 +2,7 @@ import type * as Telegram from 'telegram-bot-api-types';
 import type { RouterRequest } from '../utils/router';
 import { ENV } from '../config/env';
 import { createTelegramBotAPI } from '../telegram/api';
+import { isTelegramWebhookRequestAuthorized, resolveTelegramAllowedUpdates, resolveTelegramWebhookSecretToken } from '../telegram/api/options';
 import { commandsBindScope, commandsDocument } from '../telegram/command';
 import { handleUpdate } from '../telegram/handler';
 import { Router } from '../utils/router';
@@ -21,13 +22,20 @@ async function bindWebHookAction(request: RouterRequest): Promise<Response> {
     const domain = new URL(request.url).host;
     const hookMode = ENV.API_GUARD ? 'safehook' : 'webhook';
     const scope = commandsBindScope();
+    const allowedUpdates = resolveTelegramAllowedUpdates();
+    const secretToken = resolveTelegramWebhookSecretToken();
     for (const token of ENV.TELEGRAM_AVAILABLE_TOKENS) {
         const api = createTelegramBotAPI(token);
         const url = `https://${domain}/telegram/${token.trim()}/${hookMode}`;
         console.log('webhook url: ', url);
         const id = token.split(':')[0];
         result[id] = {};
-        result[id].webhook = await api.setWebhook({ url }).then(res => res.json()).catch(e => errorToString(e));
+        result[id].webhook = await api.setWebhook({
+            url,
+            ...(allowedUpdates ? { allowed_updates: allowedUpdates } : {}),
+            ...(secretToken ? { secret_token: secretToken } : {}),
+            ...(ENV.TELEGRAM_DROP_PENDING_UPDATES ? { drop_pending_updates: true } : {}),
+        }).then(res => res.json()).catch(e => errorToString(e));
         for (const [s, data] of Object.entries(scope)) {
             result[id][s] = await api.setMyCommands(data).then(res => res.json()).catch(e => errorToString(e));
         }
@@ -51,6 +59,9 @@ async function bindWebHookAction(request: RouterRequest): Promise<Response> {
 
 async function telegramWebhook(request: RouterRequest): Promise<Response> {
     try {
+        if (!isTelegramWebhookRequestAuthorized(request.headers)) {
+            return new Response('Forbidden', { status: 403 });
+        }
         const { token } = request.params as any;
         const body = await request.json() as Telegram.Update;
         return makeResponse200(await handleUpdate(token, body));

@@ -13,6 +13,12 @@ export class EnvironmentConfig {
     TELEGRAM_API_DOMAIN = 'https://api.telegram.org';
     // 允许访问的Telegram Token， 设置时以逗号分隔
     TELEGRAM_AVAILABLE_TOKENS: string[] = [];
+    // Update types to subscribe to in webhooks and polling. Keep this aligned with the update kinds handled by the app.
+    TELEGRAM_ALLOWED_UPDATES: string[] = ['message', 'inline_query', 'callback_query', 'chosen_inline_result'];
+    // Optional Telegram webhook secret token. When set, incoming webhooks must present the matching header.
+    TELEGRAM_WEBHOOK_SECRET_TOKEN = '';
+    // Whether to drop pending Telegram updates when binding webhooks or switching to polling.
+    TELEGRAM_DROP_PENDING_UPDATES = false;
     // 默认消息模式
     DEFAULT_PARSE_MODE = 'MarkdownV2';
     // 最小stream模式消息间隔，小于等于0则不限制 单位：ms
@@ -245,7 +251,7 @@ export class OpenAIConfig {
     OPENAI_ENABLE_IMAGE_GENERATION = false;
     OPENAI_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto'; // 背景类型
     OPENAI_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low'; // 输入保真度
-    OPENAI_IMAGE_MODEL = 'gpt-image-1.5'; // 图片生成模型
+    OPENAI_IMAGE_MODEL = 'gpt-image-2'; // 图片生成模型
     OPENAI_IMAGE_OUTPUT_COMPRESSION = 100; // 输出压缩等级 (0-100)
     OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png'; // 输出格式
     OPENAI_IMAGE_PARTIAL_IMAGES = 0; // 流式模式下生成的部分图片数量 (0-3)
@@ -284,7 +290,7 @@ export class OpenAILikeConfig {
     // oailike api model
     OAILIKE_CHAT_MODEL = 'gpt-5.4-mini';
     // oailike image model
-    OAILIKE_IMAGE_MODEL = 'gpt-image-1.5';
+    OAILIKE_IMAGE_MODEL = 'gpt-image-2';
     // oailike vision model
     OAILIKE_VISION_MODEL = 'gpt-5.4-mini';
     // oailike image background

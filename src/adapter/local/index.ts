@@ -5,6 +5,7 @@ import worker from '../../';
 import { ENV } from '../../config/env';
 import { createRouter } from '../../route/index';
 import { createTelegramBotAPI } from '../../telegram/api';
+import { resolveTelegramAllowedUpdates } from '../../telegram/api/options';
 import { handleUpdate } from '../../telegram/handler';
 import { createRedisStorage } from '../../utils/cache/redis_store';
 import { applyProxy, loadLocalEnv } from './env';
@@ -33,12 +34,15 @@ const config: Config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
 async function runPolling() {
     const clients: Record<string, TelegramBotAPI> = {};
     const offset: Record<string, number> = {};
+    const allowedUpdates = resolveTelegramAllowedUpdates();
     for (const token of ENV.TELEGRAM_AVAILABLE_TOKENS) {
         offset[token] = 0;
         const api = createTelegramBotAPI(token);
         clients[token] = api;
         const name = await api.getMeWithReturns();
-        await api.deleteWebhook({});
+        await api.deleteWebhook({
+            ...(ENV.TELEGRAM_DROP_PENDING_UPDATES ? { drop_pending_updates: true } : {}),
+        });
         console.log(`@${name.result.username} Webhook deleted, If you want to use webhook, please set it up again.`);
     }
 
@@ -48,6 +52,7 @@ async function runPolling() {
                 const resp = await clients[token].getUpdates({
                     offset: offset[token],
                     timeout: 30,
+                    ...(allowedUpdates ? { allowed_updates: allowedUpdates } : {}),
                 });
                 if (resp.status === 429) {
                     const retryAfter = Number.parseInt(resp.headers.get('Retry-After') || '');

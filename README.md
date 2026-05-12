@@ -64,6 +64,10 @@ cp config.example.toml config.toml
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
+# Optional Telegram update filtering and webhook verification.
+# TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
+# TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
+# TELEGRAM_DROP_PENDING_UPDATES = false
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
@@ -76,6 +80,10 @@ OPENAI_VISION_MODEL = "gpt-5.4-mini"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
+# Optional Telegram update filtering and webhook verification.
+# TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
+# TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
+# TELEGRAM_DROP_PENDING_UPDATES = false
 
 AI_CHAT_PROVIDER = "oailike"
 AI_IMAGE_PROVIDER = "oailike"

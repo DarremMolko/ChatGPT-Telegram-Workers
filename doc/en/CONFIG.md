@@ -100,6 +100,9 @@ Important:
 | Variable | Description | Default |
 | --- | --- | --- |
 | `TELEGRAM_API_DOMAIN` | Telegram API base URL. | `https://api.telegram.org` |
+| `TELEGRAM_ALLOWED_UPDATES` | Update types requested from Telegram for webhook and polling delivery. | `['message', 'inline_query', 'callback_query', 'chosen_inline_result']` |
+| `TELEGRAM_WEBHOOK_SECRET_TOKEN` | Optional shared secret required on inbound Telegram webhook requests. | `''` |
+| `TELEGRAM_DROP_PENDING_UPDATES` | Drop pending Telegram updates when binding webhooks or switching to polling. | `false` |
 | `TELEGRAM_BOT_NAME` | Bot usernames aligned by position with `TELEGRAM_AVAILABLE_TOKENS`. Helpful when using multiple bots. | `[]` |
 | `CHAT_GROUP_WHITE_LIST` | Group IDs allowed to use the bot. | `[]` |
 | `GROUP_CHAT_BOT_ENABLE` | Master group-chat enable switch. | `true` |
@@ -278,7 +281,7 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | `OPENAI_STT_MODEL` | Speech-to-text model. | `gpt-4o-mini-transcribe` |
 | `OPENAI_TTS_MODEL` | Text-to-speech model. | `gpt-4o-mini-tts` |
 | `OPENAI_TTS_VOICE` | TTS voice name. | `alloy` |
-| `OPENAI_IMAGE_MODEL` | Model used by `/img` and the OpenAI built-in image tool. | `gpt-image-1.5` |
+| `OPENAI_IMAGE_MODEL` | Model used by `/img` and the OpenAI built-in image tool. | `gpt-image-2` |
 | `OPENAI_API_EXTRA_PARAMS` | Per-model request overrides merged into outgoing OpenAI requests. | `{}` |
 | `OPENAI_STT_EXTRA_PARAMS` | Extra multipart STT fields. | `{}` |
 | `OPENAI_TTS_EXTRA_PARAMS` | Extra TTS request fields. | `{}` |
@@ -294,7 +297,7 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | `OAILIKE_API_BASE` | Base URL or explicit LLM endpoint. | `https://api.openai.com/v1` |
 | `OAILIKE_CHAT_MODEL` | Main text chat model. | `gpt-5.4-mini` |
 | `OAILIKE_VISION_MODEL` | Vision-capable chat model. | `gpt-5.4-mini` |
-| `OAILIKE_IMAGE_MODEL` | `/img` image generation model. | `gpt-image-1.5` |
+| `OAILIKE_IMAGE_MODEL` | `/img` image generation model. | `gpt-image-2` |
 | `OAILIKE_IMAGE_SIZE` | Default image size for the compatible image endpoint. | `1024x1024` |
 | `OAILIKE_STT_MODEL` | Speech-to-text model. | `FunAudioLLM/SenseVoiceSmall` |
 | `OAILIKE_TTS_MODEL` | Text-to-speech model. | `gpt-4o-mini-tts` |
@@ -457,7 +460,7 @@ Important:
 | `OPENAI_ENABLE_IMAGE_GENERATION` | Enable OpenAI provider-side image generation tool. | `false` |
 | `OPENAI_IMAGE_BACKGROUND` | `auto`, `opaque`, or `transparent`. | `auto` |
 | `OPENAI_IMAGE_INPUT_FIDELITY` | `low` or `high`. | `low` |
-| `OPENAI_IMAGE_MODEL` | Provider-side image model. | `gpt-image-1.5` |
+| `OPENAI_IMAGE_MODEL` | Provider-side image model. | `gpt-image-2` |
 | `OPENAI_IMAGE_OUTPUT_COMPRESSION` | Compression level. | `100` |
 | `OPENAI_IMAGE_OUTPUT_FORMAT` | `png`, `jpeg`, or `webp`. | `png` |
 | `OPENAI_IMAGE_PARTIAL_IMAGES` | Partial image count for streaming mode. | `0` |
@@ -555,7 +558,7 @@ OAILIKE_API_KEY = "your-key"
 OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
 OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
 OAILIKE_VISION_MODEL = "gpt-5.4-mini"
-OAILIKE_IMAGE_MODEL = "gpt-image-1.5"
+OAILIKE_IMAGE_MODEL = "gpt-image-2"
 ```
 
 ### OpenAI With Generic MCP

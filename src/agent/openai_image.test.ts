@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildOpenAIImageSettings, isOpenAIImageModel } from './openai_image';
 
 const baseContext: any = {
-    OPENAI_IMAGE_MODEL: 'gpt-image-1.5',
+    OPENAI_IMAGE_MODEL: 'gpt-image-2',
     OPENAI_IMAGE_BACKGROUND: 'auto',
     OPENAI_IMAGE_INPUT_FIDELITY: 'low',
     OPENAI_IMAGE_MODERATION: 'low',
@@ -10,7 +10,7 @@ const baseContext: any = {
     OPENAI_IMAGE_OUTPUT_FORMAT: 'png',
     OPENAI_IMAGE_QUALITY: 'high',
     OPENAI_IMAGE_SIZE: 'auto',
-    OAILIKE_IMAGE_MODEL: 'gpt-image-1.5',
+    OAILIKE_IMAGE_MODEL: 'gpt-image-2',
     OAILIKE_IMAGE_BACKGROUND: 'transparent',
     OAILIKE_IMAGE_INPUT_FIDELITY: 'high',
     OAILIKE_IMAGE_MODERATION: 'auto',
@@ -22,6 +22,7 @@ const baseContext: any = {
 
 describe('isOpenAIImageModel', () => {
     it('recognizes current OpenAI image model ids', () => {
+        expect(isOpenAIImageModel('gpt-image-2')).toBe(true);
         expect(isOpenAIImageModel('gpt-image-1.5')).toBe(true);
         expect(isOpenAIImageModel('dall-e-3')).toBe(true);
         expect(isOpenAIImageModel('chatgpt-image-latest')).toBe(true);
@@ -36,7 +37,7 @@ describe('buildOpenAIImageSettings', () => {
         expect(settings.isEditMode).toBe(false);
         expect(settings.size).toBeUndefined();
         expect(settings.generationBody).toEqual({
-            model: 'gpt-image-1.5',
+            model: 'gpt-image-2',
             n: 1,
             background: 'auto',
             quality: 'high',
@@ -62,7 +63,7 @@ describe('buildOpenAIImageSettings', () => {
         expect(settings.isEditMode).toBe(true);
         expect(settings.size).toBe('1536x1024');
         expect(settings.generationBody).toEqual({
-            model: 'gpt-image-1.5',
+            model: 'gpt-image-2',
             n: 1,
             size: '1536x1024',
             background: 'transparent',

@@ -1,10 +1,21 @@
 [vars]
+
+# -----------------------------------------------------------------------------
+# 1. Bare Minimum Required For Any Deployment
+# -----------------------------------------------------------------------------
+# These values are required no matter which provider family you use.
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 OWNER_ID = "123456789"
-# Optional static bootstrap admins. The owner can add more runtime admins later with /promote.
-# ADMIN_WHITE_LIST = "987654321"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 
+# -----------------------------------------------------------------------------
+# 2. Provider Minimum Required Settings
+# -----------------------------------------------------------------------------
+# Pick one provider family.
+#
+# 2a. OpenAI (default)
+# Keep this block enabled if you want first-party OpenAI APIs.
+#
 AI_CHAT_PROVIDER = "openai"
 AI_IMAGE_PROVIDER = "openai"
 AI_ASR_PROVIDER = "openai"
@@ -16,9 +27,69 @@ OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
 OPENAI_STT_MODEL = "gpt-4o-mini-transcribe"
 OPENAI_TTS_MODEL = "gpt-4o-mini-tts"
-OPENAI_IMAGE_MODEL = "gpt-image-1.5"
+OPENAI_IMAGE_MODEL = "gpt-image-2"
 OPENAI_TTS_VOICE = "alloy"
 
+#
+# 2b. OpenAI-compatible
+# Uncomment this block instead if you are using an OpenAI-compatible endpoint.
+#
+# AI_CHAT_PROVIDER = "oailike"
+# AI_IMAGE_PROVIDER = "oailike"
+# AI_ASR_PROVIDER = "oailike"
+# AI_TTS_PROVIDER = "oailike"
+#
+# OAILIKE_API_KEY = "your-key"
+# OAILIKE_API_BASE = "https://your-api.example.com/v1"
+# OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
+# OAILIKE_VISION_MODEL = "gpt-5.4-mini"
+# OAILIKE_IMAGE_MODEL = "gpt-image-2"
+# OAILIKE_STT_MODEL = "gpt-4o-mini-transcribe"
+# OAILIKE_TTS_MODEL = "gpt-4o-mini-tts"
+#
+# Optional: force explicit endpoint mode.
+# OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
+
+# -----------------------------------------------------------------------------
+# 3. Recommended Telegram Delivery Controls
+# -----------------------------------------------------------------------------
+# These are not required, but they are useful in most real deployments.
+# Optional: restrict Telegram subscriptions to the update types this bot handles.
+# TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
+# Optional: verify inbound Telegram webhooks with a shared secret header.
+# TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
+# Optional: drop pending Telegram updates when binding a webhook or switching to polling.
+# TELEGRAM_DROP_PENDING_UPDATES = false
+
+# -----------------------------------------------------------------------------
+# 4. Optional Access Bootstrap
+# -----------------------------------------------------------------------------
+# Optional static bootstrap admins. The owner can add more runtime admins later with /promote.
+# ADMIN_WHITE_LIST = "987654321"
+
+# -----------------------------------------------------------------------------
+# 5. Common Optional Runtime Tweaks
+# -----------------------------------------------------------------------------
+# These are common quality-of-life settings after the minimum setup is working.
+#
+# Optional: use a dedicated model for MCP or built-in tool steps.
+# TOOL_MODEL = "gpt-5.4"
+#
+# Optional: change text/audio behavior.
+# TEXT_OUTPUT = "audio"
+# AUDIO_OUTPUT = "audio"
+#
+# Optional: cap Telegram attachment downloads at 20 MB.
+# TELEGRAM_FILE_DOWNLOAD_MAX_SIZE = 20971520
+#
+# Optional: show the model/tool footer in replies.
+# SHOW_PARTS = ["model", "model_time", "token", "tool", "tool_time"]
+# SHOW_TOOL_ARGS_MAX_LENGTH = 80
+# Set SHOW_TOOL_ARGS_MAX_LENGTH = -1 to show full tool arguments.
+
+# -----------------------------------------------------------------------------
+# 6. Optional Debugging And Provider Extras
+# -----------------------------------------------------------------------------
 # Optional: enable detailed NDJSON debugging for reasoning and tool calls.
 # If DEBUG_MODE = true and DEBUG_LOG_FILE is omitted, the default path is:
 # ./logs/chatgpt-telegram-workers.debug.ndjson
@@ -29,20 +100,9 @@ OPENAI_TTS_VOICE = "alloy"
 # USE_OPENAI_BUILDIN = ["webSearch"]
 # OPENAI_WEB_SEARCH_CONTEXT_SIZE = "high"
 
-# Optional: use a dedicated model for MCP or built-in tool steps.
-# TOOL_MODEL = "gpt-5.4"
-
-# Optional: change text/audio behavior.
-# TEXT_OUTPUT = "audio"
-# AUDIO_OUTPUT = "audio"
-# Optional: cap Telegram attachment downloads at 20 MB.
-# TELEGRAM_FILE_DOWNLOAD_MAX_SIZE = 20971520
-#
-# Optional: show the model/tool footer in replies.
-# SHOW_PARTS = ["model", "model_time", "token", "tool", "tool_time"]
-# SHOW_TOOL_ARGS_MAX_LENGTH = 80
-# Set SHOW_TOOL_ARGS_MAX_LENGTH = -1 to show full tool arguments.
-
+# -----------------------------------------------------------------------------
+# 7. Optional Scheduled Cleanup
+# -----------------------------------------------------------------------------
 # Optional: configure scheduled deletion in local mode.
 # The scheduler only tags bot messages whose type is listed below.
 # Allowed values: "tip", "chat"
@@ -65,6 +125,9 @@ OPENAI_TTS_VOICE = "alloy"
 # SCHEDULE_GROUP_DELETE_TYPE = []
 # SCHEDULE_PRIVATE_DELETE_TYPE = ["tip", "chat"]
 
+# -----------------------------------------------------------------------------
+# 8. Advanced Optional MCP Setup
+# -----------------------------------------------------------------------------
 # To enable a generic MCP server:
 # USE_MCP = ["demo"]
 # MCP_demo = "{\"type\":\"http\",\"url\":\"http://127.0.0.1:3001/mcp\"}"
@@ -76,19 +139,3 @@ OPENAI_TTS_VOICE = "alloy"
 # IMPORTANT:
 # - The suffix after MCP_ becomes the MCP group name, so MCP_demo pairs with USE_MCP = ["demo"].
 # - The value must be a JSON string, not a TOML inline table.
-
-# To use an OpenAI-compatible API instead:
-# AI_CHAT_PROVIDER = "oailike"
-# AI_IMAGE_PROVIDER = "oailike"
-# AI_ASR_PROVIDER = "oailike"
-# AI_TTS_PROVIDER = "oailike"
-# OAILIKE_API_KEY = "your-key"
-# OAILIKE_API_BASE = "https://your-api.example.com/v1"
-# OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
-# OAILIKE_VISION_MODEL = "gpt-5.4-mini"
-# OAILIKE_IMAGE_MODEL = "gpt-image-1.5"
-# OAILIKE_STT_MODEL = "your-stt-model"
-# OAILIKE_TTS_MODEL = "gpt-4o-mini-tts"
-
-# Optional: force explicit endpoint mode.
-# OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
