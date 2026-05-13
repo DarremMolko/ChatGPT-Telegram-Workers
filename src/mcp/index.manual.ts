@@ -3,7 +3,7 @@ import { Experimental_StdioMCPTransport as MCPStdioTransport } from '@ai-sdk/mcp
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { stepCountIs, streamText } from 'ai';
 
-let mcpClient;
+let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | undefined;
 
 // Manual smoke script for exercising MCP integration against live services.
 async function main() {
