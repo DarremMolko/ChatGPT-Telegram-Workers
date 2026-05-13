@@ -1,21 +1,13 @@
-type TableAlignment = 'left' | 'center' | 'right';
-
 interface ParsedTableBlock {
-    alignments: TableAlignment[];
     nextIndex: number;
     rows: string[][];
 }
 
-const COLUMN_PADDING = 1;
-const MAX_COLUMN_WIDTH = 36;
-const MAX_TABLE_WIDTH = 72;
-const MAX_GRID_WIDTH = 52;
-const MIN_COLUMN_WIDTH = 4;
-const STACKED_CARD_WIDTH = 42;
 const TABLE_DELIMITER_REGEXP = /^:?-{3,}:?$/;
 const TABLE_ESCAPE_SENTINEL = '\u0000';
+const GENERIC_FIRST_COLUMN_HEADERS = new Set(['data', 'dato', 'item', 'name', 'label', 'periodo', 'period', 'horario', 'hora', 'time', 'hour']);
 
-export function renderPipeTablesAsCodeBlocks(text: string): string {
+export function renderPipeTables(text: string): string {
     const lines = text.split('\n');
     const rendered: string[] = [];
     let inCodeBlock = false;
@@ -39,9 +31,7 @@ export function renderPipeTablesAsCodeBlocks(text: string): string {
             continue;
         }
 
-        rendered.push('```');
-        rendered.push(...renderTable(table.rows, table.alignments));
-        rendered.push('```');
+        rendered.push(...renderTable(table.rows));
         index = table.nextIndex - 1;
     }
 
@@ -55,7 +45,7 @@ function parseTableBlock(lines: string[], startIndex: number): ParsedTableBlock 
 
     const header = parseTableRow(lines[startIndex]);
     const delimiter = parseTableRow(lines[startIndex + 1]);
-    if (!header || !delimiter || header.length < 2 || header.length !== delimiter.length) {
+    if (!header || !delimiter || header.length < 1 || header.length !== delimiter.length) {
         return null;
     }
 
@@ -64,7 +54,6 @@ function parseTableBlock(lines: string[], startIndex: number): ParsedTableBlock 
     }
 
     const rows = [header];
-    const alignments = delimiter.map(parseAlignment);
     let nextIndex = startIndex + 2;
 
     while (nextIndex < lines.length) {
@@ -78,7 +67,6 @@ function parseTableBlock(lines: string[], startIndex: number): ParsedTableBlock 
     }
 
     return {
-        alignments,
         nextIndex,
         rows,
     };
@@ -100,7 +88,7 @@ function parseTableRow(line: string): string[] | null {
         cells = cells.slice(0, -1);
     }
 
-    if (cells.length < 2 || cells.every(cell => cell === '')) {
+    if (cells.length < 1 || cells.every(cell => cell === '')) {
         return null;
     }
 
@@ -115,250 +103,84 @@ function normalizeRow(row: string[], columnCount: number): string[] {
     return normalized;
 }
 
-function parseAlignment(cell: string): TableAlignment {
-    const trimmed = cell.trim();
-    const isLeft = trimmed.startsWith(':');
-    const isRight = trimmed.endsWith(':');
-    if (isLeft && isRight) {
-        return 'center';
-    }
-    if (isRight) {
-        return 'right';
-    }
-    return 'left';
-}
-
-function renderTable(rows: string[][], alignments: TableAlignment[]): string[] {
-    const columnCount = rows[0].length;
-    const widths = resolveColumnWidths(rows, columnCount);
-    if (shouldRenderStacked(rows, widths)) {
-        return renderStackedTable(rows);
-    }
-
-    const table: string[] = [];
-
-    table.push(buildBorder(widths, '┌', '┬', '┐'));
-    table.push(...renderRow(rows[0], widths, alignments));
-    table.push(buildBorder(widths, '├', '┼', '┤'));
-
-    for (const row of rows.slice(1)) {
-        table.push(...renderRow(row, widths, alignments));
-    }
-
-    table.push(buildBorder(widths, '└', '┴', '┘'));
-    return table;
-}
-
-function shouldRenderStacked(rows: string[][], widths: number[]): boolean {
-    const columnCount = rows[0].length;
-    return columnCount > 3 || (columnCount > 2 && getTableWidth(widths) > MAX_GRID_WIDTH);
-}
-
-function resolveColumnWidths(rows: string[][], columnCount: number): number[] {
-    const widths = Array.from({ length: columnCount }, (_, columnIndex) => {
-        const maxWidth = Math.max(...rows.map(row => displayWidth(row[columnIndex] ?? '')));
-        return Math.max(MIN_COLUMN_WIDTH, Math.min(maxWidth, MAX_COLUMN_WIDTH));
-    });
-
-    let totalWidth = getTableWidth(widths);
-    while (totalWidth > MAX_TABLE_WIDTH) {
-        const targetIndex = widths.findLastIndex(width => width > MIN_COLUMN_WIDTH);
-        if (targetIndex < 0) {
-            break;
-        }
-        widths[targetIndex]--;
-        totalWidth = getTableWidth(widths);
-    }
-
-    return widths;
-}
-
-function getTableWidth(widths: number[]): number {
-    return widths.reduce((total, width) => total + width + COLUMN_PADDING * 2 + 1, 1);
-}
-
-function buildBorder(widths: number[], left: string, middle: string, right: string): string {
-    return left + widths.map(width => '─'.repeat(width + COLUMN_PADDING * 2)).join(middle) + right;
-}
-
-function renderStackedTable(rows: string[][]): string[] {
-    if (rows.length <= 1) {
-        return renderCompactSingleRow(rows[0] ?? []);
-    }
-
+function renderTable(rows: string[][]): string[] {
     const headers = rows[0];
-    const titleHeader = headers[0] || 'Row';
-    const fieldHeaders = headers.slice(1);
-    const cards: string[] = [];
+    if (headers.length === 1) {
+        return renderSingleColumnTable(rows.slice(1));
+    }
+    if (headers.length === 2) {
+        return renderKeyValueTable(rows.slice(1));
+    }
+    return renderRecordTable(headers, rows.slice(1));
+}
 
-    for (const [rowIndex, row] of rows.slice(1).entries()) {
+function renderSingleColumnTable(rows: string[][]): string[] {
+    return rows
+        .map(row => row[0]?.trim())
+        .filter((value): value is string => Boolean(value))
+        .map(value => `- ${value}`);
+}
+
+function renderKeyValueTable(rows: string[][]): string[] {
+    return rows
+        .map(([label, value]) => renderKeyValueLine(label, value))
+        .filter((line): line is string => Boolean(line));
+}
+
+function renderRecordTable(headers: string[], rows: string[][]): string[] {
+    const blocks: string[] = [];
+    const firstHeader = cleanLabel(headers[0]);
+    const useBareTitle = GENERIC_FIRST_COLUMN_HEADERS.has(firstHeader.toLowerCase());
+
+    for (const [rowIndex, row] of rows.entries()) {
+        const titleValue = row[0]?.trim();
+        if (!titleValue) {
+            continue;
+        }
+
         if (rowIndex > 0) {
-            cards.push('');
+            blocks.push('');
         }
 
-        const titleValue = row[0]?.trim() || `Row ${rowIndex + 1}`;
-        const contentLines = wrapText(`${titleHeader}: ${titleValue}`, STACKED_CARD_WIDTH);
+        blocks.push(useBareTitle ? `**${titleValue}**` : `**${firstHeader}: ${titleValue}**`);
 
-        for (const [fieldIndex, header] of fieldHeaders.entries()) {
-            const value = row[fieldIndex + 1]?.trim();
-            if (!value) {
-                continue;
+        for (let index = 1; index < headers.length; index++) {
+            const field = renderKeyValueLine(headers[index], row[index]);
+            if (field) {
+                blocks.push(field);
             }
-            contentLines.push(...wrapText(`${header}: ${value}`, STACKED_CARD_WIDTH));
         }
-
-        const width = STACKED_CARD_WIDTH;
-        cards.push(buildBorder([width], '┌', '┬', '┐'));
-        cards.push(...contentLines.map(line => `│ ${padCell(line, width, 'left')} │`));
-        cards.push(buildBorder([width], '└', '┴', '┘'));
     }
 
-    return cards;
+    return blocks;
 }
 
-function renderCompactSingleRow(row: string[]): string[] {
-    const contentLines = row.map(cell => cell.trim()).filter(Boolean);
-    if (contentLines.length === 0) {
-        return [];
+function renderKeyValueLine(label: string | undefined, value: string | undefined): string | null {
+    const cleanValue = value?.trim();
+    const cleanKey = cleanLabel(label);
+    if (!cleanKey && !cleanValue) {
+        return null;
+    }
+    if (!cleanValue) {
+        return cleanKey ? `- **${cleanKey}**` : null;
+    }
+    if (!cleanKey) {
+        return `- ${cleanValue}`;
+    }
+    return `- **${cleanKey}:** ${cleanValue}`;
+}
+
+function cleanLabel(text: string | undefined): string {
+    let value = text?.trim() ?? '';
+    if (!value) {
+        return value;
     }
 
-    const width = Math.max(...contentLines.map(displayWidth));
-    return [
-        buildBorder([width], '┌', '┬', '┐'),
-        ...contentLines.map(line => `│ ${padCell(line, width, 'left')} │`),
-        buildBorder([width], '└', '┴', '┘'),
-    ];
-}
-
-function renderRow(row: string[], widths: number[], alignments: TableAlignment[]): string[] {
-    const wrappedCells = row.map((cell, index) => wrapCell(cell, widths[index]));
-    const rowHeight = Math.max(...wrappedCells.map(lines => lines.length));
-    const lines: string[] = [];
-
-    for (let lineIndex = 0; lineIndex < rowHeight; lineIndex++) {
-        const line = widths.map((width, columnIndex) => {
-            const cellLine = wrappedCells[columnIndex][lineIndex] ?? '';
-            return ` ${padCell(cellLine, width, alignments[columnIndex])} `;
-        }).join('│');
-        lines.push(`│${line}│`);
-    }
-
-    return lines;
-}
-
-function wrapCell(text: string, width: number): string[] {
-    return wrapText(text, width);
-}
-
-function wrapText(text: string, width: number): string[] {
-    const normalized = text.trim();
-    if (!normalized) {
-        return [''];
-    }
-
-    const words = normalized.split(/\s+/);
-    const lines: string[] = [];
-    let current = '';
-
-    for (const word of words) {
-        const candidate = current ? `${current} ${word}` : word;
-        if (displayWidth(candidate) <= width) {
-            current = candidate;
-            continue;
+    for (const marker of ['**', '__', '`', '*', '_']) {
+        if (value.startsWith(marker) && value.endsWith(marker) && value.length > marker.length * 2) {
+            value = value.slice(marker.length, -marker.length).trim();
         }
-
-        if (current) {
-            lines.push(current);
-            current = '';
-        }
-
-        if (displayWidth(word) <= width) {
-            current = word;
-            continue;
-        }
-
-        const segments = wrapLongToken(word, width);
-        lines.push(...segments.slice(0, -1));
-        current = segments.at(-1) ?? '';
     }
 
-    if (current) {
-        lines.push(current);
-    }
-
-    return lines.length ? lines : [''];
-}
-
-function wrapLongToken(token: string, width: number): string[] {
-    if (displayWidth(token) <= width) {
-        return [token];
-    }
-
-    const segments: string[] = [];
-    let current = '';
-    for (const char of token) {
-        if (current && displayWidth(current + char) > width) {
-            segments.push(current);
-            current = char;
-            continue;
-        }
-        current += char;
-    }
-
-    if (current) {
-        segments.push(current);
-    }
-
-    return segments;
-}
-
-function padCell(text: string, width: number, alignment: TableAlignment): string {
-    const padding = Math.max(0, width - displayWidth(text));
-    if (alignment === 'right') {
-        return `${' '.repeat(padding)}${text}`;
-    }
-    if (alignment === 'center') {
-        const leftPadding = Math.floor(padding / 2);
-        const rightPadding = padding - leftPadding;
-        return `${' '.repeat(leftPadding)}${text}${' '.repeat(rightPadding)}`;
-    }
-    return `${text}${' '.repeat(padding)}`;
-}
-
-function displayWidth(text: string): number {
-    let width = 0;
-    for (const char of text) {
-        width += characterWidth(char);
-    }
-    return width;
-}
-
-function characterWidth(char: string): number {
-    const codePoint = char.codePointAt(0);
-    if (!codePoint || codePoint === 0x200D || codePoint === 0xFE0E || codePoint === 0xFE0F || /\p{Mark}/u.test(char)) {
-        return 0;
-    }
-
-    if (isFullWidthCodePoint(codePoint)) {
-        return 2;
-    }
-
-    return 1;
-}
-
-function isFullWidthCodePoint(codePoint: number): boolean {
-    return codePoint >= 0x1100 && (
-        codePoint <= 0x115F
-        || codePoint === 0x2329
-        || codePoint === 0x232A
-        || (codePoint >= 0x2E80 && codePoint <= 0xA4CF && codePoint !== 0x303F)
-        || (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
-        || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
-        || (codePoint >= 0xFE10 && codePoint <= 0xFE19)
-        || (codePoint >= 0xFE30 && codePoint <= 0xFE6F)
-        || (codePoint >= 0xFF00 && codePoint <= 0xFF60)
-        || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
-        || (codePoint >= 0x1F300 && codePoint <= 0x1FAFF)
-        || (codePoint >= 0x20000 && codePoint <= 0x3FFFD)
-    );
+    return value;
 }

@@ -125,13 +125,7 @@ describe('messageSender.sendRichText', () => {
             chat_id: 123,
             text: `Summary
 
-\`\`\`
-┌──────┬──────────┐
-│ Name │ Role     │
-├──────┼──────────┤
-│ Ada  │ Engineer │
-└──────┴──────────┘
-\`\`\``,
+• *Ada:* Engineer`,
         }));
     });
 });
