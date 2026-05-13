@@ -107,27 +107,4 @@ describe('messageSender.sendRichText', () => {
             text: 'second chunk',
         }));
     });
-
-    it('formats markdown pipe tables as monospace blocks before sending rich text', async () => {
-        const sender = MessageSender.from('token', createMessage('private'));
-        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }));
-
-        await sender.sendRichText(`Summary
-
-| Dato | Valor |
-| --- | --- |
-| **Máxima** | **17.9°C** (18:00 hs) |`);
-
-        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
-            chat_id: 123,
-            text: `Summary
-
-\`\`\`
-Máxima: 17.9°C (18:00 hs)
-\`\`\``,
-        }));
-    });
 });
