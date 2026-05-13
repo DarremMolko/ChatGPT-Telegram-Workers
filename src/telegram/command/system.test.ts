@@ -99,6 +99,7 @@ vi.mock('../api', () => ({
 vi.mock('../handler/chat', () => ({
     chatWithLLM: vi.fn(),
     mergeLogMessages: vi.fn((text: string) => text),
+    sendLogFooter: vi.fn(),
     sendImages: sendImagesMock,
     stt: sttMock,
     tts: ttsMock,
@@ -129,6 +130,7 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
 });
 
 const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
+const { sendLogFooter } = await import('../handler/chat');
 
 function createReplyMessage(
     text: string,
@@ -229,6 +231,7 @@ describe('tTSCommandHandler', () => {
         redisMock.delete.mockClear();
         redisMock.get.mockClear();
         redisMock.put.mockClear();
+        vi.mocked(sendLogFooter).mockReset();
         sendActionMock.mockReset();
         sendImagesMock.mockReset();
         sttMock.mockReset();
@@ -354,6 +357,7 @@ describe('tTSCommandHandler', () => {
         expect(sttMock).toHaveBeenCalledWith(expect.any(Blob), context.USER_CONFIG);
         expect(sender.sendPlainText).toHaveBeenCalledWith('Using agent openai to transcribe audio...');
         expect(sender.sendRichText).toHaveBeenCalledWith('Transcribed reply');
+        expect(sendLogFooter).toHaveBeenCalledWith(sender, context.USER_CONFIG);
     });
 
     it('transcribes an audio message when /stt is used as the caption', async () => {
@@ -373,6 +377,7 @@ describe('tTSCommandHandler', () => {
         expect(getTelegramFileMock).toHaveBeenCalledWith(['audio-file-id'], 'bot-token', 'blob');
         expect(sttMock).toHaveBeenCalledWith(expect.any(Blob), context.USER_CONFIG);
         expect(sender.sendRichText).toHaveBeenCalledWith('Caption transcription');
+        expect(sendLogFooter).toHaveBeenCalledWith(sender, context.USER_CONFIG);
     });
 
     it('rejects /stt without an audio or voice target', async () => {
