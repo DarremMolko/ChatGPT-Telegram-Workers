@@ -34,6 +34,7 @@ const SUPPORTED_CHAT_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_IMAGE_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
+const SUPPORTED_CHAT_CONCURRENCY_POLICIES = new Set(['queue', 'cancel_previous', 'drop_if_busy', 'parallel']);
 
 function resolveRuntimeBuildInfo(): { sha: string; timestamp: number } {
     const envSha = process.env.BUILD_VERSION?.trim();
@@ -154,6 +155,10 @@ class Environment extends EnvironmentConfig {
         this.ADMIN_WHITE_LIST = Array.from(new Set(this.ADMIN_WHITE_LIST.map((id: string) => `${id}`.trim()).filter(Boolean)));
         this.TELEGRAM_ALLOWED_UPDATES = Array.from(new Set(this.TELEGRAM_ALLOWED_UPDATES.map((type: string) => `${type}`.trim()).filter(Boolean)));
         this.TELEGRAM_WEBHOOK_SECRET_TOKEN = `${this.TELEGRAM_WEBHOOK_SECRET_TOKEN || ''}`.trim();
+        this.LOCAL_INIT_SECRET = `${this.LOCAL_INIT_SECRET || ''}`.trim();
+        if (!SUPPORTED_CHAT_CONCURRENCY_POLICIES.has(this.CHAT_CONCURRENCY_POLICY)) {
+            this.CHAT_CONCURRENCY_POLICY = 'queue';
+        }
         if (!SUPPORTED_CHAT_PROVIDERS.has(this.USER_CONFIG.AI_CHAT_PROVIDER)) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = 'openai';
         }

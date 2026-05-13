@@ -1,11 +1,11 @@
 import type * as Telegram from 'telegram-bot-api-types';
-import type { RouterRequest } from '../utils/router';
 import { ENV } from '../config/env';
 import { createTelegramBotAPI } from '../telegram/api';
 import { isTelegramWebhookRequestAuthorized, resolveTelegramAllowedUpdates, resolveTelegramWebhookSecretToken } from '../telegram/api/options';
 import { commandsBindScope, commandsDocument } from '../telegram/command';
 import { handleUpdate } from '../telegram/handler';
 import { Router } from '../utils/router';
+import { canUseInitRoute, INIT_SECRET_HEADER, initForbiddenMessage } from './init_guard';
 import { errorToString, makeResponse200, renderHTML } from './utils';
 
 const helpLink = 'https://github.com/TBXark/ChatGPT-Telegram-Workers/blob/master/doc/en/LOCAL.md';
@@ -17,7 +17,14 @@ const footer = `
 <p>If you have any questions, please visit <a href="${issueLink}">${issueLink}</a></p>
 `;
 
-async function bindWebHookAction(request: RouterRequest): Promise<Response> {
+function initForbiddenResponse(): Response {
+    return new Response(initForbiddenMessage(), { status: 403 });
+}
+
+async function bindWebHookAction(request: Request): Promise<Response> {
+    if (!canUseInitRoute(request)) {
+        return initForbiddenResponse();
+    }
     const result: Record<string, Record<string, any>> = {};
     const domain = new URL(request.url).host;
     const hookMode = ENV.API_GUARD ? 'safehook' : 'webhook';
@@ -57,12 +64,12 @@ async function bindWebHookAction(request: RouterRequest): Promise<Response> {
     return new Response(HTML, { status: 200, headers: { 'Content-Type': 'text/html' } });
 }
 
-async function telegramWebhook(request: RouterRequest): Promise<Response> {
+async function telegramWebhook(request: Request): Promise<Response> {
     try {
         if (!isTelegramWebhookRequestAuthorized(request.headers)) {
             return new Response('Forbidden', { status: 403 });
         }
-        const { token } = request.params as any;
+        const { token } = (request as any).params as any;
         const body = await request.json() as Telegram.Update;
         return makeResponse200(await handleUpdate(token, body));
     } catch (e) {
@@ -76,7 +83,7 @@ async function telegramWebhook(request: RouterRequest): Promise<Response> {
  * @param {Request} request
  * @returns {Promise<Response>}
  */
-async function telegramSafeHook(request: RouterRequest): Promise<Response> {
+async function telegramSafeHook(request: Request): Promise<Response> {
     try {
         if (ENV.API_GUARD === undefined || ENV.API_GUARD === null) {
             return telegramWebhook(request);
@@ -93,13 +100,17 @@ async function telegramSafeHook(request: RouterRequest): Promise<Response> {
 }
 
 async function defaultIndexAction(): Promise<Response> {
+    const initInstruction = ENV.LOCAL_INIT_SECRET
+        ? `<p><strong>/init</strong> requires the configured <code>LOCAL_INIT_SECRET</code>. Pass it with <code>?secret=...</code> or the <code>${INIT_SECRET_HEADER}</code> header.</p>`
+        : '<p><strong>/init</strong> is disabled until you configure <code>LOCAL_INIT_SECRET</code>.</p>';
     const HTML = renderHTML(`
     <h1>ChatGPT-Telegram-Workers</h1>
     <br/>
     <p>Local or Docker deployment is ready.</p>
     <p>Version (ts:${ENV.BUILD_TIMESTAMP}, sha:${ENV.BUILD_VERSION})</p>
     <br/>
-    <p>You must <strong><a href="${initLink}"> >>>>> click here <<<<< </a></strong> to bind the webhook.</p>
+    ${initInstruction}
+    <p>Use <strong><a href="${initLink}">${initLink}</a></strong> to bind the webhook after authorization succeeds.</p>
     <br/>
     <p>After binding the webhook, you can use the following commands to control the bot:</p>
     ${

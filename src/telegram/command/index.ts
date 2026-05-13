@@ -97,13 +97,28 @@ async function handleSystemCommand(message: Telegram.Message, raw: string, comma
     }
 }
 
+function resolveCommandText(rawText: string): string {
+    const normalized = rawText.trim();
+    if (ENV.CUSTOM_COMMAND[normalized]) {
+        return ENV.CUSTOM_COMMAND[normalized].value;
+    }
+    return normalized;
+}
+
+export function resolveMatchedCommand(rawText: string): CommandHandler | null {
+    const text = resolveCommandText(rawText);
+    for (const cmd of SYSTEM_COMMANDS) {
+        if (text === cmd.command || text.startsWith(`${cmd.command} `) || text.startsWith(`${cmd.command}\n`)) {
+            return cmd;
+        }
+    }
+    return null;
+}
+
 export async function handleCommandMessage(message: Telegram.Message, context: WorkerContext): Promise<Response | UnionData | ImageResult | null> {
     let text = (message.text || message.caption || '').trim();
 
-    if (ENV.CUSTOM_COMMAND[text]) {
-        // 替换自定义命令为系统命令
-        text = ENV.CUSTOM_COMMAND[text].value;
-    }
+    text = resolveCommandText(text);
 
     if (ENV.DEV_MODE) {
         // 插入调试命令
@@ -115,11 +130,10 @@ export async function handleCommandMessage(message: Telegram.Message, context: W
     // const SYSTEM_COMMANDS = SystemCommandGen();
 
     // 查找系统命令
-    for (const cmd of SYSTEM_COMMANDS) {
-        if (text === cmd.command || text.startsWith(`${cmd.command} `) || text.startsWith(`${cmd.command}\n`)) {
-            log.info(`[SYSTEM COMMAND] handle system command: ${cmd.command}`);
-            return handleSystemCommand(message, text, cmd, context);
-        }
+    const command = resolveMatchedCommand(text);
+    if (command) {
+        log.info(`[SYSTEM COMMAND] handle system command: ${command.command}`);
+        return handleSystemCommand(message, text, command, context);
     }
     return null;
 }

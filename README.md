@@ -51,6 +51,7 @@ Environment variables are now the primary configuration path. `config.toml` is a
 ```bash
 export LOCAL_MODE=webhook
 export PORT=8787
+export LOCAL_INIT_SECRET=replace-with-a-random-secret
 export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
 export OWNER_ID=123456789
 export REDIS_URL=rediss://default:your-password@your-redis-host:6379
@@ -88,6 +89,7 @@ REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 # TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
 # TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
 # TELEGRAM_DROP_PENDING_UPDATES = false
+# LOCAL_INIT_SECRET = "replace-with-a-random-secret"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
@@ -104,6 +106,7 @@ REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
 # TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
 # TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
 # TELEGRAM_DROP_PENDING_UPDATES = false
+# LOCAL_INIT_SECRET = "replace-with-a-random-secret"
 
 AI_CHAT_PROVIDER = "oailike"
 AI_IMAGE_PROVIDER = "oailike"
@@ -123,6 +126,7 @@ You can also put the local adapter mode in `config.toml`:
 LOCAL_MODE = "webhook"
 LOCAL_PORT = 8787
 LOCAL_BASE_URL = "https://your-domain.example.com"
+LOCAL_INIT_SECRET = "replace-with-a-random-secret"
 ```
 
 Polling example:
@@ -142,10 +146,12 @@ npm run start:local
 If you use `webhook` mode:
 
 1. Expose the server publicly
-2. Open `http://localhost:8787/init` or your deployed `/init`
+2. Set `LOCAL_INIT_SECRET`, then open `http://localhost:8787/init?secret=...` or your deployed `/init?secret=...`
 3. Let the bot bind Telegram webhooks and command menus automatically
 
 For PaaS deployments such as Render and Koyeb, `LOCAL_MODE=webhook` plus normal platform env vars is usually enough. The app can derive the public host from forwarded request headers, so `LOCAL_BASE_URL` is optional unless you need to force an override.
+
+To avoid overlapping replies in the same chat, the runtime now defaults to `CHAT_CONCURRENCY_POLICY=queue`. Other supported values are `cancel_previous`, `drop_if_busy`, and `parallel`.
 
 If you use `polling` mode:
 

@@ -61,6 +61,8 @@ OPENAI_TTS_VOICE = "alloy"
 # LOCAL_PORT = 8787
 # LOCAL_HOSTNAME = "0.0.0.0"
 # LOCAL_BASE_URL = "https://your-domain.example.com"
+# LOCAL_INIT_SECRET = "replace-with-a-random-secret"
+# `/init` is disabled when this is empty.
 #
 # Polling example:
 # LOCAL_MODE = "polling"
@@ -112,6 +114,10 @@ OPENAI_TTS_VOICE = "alloy"
 # SHOW_PARTS = ["model", "model_time", "token", "tool", "tool_time"]
 # SHOW_TOOL_ARGS_MAX_LENGTH = 80
 # Set SHOW_TOOL_ARGS_MAX_LENGTH = -1 to show full tool arguments.
+#
+# Optional: serialize same-chat execution to avoid overlapping replies.
+# Supported values: "queue", "cancel_previous", "drop_if_busy", "parallel"
+# CHAT_CONCURRENCY_POLICY = "queue"
 
 # -----------------------------------------------------------------------------
 # 7. Optional Debugging And Provider Extras

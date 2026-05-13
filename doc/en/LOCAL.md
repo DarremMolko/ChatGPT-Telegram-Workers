@@ -36,6 +36,7 @@ Minimal webhook setup:
 ```bash
 export LOCAL_MODE=webhook
 export PORT=8787
+export LOCAL_INIT_SECRET=replace-with-a-random-secret
 export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
 export OWNER_ID=123456789
 export REDIS_URL=rediss://default:your-password@your-redis-host:6379
@@ -60,6 +61,7 @@ export OPENAI_API_KEY=sk-...
 | `LOCAL_HOSTNAME` | no | Host to bind the local HTTP server to. Defaults to `0.0.0.0` in webhook mode. |
 | `LOCAL_PORT` | no | Port to listen on. `PORT` is also accepted and is useful on PaaS platforms. |
 | `LOCAL_BASE_URL` | no | Optional explicit base URL override for webhook URL generation. `BASE_URL` is also accepted. |
+| `LOCAL_INIT_SECRET` | no | Secret for authorizing `GET /init`. When empty, `/init` is disabled. Accept it with `?secret=...` or the `X-Init-Secret` header. |
 | `LOCAL_PROXY` | no | HTTP/HTTPS proxy for outbound requests. |
 | `TOML_PATH` | no | Optional path to `config.toml`. |
 
@@ -89,6 +91,7 @@ LOCAL_MODE = "webhook"
 LOCAL_PORT = 8787
 LOCAL_HOSTNAME = "0.0.0.0"
 LOCAL_BASE_URL = "https://your-domain.example.com"
+LOCAL_INIT_SECRET = "replace-with-a-random-secret"
 ```
 
 Polling example:
@@ -154,9 +157,10 @@ Use `webhook` mode when your process is reachable through a public URL.
 
 After the server starts:
 
-1. open `/init` on the running server
-2. the bot will register Telegram webhooks for every token in `TELEGRAM_AVAILABLE_TOKENS`
-3. the bot will also push Telegram command menus for the supported chat scopes
+1. set `LOCAL_INIT_SECRET`
+2. open `/init` on the running server
+3. the bot will register Telegram webhooks for every token in `TELEGRAM_AVAILABLE_TOKENS`
+4. the bot will also push Telegram command menus for the supported chat scopes
 
 ### Local HTTP Endpoints
 
@@ -171,6 +175,7 @@ Notes:
 
 - the public webhook URL is built from the incoming request host by default
 - `LOCAL_BASE_URL` or `BASE_URL` can still override that when needed
+- `/init` is disabled until `LOCAL_INIT_SECRET` is configured
 - `/init` must be re-run if you change domains or tokens
 - the local landing page is documentation only; it does not expose a `/telegram/:token/bot` route
 

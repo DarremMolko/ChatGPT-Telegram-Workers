@@ -18,6 +18,8 @@ export class EnvironmentConfig {
     TELEGRAM_WEBHOOK_SECRET_TOKEN = '';
     // Whether to drop pending Telegram updates when binding webhooks or switching to polling.
     TELEGRAM_DROP_PENDING_UPDATES = false;
+    // Secret required to use the local `/init` webhook bootstrap endpoint. When empty, `/init` is disabled.
+    LOCAL_INIT_SECRET = '';
     // 默认消息模式
     DEFAULT_PARSE_MODE = 'MarkdownV2';
     // 最小stream模式消息间隔，小于等于0则不限制 单位：ms
@@ -137,6 +139,9 @@ export class EnvironmentConfig {
 
     // Store history message length
     STORE_HISTORY_LENGTH = 64;
+    // Same-chat execution policy. `queue` serializes requests, `cancel_previous` keeps only the latest queued request after cancelling the active one,
+    // `drop_if_busy` rejects new requests while one is running, and `parallel` keeps the legacy behavior.
+    CHAT_CONCURRENCY_POLICY: 'queue' | 'cancel_previous' | 'drop_if_busy' | 'parallel' = 'queue';
     // File size limit, when enabled folding, the file size limit is effective
     FILE_SIZE_LIMIT = -1;
     // inline keyboard callback row count x column count

@@ -1,8 +1,12 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import type { MessageHandler } from './types';
 import { WorkerContextBase } from '../../config/context';
+import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
+import { resolveMatchedCommand } from '../command';
 import { handleCallbackQuery, handleChosenInlineQuery, handleInlineQuery } from '../query';
+import { getPendingScopedExecutionCount, runScopedExecution, ScopeBusyError, ScopeSupersededError } from '../utils/active_request';
+import { MessageSender } from '../utils/send';
 import { ChatHandler } from './chat';
 import { GroupMention } from './group';
 import {
@@ -42,6 +46,31 @@ function loadMessage(body: Telegram.Update) {
 }
 
 const exitHanders: MessageHandler<any>[] = [new TagNeedDelete()];
+const preHandlers: MessageHandler<any>[] = [
+    new EnvChecker(),
+    new WhiteListFilter(),
+    new MessageFilter(),
+    new OldMessageFilter(),
+    new ReplyInlineHandler(),
+    new GroupMention(),
+    new ChunkMessageHandler(),
+    new SaveLastMessage(),
+    new MergeQuote(),
+    new InitUserConfig(),
+    new RecordStatsHandler(),
+    new BlocklistFilter(),
+    new SubstituteHandler(),
+];
+const postHandlers: MessageHandler<any>[] = [
+    new CommandHandler(),
+    new ChatHandler(),
+];
+
+function isExecutionBypassCommand(message: Telegram.Message): boolean {
+    const text = (message.text || message.caption || '').trim();
+    const command = resolveMatchedCommand(text);
+    return command?.command === '/stop' || command?.command === '/cancel';
+}
 
 export async function handleUpdate(token: string, update: Telegram.Update): Promise<Response | null> {
     log.debug(`handleUpdate`, update.message?.chat ?? `callback_query: ${JSON.stringify(update.callback_query?.from, null, 2)}`);
@@ -50,46 +79,49 @@ export async function handleUpdate(token: string, update: Telegram.Update): Prom
 }
 
 async function handleMessage(token: string, message: Telegram.Message) {
-    // 消息处理中间件
-    const SHARE_HANDLER: MessageHandler<any>[] = [
-        // 检查环境是否准备好: REDIS
-        new EnvChecker(),
-        // 过滤非白名单群组/用户, 提前过滤减少KV消耗
-        new WhiteListFilter(),
-        // 过滤不支持的消息 抽离文件ID
-        new MessageFilter(),
-        // 忽略旧消息
-        new OldMessageFilter(),
-        // 处理回复内联消息
-        new ReplyInlineHandler(),
-        // 处理群消息，判断是否需要响应此条消息
-        new GroupMention(),
-        // 处理消息分块
-        new ChunkMessageHandler(),
-        // DEBUG: 保存最后一条消息,按照需求自行调整此中间件位置
-        new SaveLastMessage(),
-        // 合并引用消息
-        new MergeQuote(),
-        // 初始化用户配置
-        new InitUserConfig(),
-        // 记录使用统计
-        new RecordStatsHandler(),
-        // 过滤被屏蔽的用户
-        new BlocklistFilter(),
-        // 替换消息
-        new SubstituteHandler(),
-        // 处理命令消息
-        new CommandHandler(),
-        // 与llm聊天
-        new ChatHandler(),
-    ];
-    // 延迟初始化用户配置
     const context = new WorkerContextBase(token, message);
     try {
-        for (const handler of SHARE_HANDLER) {
+        let response: Response | null = null;
+        for (const handler of preHandlers) {
             const result = await handler.handle(message, context);
             if (result instanceof Response) {
+                response = result;
                 break;
+            }
+        }
+
+        if (!(response instanceof Response)) {
+            const runPostHandlers = async () => {
+                for (const handler of postHandlers) {
+                    const result = await handler.handle(message, context);
+                    if (result instanceof Response) {
+                        return result;
+                    }
+                }
+                return null;
+            };
+
+            if (isExecutionBypassCommand(message)) {
+                response = await runPostHandlers();
+            } else {
+                const scopeKey = context.SHARE_CONTEXT.chatHistoryKey;
+                const policy = ENV.CHAT_CONCURRENCY_POLICY;
+                if (policy === 'queue' && getPendingScopedExecutionCount(scopeKey) > 0) {
+                    await MessageSender.from(token, message)
+                        .sendPlainText('Another response is already running in this chat. Your message has been queued.', 'tip');
+                }
+                try {
+                    response = await runScopedExecution(scopeKey, policy, runPostHandlers);
+                } catch (error) {
+                    if (error instanceof ScopeSupersededError) {
+                        response = null;
+                    } else if (error instanceof ScopeBusyError) {
+                        response = await MessageSender.from(token, message)
+                            .sendPlainText('Another response is already running in this chat. Please wait or send /stop.', 'tip');
+                    } else {
+                        throw error;
+                    }
+                }
             }
         }
 
@@ -99,11 +131,10 @@ async function handleMessage(token: string, message: Telegram.Message) {
                 return result;
             }
         }
+        return response;
     } catch (e) {
         return catchError(e as Error);
     }
-
-    return null;
 }
 
 export function catchError(e: Error) {

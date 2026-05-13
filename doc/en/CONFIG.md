@@ -103,6 +103,7 @@ Important:
 | `TELEGRAM_ALLOWED_UPDATES` | Update types requested from Telegram for webhook and polling delivery. | `['message', 'inline_query', 'callback_query', 'chosen_inline_result']` |
 | `TELEGRAM_WEBHOOK_SECRET_TOKEN` | Optional shared secret required on inbound Telegram webhook requests. | `''` |
 | `TELEGRAM_DROP_PENDING_UPDATES` | Drop pending Telegram updates when binding webhooks or switching to polling. | `false` |
+| `LOCAL_INIT_SECRET` | Secret required to call the local `/init` route. When empty, `/init` is disabled. | `''` |
 | `TELEGRAM_BOT_NAME` | Bot usernames aligned by position with `TELEGRAM_AVAILABLE_TOKENS`. Helpful when using multiple bots. | `[]` |
 | `CHAT_GROUP_WHITE_LIST` | Group IDs allowed to use the bot. | `[]` |
 | `GROUP_CHAT_BOT_ENABLE` | Master group-chat enable switch. | `true` |
@@ -184,6 +185,7 @@ Telegram document notes:
 | --- | --- | --- |
 | `MAX_HISTORY_LENGTH` | Stored chat history window used by the model. | `10` |
 | `STORE_HISTORY_LENGTH` | Number of stored history items loaded from Redis on each request. | `64` |
+| `CHAT_CONCURRENCY_POLICY` | Same-chat execution policy. Supported values: `queue`, `cancel_previous`, `drop_if_busy`, `parallel`. | `queue` |
 | `EXPIRED_TIME` | Minutes after which sent messages become eligible for deletion. `-1` disables expiration. | `-1` |
 | `CRON_CHECK_TIME` | Cron expression used by the local adapter to run scheduled cleanup. | `''` |
 | `SCHEDULE_GROUP_DELETE_TYPE` | Group message categories eligible for scheduled deletion. | `['tip']` |
