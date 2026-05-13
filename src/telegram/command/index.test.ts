@@ -76,6 +76,7 @@ vi.mock('./system', () => {
         TTSCommandHandler,
         UnblockUserCommandHandler: DummyCommand,
         VersionCommandHandler: DummyCommand,
+        VisionCommandHandler: DummyCommand,
     };
 });
 

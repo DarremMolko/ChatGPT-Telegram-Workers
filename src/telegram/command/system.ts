@@ -1,7 +1,7 @@
 /* eslint-disable no-cond-assign */
 import type { UserModelMessage } from 'ai';
 import type * as Telegram from 'telegram-bot-api-types';
-import type { HistoryItem, TTSRequestOptions } from '../../agent/types';
+import type { HistoryItem, LLMChatRequestParams, TTSRequestOptions } from '../../agent/types';
 import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
@@ -224,6 +224,51 @@ function tokenizeImgSubcommand(subcommand: string): { flags: { flag: string; val
     ]));
 }
 
+function tokenizeVisionSubcommand(subcommand: string): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
+    return tokenizeKnownFlags(subcommand, new Set([
+        '-p',
+        '--p',
+        '-prompt',
+        '--prompt',
+    ]));
+}
+
+function isHttpUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+function parseVisionUrlSubcommand(subcommand: string): { urls: string[]; remainingText: string } {
+    const tokens = splitCommandTokens(subcommand);
+    const urls: string[] = [];
+    const remainingTokens: string[] = [];
+
+    for (const token of tokens) {
+        if (isHttpUrl(token.value)) {
+            urls.push(token.value);
+            continue;
+        }
+        remainingTokens.push(token.value);
+    }
+
+    return {
+        urls,
+        remainingText: remainingTokens.join(' ').trim(),
+    };
+}
+
+async function initializeCommandHistory(context: WorkerContext): Promise<void> {
+    if (ENV.STORE_HISTORY_LENGTH > 0 && context.SHARE_CONTEXT.chatHistoryKey) {
+        context.MIDDLE_CONTEXT.history = await loadHistory(context.SHARE_CONTEXT.chatHistoryKey, ENV.STORE_HISTORY_LENGTH);
+        return;
+    }
+    context.MIDDLE_CONTEXT.history = context.MIDDLE_CONTEXT.history || [];
+}
+
 export class ImgCommandHandler implements CommandHandler {
     command = '/img';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
@@ -334,6 +379,53 @@ export class ImgCommandHandler implements CommandHandler {
         } catch (e) {
             return sendCommandError(sender, e, { redactions: [context.SHARE_CONTEXT.botToken] });
         }
+    };
+}
+
+export class VisionCommandHandler implements CommandHandler {
+    command = '/vision';
+    scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
+            ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
+            : subcommand.trim();
+        const { flags, remainingText } = tokenizeVisionSubcommand(cleanedSubcommand);
+        let promptFlag: string | undefined;
+        for (const { flag, value } of flags) {
+            if (flag === 'p' || flag === 'prompt') {
+                if (value === undefined) {
+                    return sender.sendPlainText('Please provide a prompt after -p');
+                }
+                promptFlag = value;
+            }
+        }
+        const { urls, remainingText: inlinePrompt } = parseVisionUrlSubcommand(remainingText);
+        if (urls.length === 0) {
+            return sender.sendPlainText('Please provide at least one image URL');
+        }
+        if (inlinePrompt) {
+            return sender.sendPlainText('Please provide the prompt with -p');
+        }
+        if (!promptFlag) {
+            return sender.sendPlainText('Please provide a prompt with -p');
+        }
+
+        const params: LLMChatRequestParams = {
+            role: 'user',
+            content: [
+                {
+                    type: 'text',
+                    text: promptFlag,
+                },
+                ...urls.map(url => ({
+                    type: 'image' as const,
+                    image: new URL(url),
+                })),
+            ],
+        };
+
+        await initializeCommandHistory(context);
+        return chatWithLLM(message, params, context, null) as unknown as Response;
     };
 }
 

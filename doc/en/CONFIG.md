@@ -150,6 +150,7 @@ This creates `/fast`.
 - `/img` works with both provider families
 - reply-to-image editing works through the active OpenAI-compatible image flow, including `oailike`
 - `/img` accepts per-request overrides such as `-n 2`, `-s 1536x1024`, `-m gpt-image-2`, `-q high`, `-f webp`, `-c 80`, `-bg transparent`, `-mod low`, and `-if high`
+- `/vision` sends one or more external `http(s)` image URLs through the vision chat path and requires `-p "..."` for the question
 
 Telegram document notes:
 

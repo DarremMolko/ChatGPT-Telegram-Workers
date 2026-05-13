@@ -34,6 +34,7 @@ import {
     TTSCommandHandler,
     UnblockUserCommandHandler,
     VersionCommandHandler,
+    VisionCommandHandler,
 } from './system';
 
 const SYSTEM_COMMANDS: CommandHandler[] = [
@@ -43,6 +44,7 @@ const SYSTEM_COMMANDS: CommandHandler[] = [
     new StopCommandHandler(),
     new CancelCommandHandler(),
     new ImgCommandHandler(),
+    new VisionCommandHandler(),
     new SetEnvCommandHandler(),
     new SetEnvsCommandHandler(),
     new DelEnvCommandHandler(),

@@ -1,10 +1,12 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getTelegramFileMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sttMock, ttsMock } = vi.hoisted(() => {
+const { chatWithLLMMock, getTelegramFileMock, loadHistoryMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sttMock, ttsMock } = vi.hoisted(() => {
     const store = new Map<string, string>();
     return {
+        chatWithLLMMock: vi.fn(),
         getTelegramFileMock: vi.fn(),
+        loadHistoryMock: vi.fn(),
         loadImageGenMock: vi.fn(),
         runtimeAdminStore: store,
         redisMock: {
@@ -36,7 +38,7 @@ vi.mock('../../agent/api_base', () => ({
 }));
 
 vi.mock('../../agent/chat', () => ({
-    loadHistory: vi.fn(),
+    loadHistory: loadHistoryMock,
 }));
 
 vi.mock('../../agent/models', () => ({
@@ -57,6 +59,7 @@ vi.mock('../../config/env', () => ({
         },
         OWNER_ID: '1',
         REDIS: redisMock,
+        STORE_HISTORY_LENGTH: 5,
     },
 }));
 
@@ -97,7 +100,7 @@ vi.mock('../api', () => ({
 }));
 
 vi.mock('../handler/chat', () => ({
-    chatWithLLM: vi.fn(),
+    chatWithLLM: chatWithLLMMock,
     mergeLogMessages: vi.fn((text: string) => text),
     sendImages: sendImagesMock,
     stt: sttMock,
@@ -128,7 +131,7 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     };
 });
 
-const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler } = await import('./system');
+const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler, VisionCommandHandler } = await import('./system');
 
 function createReplyMessage(
     text: string,
@@ -190,6 +193,7 @@ function createContext() {
             botId: 999,
             configStoreKey: 'user_config:123:999',
             botToken: 'bot-token',
+            chatHistoryKey: 'history:123:999',
         },
         USER_CONFIG: {
             AI_ASR_PROVIDER: 'openai',
@@ -225,6 +229,7 @@ describe('tTSCommandHandler', () => {
     beforeEach(() => {
         getTelegramFileMock.mockReset();
         loadImageGenMock.mockReset();
+        loadHistoryMock.mockReset();
         runtimeAdminStore.clear();
         redisMock.delete.mockClear();
         redisMock.get.mockClear();
@@ -233,6 +238,7 @@ describe('tTSCommandHandler', () => {
         sendImagesMock.mockReset();
         sttMock.mockReset();
         ttsMock.mockReset();
+        chatWithLLMMock.mockReset();
     });
 
     it('uses the replied message text when the command only has flags plus merged quote context', async () => {
@@ -497,6 +503,115 @@ describe('tTSCommandHandler', () => {
 
         expect(request).not.toHaveBeenCalled();
         expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide a positive integer after -n');
+    });
+
+    it('sends image URLs to the vision model through the chat pipeline when -p is provided', async () => {
+        loadHistoryMock.mockResolvedValue([]);
+        chatWithLLMMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new VisionCommandHandler();
+        const message = createMessage('/vision https://example.com/a.png https://example.com/b.jpg -p "compare these"');
+        const sender = createSender();
+        const context = createContext();
+
+        const response = await handler.handle(
+            message,
+            'https://example.com/a.png https://example.com/b.jpg -p "compare these"',
+            context,
+            sender,
+        );
+
+        expect(response.ok).toBe(true);
+        expect(loadHistoryMock).toHaveBeenCalledWith('history:123:999', 5);
+        expect(chatWithLLMMock).toHaveBeenCalledWith(message, {
+            role: 'user',
+            content: [
+                {
+                    type: 'text',
+                    text: 'compare these',
+                },
+                {
+                    type: 'image',
+                    image: new URL('https://example.com/a.png'),
+                },
+                {
+                    type: 'image',
+                    image: new URL('https://example.com/b.jpg'),
+                },
+            ],
+        }, context, null);
+    });
+
+    it('supports an explicit -p prompt for /vision', async () => {
+        loadHistoryMock.mockResolvedValue([]);
+        chatWithLLMMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new VisionCommandHandler();
+        const message = createMessage('/vision https://example.com/a.png -p "what is in this image?"');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/a.png -p "what is in this image?"', context, sender);
+
+        expect(chatWithLLMMock).toHaveBeenCalledWith(message, {
+            role: 'user',
+            content: [
+                {
+                    type: 'text',
+                    text: 'what is in this image?',
+                },
+                {
+                    type: 'image',
+                    image: new URL('https://example.com/a.png'),
+                },
+            ],
+        }, context, null);
+    });
+
+    it('rejects /vision when only URLs are provided without -p', async () => {
+        const handler = new VisionCommandHandler();
+        const message = createMessage('/vision https://example.com/a.png');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/a.png', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide a prompt with -p');
+    });
+
+    it('rejects /vision without image URLs', async () => {
+        const handler = new VisionCommandHandler();
+        const message = createMessage('/vision what is in this image');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'what is in this image', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide at least one image URL');
+    });
+
+    it('rejects /vision when -p is missing a value', async () => {
+        const handler = new VisionCommandHandler();
+        const message = createMessage('/vision https://example.com/a.png -p');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/a.png -p', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide a prompt after -p');
+    });
+
+    it('rejects /vision when inline prompt text is provided instead of -p', async () => {
+        const handler = new VisionCommandHandler();
+        const message = createMessage('/vision https://example.com/a.png compare this');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/a.png compare this', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide the prompt with -p');
     });
 
     it('promotes a replied user into the runtime admin list', async () => {
