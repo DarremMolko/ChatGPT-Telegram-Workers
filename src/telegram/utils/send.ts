@@ -12,14 +12,14 @@ import { waitUntil } from './tg_utils';
 
 class MessageContext implements Record<string, any> {
     chat_id: number;
-    message_id: number | null = null; // 当前发送的消息，用于后续编辑
+    message_id: number | null = null; // The currently sent message, used for follow-up edits.
     reply_to_message_id: number | null;
     parse_mode: Telegram.ParseMode | null = null;
     allow_sending_without_reply: boolean | null = null;
     disable_web_page_preview: boolean | null = ENV.DISABLE_WEB_PREVIEW;
     message_thread_id: number | null = null;
-    chatType: string; // 聊天类型
-    message: Telegram.Message; // 原始消息 用于标记需要删除的id
+    chatType: string; // Chat type
+    message: Telegram.Message; // Original message, used to tag IDs that may need deletion
     sentMessageIds: number[] = [];
 
     constructor(message: Telegram.Message) {
@@ -28,7 +28,7 @@ class MessageContext implements Record<string, any> {
         this.message = message;
         // this.messageId = message.message_id;
         if (message.chat.type === 'group' || message.chat.type === 'supergroup') {
-            // 是否回复被回复的消息
+            // Whether to reply to the replied-to message instead.
             if (message?.reply_to_message && ENV.EXTRA_MESSAGE_CONTEXT && !message.is_topic_message
                 && ENV.ENABLE_REPLY_TO_MENTION && !message.reply_to_message.from?.is_bot) {
                 this.reply_to_message_id = message.reply_to_message.message_id;
@@ -141,22 +141,22 @@ export class MessageSender {
         let lastMessageRespJson = null;
         for (let i = 0; i < messages.length; i++) {
             if (ENV.LOG_POSITION_ON_TOP) {
-                // 不发送中间片段
+                // Do not send middle chunks.
                 if (i > 0 && i < context.sentMessageIds.length - 1) {
                     continue;
                 }
             } else if (context.sentMessageIds.length > 2 && i < context.sentMessageIds.length - 2) {
-                // 只发送最后两个: 由于日志原因可能被分割为两块
+                // Send only the final two chunks, since logs may be split into two parts.
                 continue;
             }
 
-            // 不发送空消息
+            // Do not send empty messages.
             if (messages[i].trim() === '') {
                 continue;
             }
 
             chatContext.message_id = context.sentMessageIds[i] ?? null;
-            // 存在reply_to_message_id 且 非第一个片段，回复消息的id为上一个片段的id
+            // If reply_to_message_id exists and this is not the first chunk, reply to the previous chunk.
             context.reply_to_message_id && i > 0 && (chatContext.reply_to_message_id = context.sentMessageIds[i - 1]);
             log.info(`message id: ${chatContext.message_id}`);
             // log.debug(`chunk:\n${messages[i]}`);
@@ -172,7 +172,7 @@ export class MessageSender {
             }
             lastMessageRespJson = await lastMessageResponse.clone().json() as Telegram.ResponseWithMessage;
             this.context.sentMessageIds[i] = lastMessageRespJson.result.message_id;
-            // 用于后续发送媒体编辑
+            // Used later for media edits.
             this.context.message_id = lastMessageRespJson.result.message_id;
         }
         if (lastMessageResponse === null) {

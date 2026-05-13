@@ -11,7 +11,7 @@ import { applyProxy, loadLocalEnv, resolveLocalConfig } from './env';
 import { normalizeGetUpdatesPayload, parseTelegramResponseBody } from './polling';
 import { startLocalServer } from './server';
 
-// long polling 模式
+// Long-polling mode
 async function runPolling() {
     const clients: Record<string, TelegramBotAPI> = {};
     const offset: Record<string, number> = {};

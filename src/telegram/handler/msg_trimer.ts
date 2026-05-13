@@ -159,7 +159,7 @@ export class HandleChunkMessage {
             await Lock.releaseLock(`${chunkMessageKey}:lock`);
             return new Response('ok');
         }
-        // polling会同时接收多条消息 等待50ms
+        // Polling can receive multiple messages at once; wait 50 ms before merging.
         log.info(`[CHUNK] start handle chunk text, key: ${chunkMessageKey}`);
         await new Promise(resolve => setTimeout(resolve, 50));
         const chunks = JSON.parse(await ENV.REDIS.get(chunkMessageKey) || '[]');
@@ -169,7 +169,7 @@ export class HandleChunkMessage {
                 .map(({ text }: { text: string }) => text)
                 .join('\n') + message.text;
             log.info(`[CHUNK] Merged message chunk, chunks length: ${chunks?.length}, text length: ${message.text?.length}`);
-            // 读取后立即删除
+            // Delete immediately after reading.
             await ENV.REDIS.delete(chunkMessageKey);
         }
         return null;
@@ -183,7 +183,7 @@ export class HandleChunkMessage {
             text: message.text,
         });
         console.log(`chunk size: ${data.length}, current chunk message length: ${message.text?.length}`);
-        // 60s后删除
+        // Delete after 60 seconds.
         return ENV.REDIS.put(chunkMessageKey, JSON.stringify(data), { expirationTtl: 60 });
     };
 }

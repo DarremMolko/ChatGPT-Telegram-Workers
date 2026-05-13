@@ -541,7 +541,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
                     console.warn(`Invalid key in mapping: "${k}"`);
                     continue;
                 }
-                // 防止映射值中同样包含:
+                // Preserve additional ':' characters inside the mapped value.
                 const value = rest.length > 0 ? rest.join(':') : '';
                 if (type === 'key') {
                     entries.push([key.replace(/^-/, ''), value]);
@@ -610,7 +610,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             return sender.sendPlainText(`Key ${key} not found`);
         }
 
-        // 设置的值为空，则使用全局默认值
+        // If the value is empty, fall back to the global default.
         ConfigMerger.merge(context.USER_CONFIG, { [key]: mappedValue || ENV.USER_CONFIG[key] });
         if (!context.USER_CONFIG.DEFINE_KEYS.includes(key) && mappedValue) {
             context.USER_CONFIG.DEFINE_KEYS.push(key);

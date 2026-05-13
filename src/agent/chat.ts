@@ -6,7 +6,7 @@ import { log } from '../log/logger';
 import { formatLocalDateTime } from '../utils/others/time';
 
 export async function loadHistory(key: string, length: number): Promise<HistoryItem[]> {
-    // 加载历史记录
+    // Load history records.
     let history = [];
     try {
         history = JSON.parse(await ENV.REDIS.get(key));
@@ -18,14 +18,14 @@ export async function loadHistory(key: string, length: number): Promise<HistoryI
     }
 
     const trimHistory = (list: HistoryItem[], maxLength: number) => {
-        // 历史记录超出长度需要裁剪, 小于0不裁剪
+        // Trim history when it exceeds the limit. Values below 0 disable trimming.
         if (maxLength >= 0 && list.length > maxLength) {
             list = list.splice(list.length - maxLength);
         }
         return list;
     };
 
-    // 裁剪
+    // Trim history
     if (ENV.AUTO_TRIM_HISTORY) {
         history = trimHistory(history, length);
     }
@@ -46,12 +46,12 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
     }
 
     const trimer = (list: HistoryItem[], maxLength: number) => {
-        // 裁剪超出上下文长度的历史消息
+        // Trim messages that exceed the allowed context length.
         if (list.length > 0 && list.length > maxLength) {
             list = list.slice(list.length - maxLength);
         }
 
-        // 裁剪开始的tool result 以避免报错
+        // Trim leading tool results to avoid malformed history sequences.
         let validStart = 0;
         for (const h of list) {
             if (h.role === 'tool') {
@@ -63,7 +63,7 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
         return list.slice(validStart);
     };
 
-    // 裁剪历史记录
+    // Trim history records
     const trimmedHistory = trimer(history, context.USER_CONFIG.MAX_HISTORY_LENGTH);
 
     const messages = [...trimmedHistory, params];

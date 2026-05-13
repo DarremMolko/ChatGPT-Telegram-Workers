@@ -60,7 +60,8 @@ export function makeResponse200(resp: Response | null): Response {
     if (resp.status === 200) {
         return resp;
     } else {
-    // 如果返回4xx，5xx，Telegram会重试这个消息，后续消息就不会到达，所有webhook的错误都返回200
+    // If we return 4xx/5xx, Telegram will retry this update and later updates may not arrive.
+    // Therefore, webhook errors are normalized to HTTP 200.
         return new Response(resp.body, {
             status: 200,
             headers: {

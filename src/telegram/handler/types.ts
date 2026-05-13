@@ -2,10 +2,10 @@ import type * as Telegram from 'telegram-bot-api-types';
 import type { ImageResult } from '../../agent/types';
 import type { UnionData } from '../utils/tg_utils';
 
-// 中间件定义 function (message: TelegramMessage, context: Context): Promise<Response|null>
-// 1. 当函数抛出异常时，结束消息处理，返回异常信息
-// 2. 当函数返回 Response 对象时，结束消息处理，返回 Response 对象
-// 3. 当函数返回 null 时，继续下一个中间件处理
+// Middleware shape: function (message: TelegramMessage, context: Context): Promise<Response | null>
+// 1. If the function throws, message handling stops and the error is returned.
+// 2. If the function returns a Response, message handling stops and that Response is returned.
+// 3. If the function returns null, processing continues to the next middleware.
 export interface MessageHandler<Ctx = any> {
     handle: (message: Telegram.Message, context: Ctx) => Promise<Response | UnionData | ImageResult | null>;
 }

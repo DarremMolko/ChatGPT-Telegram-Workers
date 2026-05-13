@@ -137,13 +137,13 @@ function handleEscape(text: string, type: 'text' | 'code', { addQuote }: ExpandP
             text = text.replace(key, value);
         });
     } else {
-        // 清理代码块前多余空白符
+        // Remove extra leading whitespace from code blocks.
         const codeBlank = text.length - text.trimStart().length;
         if (codeBlank > 0) {
             const blankReg = new RegExp(`^\\s{${codeBlank}}`, 'gm');
             text = text.replace(blankReg, '');
         }
-        // 非引用代码块
+        // Non-quoted code block
         if ((!addQuote && !text.trimStart().startsWith('>'))) {
             text = text
                 .trimEnd()
@@ -170,10 +170,11 @@ export function chunkDocument(text: string, chunkSize: number = 4000): string[] 
             chunkIndex++;
             chunks.push([]);
             if (codeStack.length > 0) {
-                // 存在末尾行为代码块起始导致分块异常，已存在冗余长度故不在处理
+                // If a chunk ends on a code-fence start, close and reopen fences across chunk boundaries.
+                // There is already some redundancy in this edge case, so keep the logic simple.
                 const lastLineIsCodeStart = chunks[chunkIndex - 1].at(-1)?.trimStart()?.startsWith('```');
                 lastLineIsCodeStart && chunks[chunkIndex - 1].pop();
-                // 插入结尾标记
+                // Insert closing fences.
                 const closingFenceCount = lastLineIsCodeStart ? codeStack.length - 1 : codeStack.length;
                 for (let i = 0; i < closingFenceCount; i++) {
                     chunks[chunkIndex - 1].push('```');
@@ -181,11 +182,11 @@ export function chunkDocument(text: string, chunkSize: number = 4000): string[] 
 
                 if (line.trim() === '```') {
                     codeStack.pop();
-                    // 插入开头标记
+                    // Insert opening fences into the new chunk.
                     chunks[chunkIndex].unshift(...codeStack);
                     continue;
                 }
-                // 插入开头标记
+                // Insert opening fences into the new chunk.
                 chunks[chunkIndex].unshift(...codeStack);
             }
 
@@ -282,7 +283,8 @@ export interface ExpandParams {
 }
 
 function quoteMessage(text: string, addQuote: boolean) {
-    // 不添加引用时，若下一行不为引用，则删除分隔符与换行符 否则只删除分隔符
+    // When quotes are disabled, remove both the segmentation marker and newline if the next line is not quoted;
+    // otherwise remove only the marker.
     if (!addQuote) {
         return text.replace(new RegExp(`^${SEGMENTATION_MARK}(?:\n([^>]))?`, 'gm'), '$1');
     }

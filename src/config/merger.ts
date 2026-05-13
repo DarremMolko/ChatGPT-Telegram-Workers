@@ -35,7 +35,7 @@ export class ConfigMerger {
         const sourceKeys = new Set(Object.keys(source));
         const numberKeys = ['CHAT_TEMPERATURE', 'FUNCTION_CALL_TEMPERATURE', 'MAX_TOKENS'];
         for (const key of Object.keys(target)) {
-            // 不存在的key直接跳过
+            // Skip keys that do not exist in the source.
             if (!sourceKeys.has(key)) {
                 continue;
             }
@@ -46,9 +46,9 @@ export class ConfigMerger {
                 target[key] = source[key] && +source[key];
                 continue;
             }
-            // 默认为字符串类型
+            // Default to string type.
             const t = (target[key] !== null && target[key] !== undefined) ? typeof target[key] : 'string';
-            // 不是字符串直接赋值
+            // Assign directly when the source value is not a string.
             if (typeof source[key] !== 'string') {
                 target[key] = source[key];
                 continue;

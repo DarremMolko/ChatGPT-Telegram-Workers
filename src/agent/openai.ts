@@ -77,15 +77,15 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
             providerOptions,
         } = buildOpenAIImageSettings('openai', context, extraParams);
 
-        // 智能选择模型：
-        // - 编辑模式：只有 dall-e-2 和 gpt-image-* 支持编辑
-        // - 生成模式：使用配置的模型
+        // Select the model intelligently:
+        // - Edit mode: only dall-e-2 and gpt-image-* support editing.
+        // - Generation mode: use the configured model.
         const actualModel = isEditMode
-            ? resolveImageEditModel('openai', modelId) // dall-e-3 不支持编辑，降级到 dall-e-2
+            ? resolveImageEditModel('openai', modelId) // dall-e-3 does not support editing, so fall back to dall-e-2
             : modelId;
         const openaiApiBase = resolveProviderApiBase('openai', context).rootURL;
 
-        // 如果是编辑模式，使用新的 AI SDK
+        // In edit mode, use the newer AI SDK path.
         if (isEditMode) {
             // Build prompt
             const generatePrompt = referenceImages && referenceImages.length > 0
@@ -109,7 +109,7 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
             };
         }
 
-        // 纯生成模式：保持原有实现
+        // Pure generation mode: keep the original implementation.
         const url = buildProviderApiUrl('openai', context, '/images/generations');
         const header = createOpenAIStyleHeaders(this.apikey(context), {
             'Content-Type': 'application/json',

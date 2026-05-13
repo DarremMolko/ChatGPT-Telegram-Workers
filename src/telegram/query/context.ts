@@ -57,7 +57,7 @@ export class ChosenInlineWorkerContext {
     constructor(chosenInline: Telegram.ChosenInlineResult, token: string, USER_CONFIG: AgentUserConfig) {
         this.USER_CONFIG = USER_CONFIG;
         this.botToken = token;
-        // 模拟私聊消息
+        // Simulate a private-chat message context.
         this.MIDDLE_CONTEXT = {
             messageInfo: { type: 'text' },
         };
@@ -79,7 +79,7 @@ export class ChosenInlineWorkerContext {
             const userConfig: AgentUserConfig = JSON.parse(await ENV.REDIS.get(userConfigKey));
             ConfigMerger.merge(USER_CONFIG, ConfigMerger.trim(userConfig) || {});
             USER_CONFIG.ENABLE_SHOWINFO = ENV.INLINE_QUERY_SHOW_INFO;
-            // 过于频繁的请求不会被Telegram接受
+            // Telegram will reject requests that are too frequent.
             ENV.TELEGRAM_MIN_STREAM_INTERVAL = ENV.INLINE_QUERY_SEND_INTERVAL;
         } catch (e) {
             console.warn(e);

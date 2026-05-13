@@ -1,8 +1,8 @@
 /**
  * A simple cache implementation.
- * 主要作用
- *  1. 防止本地部署使用base64图片时，重复请求相同的图片
- *  2. 上传图片telegraph后又使用base64图片时，重复请求相同的图片
+ * Main uses:
+ * 1. Prevent duplicate fetches for the same image when local deployments use base64 images.
+ * 2. Prevent duplicate fetches when an image has already been uploaded to Telegraph and is later reused as base64.
  */
 export class Cache<T> {
     private readonly maxItems: number;

@@ -9,8 +9,9 @@ interface Node {
 };
 
 /**
- * @description: markdown 转 nodes
- * 支持 #标题, * - 无序列表, 有序列表, 加粗, 斜体, 下划线, 链接, 分割线, 行内代码块, 跨行代码块
+ * @description: convert markdown to Telegraph nodes
+ * Supports headings, unordered lists, bold, italic, underline, links, horizontal rules,
+ * inline code, and fenced code blocks.
  * @param {string} markdown
  * @return {object[]}
  */
@@ -48,7 +49,7 @@ function markdownToTelegraphNodes(markdown: string): Node[] {
                 inCodeBlock++;
                 codeBlockContent += `${line}\n`;
             } else {
-                // 开始代码块
+                // Start a code block.
                 inCodeBlock++;
                 codeBlockLanguage = codeMatch[1];
             }
@@ -64,26 +65,25 @@ function markdownToTelegraphNodes(markdown: string): Node[] {
         if (!_line)
             continue;
 
-        // 标题
+        // Heading
         if (_line.startsWith('#')) {
             const titleRegex = /^#+/;
             const match = titleRegex.exec(_line);
             let level = match ? match[0].length : 0;
-            level = level <= 2 ? 3 : 4; // telegraph 仅支持h3 h4
+            level = level <= 2 ? 3 : 4; // Telegraph only supports h3 and h4.
             const text = line.replace(/^#+\s*/, '');
             nodes.push({ tag: `h${level}`, children: processInlineElements(text) });
-            // nodes.push({ tag: `h${level}`, children: [text] }); // 简化处理
         }
-        // 引用
+        // Blockquote
         else if (_line.startsWith('>')) {
             const text = line.slice(1);
             nodes.push({ tag: 'blockquote', children: processInlineElements(text) });
         }
-        // 分割线
+        // Horizontal rule
         else if (_line === '---' || _line === '***') {
             nodes.push({ tag: 'hr' });
         }
-        // 段落
+        // Paragraph
         else {
             const matches = /^(\s*)(?:-|\*)\s/.exec(line);
             if (matches) {
@@ -93,7 +93,7 @@ function markdownToTelegraphNodes(markdown: string): Node[] {
         }
     }
 
-    // 处理可能的未闭合代码块
+    // Handle potentially unclosed code blocks.
     if (inCodeBlock > 0) {
         nodes.push({
             tag: 'pre',
@@ -106,7 +106,7 @@ function markdownToTelegraphNodes(markdown: string): Node[] {
             ],
         });
     }
-    // 合并相同节点
+    // Merge adjacent nodes of the same type.
     function mergeSameNode(nodes: Node[]): Node[] {
         const mergedNodes: Node[] = [];
         for (let i = 0; i < nodes.length; i++) {
@@ -124,7 +124,7 @@ function markdownToTelegraphNodes(markdown: string): Node[] {
         }
         return mergedNodes;
     }
-    // 还原转义字符
+    // Restore escaped characters.
     return revertEscapedChar(mergeSameNode(nodes));
 }
 
@@ -138,7 +138,7 @@ function revertEscapedChar(nodes: Node[]): Node[] {
 function processInlineElements(text: string) {
     const children = [];
 
-    // 处理链接
+    // Handle links.
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
     let match = null;
     let index = 0;
@@ -169,7 +169,7 @@ function processInlineElements(text: string) {
 function processInlineStyles(text: string): (string | { tag: string; children: any[] })[] {
     const children = [];
 
-    // 处理行内代码 粗体 下划线 斜体 删除线
+    // Handle inline code, bold, underline, italic, and strikethrough.
     const styleRegex = /(`|\*\*|\*|__|_|~~|~)(.+?)\1/g;
     let lastIndex = 0;
     let match;
@@ -177,7 +177,7 @@ function processInlineStyles(text: string): (string | { tag: string; children: a
         match = styleRegex.exec(text);
         if (match === null)
             break;
-        // 粗体后可能紧跟斜体的情况
+        // Bold text may be immediately followed by italic text.
         if (match[1] === '**' && match[2].startsWith('*') && text.substring(styleRegex.lastIndex).startsWith('*')) {
             match[2] += '*';
             styleRegex.lastIndex += 1;

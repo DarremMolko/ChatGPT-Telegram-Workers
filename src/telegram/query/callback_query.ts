@@ -23,7 +23,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         const message = query.message as Telegram.Message;
         const keyboard = message.reply_markup?.inline_keyboard ?? [];
         const authorized = isAuthorized(query.from?.id ?? 0, keyboard);
-        // 未授权
+        // Unauthorized user for this callback.
         if (!authorized) {
             log.error(`[CALLBACK QUERY] User ${context.from.first_name}, id: ${context.from.id} is not authorized for this callback`);
             return this.sendAlert(api, context.query_id, `⚠️ This is not your operation`, true);
@@ -32,15 +32,15 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         if (!canUseCommandsForAccess(access)) {
             return this.sendAlert(api, context.query_id, '⚠️ You are not allowed to use settings', true);
         }
-        // 不支持的回调查询类型
+        // Unsupported callback query type.
         if (!query.data || !(query.message as Telegram.Message)?.reply_markup) {
             return new Response('Not supported callback query type', { status: 200 });
         }
-        // 标题/页码
+        // Header row or page index button.
         if (query.data.startsWith(query.from.id.toString()) || query.data.startsWith('PAGE_INDEX:')) {
             return new Response('success', { status: 200 });
         }
-        // 关闭内联键盘
+        // Close the inline keyboard.
         if (query.data === 'close') {
             return this.closeInlineKeyboard(api, message);
         }
@@ -163,10 +163,10 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
 
     private constructInlineList({ path, data, label, key, config, callbackData, pageIndex, pageNum, col, callback }: { path: number[]; data: (string | InlineItem)[]; label?: string; key?: string; config: AgentUserConfig; callbackData: number | string; pageIndex: number; pageNum: number; col: number; callback?: (...args: any[]) => Promise<string[]> }): Telegram.InlineKeyboardButton[][] {
         const isSelected = (item: string | InlineItem, index: number) => {
-            // 单选
+            // Single-select
             if ((key && callbackData === index && !Array.isArray(config[key]))
                 || (key && config[key] === item)
-            // 多选
+            // Multi-select
                 || (key && (Array.isArray(config[key]) && (config[key].includes(item))))) {
                 return '✅';
             }
@@ -276,7 +276,7 @@ export function isAuthorized(fromId: number, inline_keyboard: Array<Array<Telegr
 }
 
 function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, pageLength }: { pathDetail: string; pageIndexData: string | undefined; callbackData: number | string; inlineList: InlineItem[]; pageLength: number }) {
-    // 移除set
+    // Remove the trailing :set marker.
     const pathData = pathDetail.replace(':set', '');
     let pageIndex = pageIndexData ? Number(pageIndexData) : 0;
     const path = pathData.split('.').map(Number);
@@ -290,7 +290,7 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
         if (!data[i]) {
             throw new Error(`Invalid path: index ${i} not found in data array of length ${data.length}`);
         }
-        // 安全检查：确保 data[i] 存在且有必要的属性
+        // Safety check: ensure data[i] exists and has the required properties.
         if (!data[i].label || data[i].config_key === undefined) {
             throw new Error(`Invalid data at index ${i}: missing label or config_key`);
         }
@@ -317,9 +317,10 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
             break;
         default:
             callbackData = Number(callbackData);
-            // 存在child - 如果没有configKey说明还在导航到子菜单，需要先访问完整数组再分页
+            // Has children. If configKey is still empty, we are still navigating into a submenu,
+            // so we must traverse the full array before paging.
             if (!configKey) {
-                // 安全检查：确保索引有效（使用完整数组）
+                // Safety check: ensure the index is valid against the full array.
                 if (!data[callbackData]) {
                     throw new Error(`Invalid callback index: ${callbackData} not found in data array of length ${data.length}`);
                 }
@@ -335,7 +336,7 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
                 ({ data, pageNum } = paging(data, pageIndex, pageLength));
                 callbackData = '';
             } else {
-                // 已经在最终菜单，对当前数据分页
+                // Already at the final menu, so page the current data.
                 ({ data, pageNum } = paging(data, pageIndex ?? 0, pageLength));
             }
     }

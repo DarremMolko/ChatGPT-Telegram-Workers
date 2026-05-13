@@ -61,7 +61,7 @@ export class WhiteListFilter implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
         const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
 
-        // 判断私聊消息
+        // Handle private chat messages.
         if (message.chat.type === 'private') {
             if (!await canUsePrivateChat(message.from?.id ?? message.chat.id, context.SHARE_CONTEXT.botId)) {
                 log.error(`[ACCESS] ${message.chat.id} ${message.from?.username ?? message.from?.first_name ?? ''} not allowed in private chat`);
@@ -71,9 +71,9 @@ export class WhiteListFilter implements MessageHandler<WorkerContextBase> {
             return null;
         }
 
-        // 判断群组消息
+        // Handle group chat messages.
         if (isTelegramChatTypeGroup(message.chat.type)) {
-            // 未打开群组机器人开关,直接忽略
+            // Group chat bot support is disabled; ignore the message.
             if (!ENV.GROUP_CHAT_BOT_ENABLE) {
                 throw new Error('Not support');
             }
@@ -114,7 +114,7 @@ export class CommandHandler implements MessageHandler<WorkerContext> {
         if (message.text || message.caption) {
             return await handleCommandMessage(message, context);
         }
-        // 非文本消息不作处理
+        // Ignore non-text messages here.
         return null;
     };
 }
@@ -137,7 +137,7 @@ export class SubstituteHandler implements MessageHandler<WorkerContext> {
 
 export class TagNeedDelete implements MessageHandler<WorkerContext> {
     handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
-        // 未记录消息
+        // No tagged messages were recorded.
         if ((tagMessageIds.get(message) ?? new Set()).size === 0) {
             return null;
         }
@@ -200,8 +200,8 @@ export class MergeQuote implements MessageHandler<WorkerContext> {
         const isReplyMe = message.reply_to_message?.from?.id === Number(context.SHARE_CONTEXT.botId);
         const quoteText = message.quote?.text || '';
         const replyText = getMessageText(message.reply_to_message);
-        // 开启引用消息且
-        // 不是回复bot且包含回复消息 或 是引用消息 则将回复/引用消息和当前消息合并
+        // When extra quoted-message context is enabled, merge the quoted/replied content into the current message
+        // as long as this is not a reply to the bot and there is reply text, or there is explicit quote text.
         if (ENV.EXTRA_MESSAGE_CONTEXT && ((!isReplyMe && replyText) || quoteText)) {
             message.text = `${getMessageText(message)}\n> ${getMergedQuoteText(message, context.SHARE_CONTEXT.botId)}`;
         }
@@ -234,7 +234,7 @@ export class BlocklistFilter implements MessageHandler<WorkerContext> {
 
 export class RecordStatsHandler implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
-        // 异步记录统计，不阻塞主流程
+        // Record stats asynchronously without blocking the main flow.
         recordUserActivity(context, message).catch(e => console.error('Stats error:', e));
         return null;
     };

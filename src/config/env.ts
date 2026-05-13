@@ -67,18 +67,18 @@ function resolveRuntimeBuildInfo(): { sha: string; timestamp: number } {
 const runtimeBuildInfo = resolveRuntimeBuildInfo();
 
 class Environment extends EnvironmentConfig {
-    // -- 版本数据 --
+    // -- Build metadata --
     //
-    // 当前版本
+    // Current build timestamp
     // eslint-disable-next-line ts/ban-ts-comment
     // @ts-expect-error
     BUILD_TIMESTAMP = typeof __BUILD_TIMESTAMP__ === 'number' ? __BUILD_TIMESTAMP__ : runtimeBuildInfo.timestamp;
-    // 当前版本 commit id
+    // Current build commit id
     // eslint-disable-next-line ts/ban-ts-comment
     // @ts-expect-error
     BUILD_VERSION = typeof __BUILD_VERSION__ === 'string' ? __BUILD_VERSION__ : runtimeBuildInfo.sha;
 
-    // -- 基础配置 --
+    // -- Base configuration --
     I18N = loadI18n();
     readonly USER_CONFIG: AgentUserConfig = createAgentUserConfig();
     readonly CUSTOM_COMMAND: Record<string, CommandConfig> = {};
@@ -92,11 +92,11 @@ class Environment extends EnvironmentConfig {
     }
 
     merge(source: any) {
-        // 全局对象
+        // Global objects
         this.REDIS = source.REDIS;
         this.API_GUARD = source.API_GUARD;
 
-        // 绑定自定义命令
+        // Bind custom commands
         this.mergeCommands(
             'CUSTOM_COMMAND_',
             'COMMAND_DESCRIPTION_',
@@ -105,10 +105,10 @@ class Environment extends EnvironmentConfig {
             this.CUSTOM_COMMAND,
         );
 
-        // 读取MCP配置
+        // Load MCP configuration
         this.mergeMCP('MCP_', source, this.MCP_CONFIG);
 
-        // 合并环境变量
+        // Merge environment variables
         ConfigMerger.merge(this, source, [
             'BUILD_TIMESTAMP',
             'BUILD_VERSION',
@@ -124,16 +124,16 @@ class Environment extends EnvironmentConfig {
         this.USER_CONFIG.DEFINE_KEYS = this.USER_CONFIG.DEFINE_KEYS.filter(key => Object.keys(this.USER_CONFIG).includes(key));
         this.I18N = loadI18n('en');
 
-        // 选择对应语言的SYSTEM_INIT_MESSAGE
+        // Select the language-appropriate SYSTEM_INIT_MESSAGE
         if (!this.USER_CONFIG.SYSTEM_INIT_MESSAGE) {
             this.USER_CONFIG.SYSTEM_INIT_MESSAGE = this.I18N?.env?.system_init_message || 'You are a helpful assistant';
         }
-        // 清理ENVS_VARIABLES
+        // Prune ENVS_VARIABLES
         if (this.ENVS_VARIABLES.length > 0) {
             this.ENVS_VARIABLES = this.ENVS_VARIABLES.filter((key: string) => Object.keys(this.USER_CONFIG).includes(key));
         }
 
-        // 异步初始化 mcp
+        // Initialize MCP asynchronously
         this.asyncInit();
     }
 

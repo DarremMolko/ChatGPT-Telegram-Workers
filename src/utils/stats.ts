@@ -1,7 +1,7 @@
 /**
- * 统计模块（内存存储版本）
- * 记录 Bot 使用情况
- * Docker 重启后统计数据会重置
+ * Statistics module (in-memory version)
+ * Records bot usage data.
+ * Stats reset after Docker/container restarts.
  */
 
 import type { WorkerContextBase } from '../config/context';
@@ -14,7 +14,7 @@ export interface StatsData {
     todayMessages: number;
 }
 
-// 内存存储
+// In-memory storage
 class StatsStore {
     private users: Set<string> = new Set();
     private groups: Set<string> = new Set();
@@ -49,7 +49,7 @@ class StatsStore {
         };
     }
 
-    // 清理过期的日统计（保留最近7天）
+    // Clean expired daily stats (keep the most recent 7 days).
     cleanOldDailyStats(): void {
         const today = new Date();
         const keepDays = 7;
@@ -64,7 +64,7 @@ class StatsStore {
     }
 }
 
-// 全局统计存储实例（按 botId 分组）
+// Global stats storage instances grouped by botId.
 const statsStores: Map<string, StatsStore> = new Map();
 
 function getStatsStore(botId: string): StatsStore {
@@ -75,8 +75,8 @@ function getStatsStore(botId: string): StatsStore {
 }
 
 /**
- * 记录使用者活动
- * @param context - 上下文对象
+ * Record user activity.
+ * @param context - Context object
  */
 export async function recordUserActivity(context: WorkerContextBase, message: any): Promise<void> {
     try {
@@ -91,36 +91,36 @@ export async function recordUserActivity(context: WorkerContextBase, message: an
 
         const store = getStatsStore(String(botId));
 
-        // 1. 记录使用者
+        // 1. Record the user.
         if (speakerId) {
             store.addUser(String(speakerId));
         }
 
-        // 2. 记录群组
+        // 2. Record the group.
         if (chatType === 'group' || chatType === 'supergroup') {
             store.addGroup(String(chatId));
         }
 
-        // 3. 增加总消息数
+        // 3. Increase total message count.
         store.incrementMessage();
 
-        // 4. 增加今日消息数
+        // 4. Increase today's message count.
         store.incrementDailyMessage();
 
-        // 定期清理旧数据（每100条消息清理一次）
+        // Periodically clean old data (once every 100 messages).
         if (store.getStats().totalMessages % 100 === 0) {
             store.cleanOldDailyStats();
         }
     } catch (e) {
-        // 统计失败不影响主要功能
+        // Stats failures should not affect the main flow.
         console.error('Stats recording error:', e);
     }
 }
 
 /**
- * 取得统计资料
+ * Get statistics.
  * @param botId - Bot ID
- * @returns 统计资料
+ * @returns Statistics data
  */
 export function getStats(botId: string): StatsData {
     try {

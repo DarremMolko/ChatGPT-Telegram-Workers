@@ -1,16 +1,16 @@
 import type { LogLevelType } from './types';
 
-// -- 只能通过环境变量覆盖的配置 --
+// -- Configuration that can only be overridden via environment variables --
 export class EnvironmentConfig {
     // Chat Complete API Timeout, scale: seconds
     CHAT_COMPLETE_API_TIMEOUT = 0;
     // Total Duration Limit, scale: seconds, default 30 minutes
     CHAT_TOTAL_DURATION_LIMIT = 60 * 30;
-    // -- Telegram 相关 --
+    // -- Telegram settings --
     //
     // Telegram API Domain
     TELEGRAM_API_DOMAIN = 'https://api.telegram.org';
-    // 允许访问的Telegram Token， 设置时以逗号分隔
+    // Allowed Telegram tokens, separated by commas when configured.
     TELEGRAM_AVAILABLE_TOKENS: string[] = [];
     // Update types to subscribe to in webhooks and polling. Keep this aligned with the update kinds handled by the app.
     TELEGRAM_ALLOWED_UPDATES: string[] = ['message', 'inline_query', 'callback_query', 'chosen_inline_result'];
@@ -20,45 +20,46 @@ export class EnvironmentConfig {
     TELEGRAM_DROP_PENDING_UPDATES = false;
     // Secret required to use the local `/init` webhook bootstrap endpoint. When empty, `/init` is disabled.
     LOCAL_INIT_SECRET = '';
-    // 默认消息模式
+    // Default message parse mode
     DEFAULT_PARSE_MODE = 'MarkdownV2';
-    // 最小stream模式消息间隔，小于等于0则不限制 单位：ms
+    // Minimum interval for stream-mode message updates. Values <= 0 disable the limit. Unit: ms.
     TELEGRAM_MIN_STREAM_INTERVAL = 0;
-    // 图片尺寸偏移 0为第一位，-1为最后一位, 越靠后的图片越大。PS: 图片过大可能导致token消耗过多，或者workers超时或内存不足
-    // 默认选择次高质量的图片
+    // Photo size offset: 0 selects the first size, -1 selects the last. Later entries are larger.
+    // By default, use the second-highest quality image to avoid excessive token usage or worker limits.
     TELEGRAM_PHOTO_SIZE_OFFSET = -2;
     // Max Telegram file size to download and ingest, in bytes. Set <= 0 to disable the limit.
     TELEGRAM_FILE_DOWNLOAD_MAX_SIZE = 20 * 1024 * 1024;
 
-    // --  权限相关 --
+    // -- Access control --
     //
     // Bot owner. Has full access to sensitive commands and settings.
     OWNER_ID = '';
     // Additional runtime admins. They can chat in private and use non-sensitive runtime controls.
     ADMIN_WHITE_LIST: string[] = [];
 
-    // -- 群组相关 --
+    // -- Group chat settings --
     //
-    // 允许访问的Telegram Token 对应的Bot Name， 设置时以逗号分隔
+    // Bot names corresponding to allowed Telegram tokens, separated by commas when configured.
     TELEGRAM_BOT_NAME: string[] = [];
-    // 群组白名单
+    // Group allowlist
     CHAT_GROUP_WHITE_LIST: string[] = [];
-    // 群组机器人开关
+    // Enable the bot in group chats
     GROUP_CHAT_BOT_ENABLE = true;
-    // 群组机器人共享模式，开启后，一个群组只有一个会话和配置。关闭的话群组的每个人都有自己的会话上下文
+    // Group shared-session mode. When enabled, one group shares one conversation and config.
+    // When disabled, each group member gets their own session context.
     GROUP_CHAT_BOT_SHARE_MODE = true;
-    // 在群聊消息中包含用户名，帮助AI识别不同发言者
+    // Include usernames in group chat messages so the model can distinguish speakers.
     GROUP_INCLUDE_USERNAME = false;
-    // -- 历史记录相关 --
+    // -- History settings --
     //
-    // 是否自动裁剪历史记录
+    // Whether to automatically trim history
     AUTO_TRIM_HISTORY = true;
-    // Image占位符: 当此环境变量存在时，则历史记录中的图片将被替换为此占位符
+    // Image placeholder: when set, images in stored history are replaced by this placeholder.
     HISTORY_IMAGE_PLACEHOLDER: string | null = '[A IMAGE]';
 
-    // -- 特性开关 --
+    // -- Feature flags --
     //
-    // 额外引用消息开关
+    // Enable extra quoted-message context
     EXTRA_MESSAGE_CONTEXT = false;
 
     // -------------
@@ -109,15 +110,15 @@ export class EnvironmentConfig {
 
     // -------------
 
-    // -- 模式开关 --
+    // -- Mode switches --
     //
-    // 使用流模式
+    // Use streaming mode
     STREAM_MODE = true;
-    // 安全模式 异步模式（polling, 异步webhook）下可关闭
+    // Safe mode. Can be disabled for async modes such as polling or async webhook handling.
     SAFE_MODE = true;
-    // 调试模式
+    // Debug mode
     DEBUG_MODE = false;
-    // 开发模式
+    // Development mode
     DEV_MODE = false;
 
     // inline query send interval
@@ -164,21 +165,21 @@ export class EnvironmentConfig {
     SHOW_THINKING_TEXT = true;
 }
 
-// -- 通用配置 --
+// -- Shared agent configuration --
 export class AgentShareConfig {
     // AI provider: openai, oailike
     AI_CHAT_PROVIDER = 'openai';
     // Image provider: openai, oailike
     AI_IMAGE_PROVIDER = 'openai';
-    // AI ASR 提供商: openai, oailike
+    // AI ASR provider: openai, oailike
     AI_ASR_PROVIDER = 'openai';
-    // AI TTS 提供商: openai, oailike
+    // AI TTS provider: openai, oailike
     AI_TTS_PROVIDER = 'openai';
-    // 全局默认初始化消息
+    // Global default system/init message
     SYSTEM_INIT_MESSAGE: string | null = null;
 }
 
-// -- Open AI 配置 --
+// -- OpenAI configuration --
 export class OpenAIConfig {
     // OpenAI API Key
     OPENAI_API_KEY: string[] = [];
@@ -219,41 +220,41 @@ export class OpenAIConfig {
     };
 
     // OpenAI Server-Side Tools (Responses API only)
-    // 可用工具列表：webSearch, codeInterpreter, fileSearch, imageGeneration, shell, mcp
+    // Available tools: webSearch, codeInterpreter, fileSearch, imageGeneration, shell, mcp
     OPENAI_BUILDIN = ['webSearch', 'codeInterpreter', 'fileSearch', 'imageGeneration', 'shell', 'mcp'];
-    // 启用的工具列表（为保持向后兼容，也支持使用 OPENAI_ENABLE_* 开关）
+    // Enabled tools. For backward compatibility, OPENAI_ENABLE_* flags are also supported.
     USE_OPENAI_BUILDIN: string[] = [];
 
-    // Web Search - 网页搜索工具
+    // Web Search tool
     OPENAI_ENABLE_WEB_SEARCH = false;
-    OPENAI_WEB_SEARCH_EXTERNAL_ACCESS = true; // true=实时抓取，false=使用缓存
-    OPENAI_WEB_SEARCH_ALLOWED_DOMAINS: string[] = []; // 允许的域名列表
-    OPENAI_WEB_SEARCH_CONTEXT_SIZE: 'low' | 'medium' | 'high' = 'medium'; // 搜索上下文大小
-    OPENAI_WEB_SEARCH_USER_LOCATION = ''; // 用户位置，格式: "City, Country" 或 "latitude,longitude"
+    OPENAI_WEB_SEARCH_EXTERNAL_ACCESS = true; // true = live fetch, false = cached results
+    OPENAI_WEB_SEARCH_ALLOWED_DOMAINS: string[] = []; // Allowed domain list
+    OPENAI_WEB_SEARCH_CONTEXT_SIZE: 'low' | 'medium' | 'high' = 'medium'; // Search context size
+    OPENAI_WEB_SEARCH_USER_LOCATION = ''; // User location, format: "City, Country" or "latitude,longitude"
 
-    // Code Interpreter - Python 代码执行工具
+    // Code Interpreter - Python execution tool
     OPENAI_ENABLE_CODE_INTERPRETER = false;
-    OPENAI_CODE_INTERPRETER_CONTAINER = ''; // 容器ID（可选）
+    OPENAI_CODE_INTERPRETER_CONTAINER = ''; // Container ID (optional)
 
-    // File Search - 文件向量搜索工具
+    // File Search - vector search tool
     OPENAI_ENABLE_FILE_SEARCH = false;
-    OPENAI_FILE_SEARCH_VECTOR_STORES: string[] = []; // 向量存储ID列表（必需）
-    OPENAI_FILE_SEARCH_MAX_RESULTS = 10; // 最大返回结果数
-    OPENAI_FILE_SEARCH_SCORE_THRESHOLD = 0.0; // 相关性阈值（0-1），越高越严格
+    OPENAI_FILE_SEARCH_VECTOR_STORES: string[] = []; // Vector store ID list (required)
+    OPENAI_FILE_SEARCH_MAX_RESULTS = 10; // Maximum number of returned results
+    OPENAI_FILE_SEARCH_SCORE_THRESHOLD = 0.0; // Relevance threshold (0-1); higher is stricter
 
-    // Image Generation - 图片生成工具 (GPT-5.1+)
+    // Image Generation tool (GPT-5.1+)
     OPENAI_ENABLE_IMAGE_GENERATION = false;
-    OPENAI_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto'; // 背景类型
-    OPENAI_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low'; // 输入保真度
-    OPENAI_IMAGE_MODEL = 'gpt-image-2'; // 图片生成模型
-    OPENAI_IMAGE_OUTPUT_COMPRESSION = 100; // 输出压缩等级 (0-100)
-    OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png'; // 输出格式
-    OPENAI_IMAGE_PARTIAL_IMAGES = 0; // 流式模式下生成的部分图片数量 (0-3)
-    OPENAI_IMAGE_MODERATION: 'auto' | 'low' = 'auto'; // 图片安全过滤等级
-    OPENAI_IMAGE_QUALITY: 'auto' | 'low' | 'medium' | 'high' = 'auto'; // 图片质量
-    OPENAI_IMAGE_SIZE: 'auto' | '1024x1024' | '1024x1536' | '1536x1024' = 'auto'; // 图片尺寸
+    OPENAI_IMAGE_BACKGROUND: 'auto' | 'opaque' | 'transparent' = 'auto'; // Background type
+    OPENAI_IMAGE_INPUT_FIDELITY: 'low' | 'high' = 'low'; // Input fidelity
+    OPENAI_IMAGE_MODEL = 'gpt-image-2'; // Image generation model
+    OPENAI_IMAGE_OUTPUT_COMPRESSION = 100; // Output compression level (0-100)
+    OPENAI_IMAGE_OUTPUT_FORMAT: 'png' | 'jpeg' | 'webp' = 'png'; // Output format
+    OPENAI_IMAGE_PARTIAL_IMAGES = 0; // Number of partial images in streaming mode (0-3)
+    OPENAI_IMAGE_MODERATION: 'auto' | 'low' = 'auto'; // Safety moderation level
+    OPENAI_IMAGE_QUALITY: 'auto' | 'low' | 'medium' | 'high' = 'auto'; // Image quality
+    OPENAI_IMAGE_SIZE: 'auto' | '1024x1024' | '1024x1536' | '1536x1024' = 'auto'; // Image size
 
-    // Hosted Shell - OpenAI 响应式 Shell 工具
+    // Hosted Shell - OpenAI shell tool
     OPENAI_ENABLE_SHELL = false;
     OPENAI_SHELL_ENVIRONMENT: 'containerAuto' | 'containerReference' = 'containerAuto';
     OPENAI_SHELL_CONTAINER_ID = '';
@@ -264,16 +265,16 @@ export class OpenAIConfig {
 
     // MCP - Model Context Protocol
     OPENAI_ENABLE_MCP = false;
-    OPENAI_MCP_SERVER_LABEL = ''; // MCP服务器标签（必需）
-    OPENAI_MCP_SERVER_URL = ''; // MCP服务器URL（与connectorId二选一）
-    OPENAI_MCP_CONNECTOR_ID = ''; // 服务连接器ID（与serverUrl二选一）
-    OPENAI_MCP_SERVER_DESCRIPTION = ''; // 服务器描述（可选）
-    OPENAI_MCP_ALLOWED_TOOLS: string[] = []; // 允许的工具名称列表
-    OPENAI_MCP_ALLOWED_TOOLS_READ_ONLY = false; // 仅允许只读工具
-    OPENAI_MCP_AUTHORIZATION = ''; // OAuth访问令牌
-    OPENAI_MCP_HEADERS: Record<string, string> = {}; // 自定义HTTP头
-    OPENAI_MCP_REQUIRE_APPROVAL: 'always' | 'never' = 'never'; // 工具执行审批策略
-    OPENAI_MCP_APPROVAL_TOOL_NAMES: string[] = []; // 需要审批的工具名称（当requireApproval非always时）
+    OPENAI_MCP_SERVER_LABEL = ''; // MCP server label (required)
+    OPENAI_MCP_SERVER_URL = ''; // MCP server URL (choose either this or connectorId)
+    OPENAI_MCP_CONNECTOR_ID = ''; // Service connector ID (choose either this or serverUrl)
+    OPENAI_MCP_SERVER_DESCRIPTION = ''; // Server description (optional)
+    OPENAI_MCP_ALLOWED_TOOLS: string[] = []; // Allowed tool names
+    OPENAI_MCP_ALLOWED_TOOLS_READ_ONLY = false; // Allow read-only tools only
+    OPENAI_MCP_AUTHORIZATION = ''; // OAuth access token
+    OPENAI_MCP_HEADERS: Record<string, string> = {}; // Custom HTTP headers
+    OPENAI_MCP_REQUIRE_APPROVAL: 'always' | 'never' = 'never'; // Tool execution approval policy
+    OPENAI_MCP_APPROVAL_TOOL_NAMES: string[] = []; // Tool names that require approval when requireApproval != always
 }
 
 export class OpenAILikeConfig {
@@ -376,7 +377,7 @@ export class ExtraUserConfig {
     PARAMS_MODIFIER: string[] = [];
     // whether to enable model alias of mapping value
     ENABLE_ALIAS = false;
-    // 音频提示词
+    // Audio prompt
     AUDIO_PROMPT = 'Please listen to the audio file. Identify and understand the question being asked in the audio. Then, provide a detailed explanation and answer to this question. Ensure your answer is helpful and explains the solution or information clearly.';
     // use blocklist to block someone
     BLOCKLIST: string[] = [];

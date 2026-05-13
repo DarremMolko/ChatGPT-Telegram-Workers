@@ -12,7 +12,7 @@ export class ShareContext {
     botName: string | null = null;
     chatId: number;
 
-    // KV 保存的键
+    // Keys stored in KV/Redis
     chatHistoryKey: string;
     lastMessageKey: string;
     configStoreKey: string;
@@ -41,13 +41,13 @@ export class ShareContext {
             throw new Error('Chat id not found');
         }
         this.chatId = id;
-        // message_id每次都在变的。
-        // 私聊消息中：
-        //   message.chat.id 是发言人id
-        // 群组消息中：
-        //   message.chat.id 是群id
-        //   message.from.id 是发言人id
-        // 没有开启群组共享模式时，要加上发言人id
+        // message_id changes for every message.
+        // In private chats:
+        //   message.chat.id is the speaker id.
+        // In group chats:
+        //   message.chat.id is the group id.
+        //   message.from.id is the speaker id.
+        // When group shared-session mode is disabled, include the speaker id as well.
         //  chatHistoryKey = history:chat_id:bot_id:(from_id)
         //  configStoreKey =  user_config:chat_id:bot_id:(from_id)
         //  storeMediaMessageKey = store_media_message:chat_id:(from_id)
@@ -62,7 +62,7 @@ export class ShareContext {
             historyKey += `:${botId}`;
             configStoreKey += `:${botId}`;
         }
-        // 标记群组消息
+        // Mark group chat messages
         switch (message.chat.type) {
             case 'group':
             case 'supergroup':
@@ -79,7 +79,7 @@ export class ShareContext {
                 break;
         }
 
-        // 判断是否为话题模式
+        // Check whether this is a forum topic thread
         if (message?.chat.is_forum && message?.is_topic_message) {
             if (message?.message_thread_id) {
                 historyKey += `:${message.message_thread_id}`;
@@ -93,7 +93,7 @@ export class ShareContext {
         this.chunkMessageKey = chunkMessageKey;
         this.storeMediaMessageKey = storeMediaMessageKey;
 
-        // 不区分是否开启群组共享模式
+        // Do not distinguish whether group shared-session mode is enabled
 
         if (ENV.TELEGRAPH_NUM_LIMIT > 0) {
             this.telegraphAccessTokenKey = `telegraph_access_token:${id}`;
@@ -117,7 +117,7 @@ export class WorkerContextBase {
 }
 
 export class WorkerContext implements WorkerContextBase {
-    // 用户配置
+    // User configuration
     USER_CONFIG: AgentUserConfig;
     SHARE_CONTEXT: ShareContext;
     MIDDLE_CONTEXT: MiddleContext;

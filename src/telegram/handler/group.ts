@@ -15,19 +15,19 @@ function checkMention(content: string, entities: Telegram.MessageEntity[], botNa
     for (const entity of entities) {
         const entityStr = content.slice(entity.offset, entity.offset + entity.length);
         switch (entity.type) {
-            case 'mention': // "mention"适用于有用户名的普通用户
+            case 'mention': // "mention" applies to regular users with usernames
                 if (entityStr === `@${botName}`) {
                     isMention = true;
                     content = content.slice(0, entity.offset) + content.slice(entity.offset + entity.length);
                 }
                 break;
-            case 'text_mention': // "text_mention"适用于没有用户名的用户或需要通过ID提及用户的情况
+            case 'text_mention': // "text_mention" applies to users without usernames or ID-based mentions
                 if (`${entity.user?.id}` === `${botId}`) {
                     isMention = true;
                     content = content.slice(0, entity.offset) + content.slice(entity.offset + entity.length);
                 }
                 break;
-            case 'bot_command': // "bot_command"适用于命令
+            case 'bot_command': // "bot_command" applies to commands
                 if (entityStr.endsWith(`@${botName}`)) {
                     isMention = true;
                     const newEntityStr = entityStr.replace(`@${botName}`, '');
@@ -45,10 +45,10 @@ function checkMention(content: string, entities: Telegram.MessageEntity[], botNa
 }
 
 /**
- * 处理替换词
+ * Process trigger-prefix substitution.
  *
  * @param {Telegram.Message} message
- * @returns {boolean} 如果找到触发词，返回 true；否则 false
+ * @returns {boolean} Returns true if a trigger prefix is found; otherwise false.
  */
 export function CheckTrigger(message: Telegram.Message): boolean {
     const textBefore = message.text || message.caption || '';
@@ -61,12 +61,12 @@ export class GroupMention implements MessageHandler {
     handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
         const isTriggered = CheckTrigger(message);
 
-        // 非群组消息不作判断，交给下一个中间件处理
+        // Non-group messages are not checked here; pass them to the next middleware.
         if (!isTelegramChatTypeGroup(message.chat.type)) {
             return this.noneMessage(message, context);
         }
 
-        // 处理回复消息, 如果回复的是当前机器人的消息交给下一个中间件处理
+        // Handle replies. If the reply targets the current bot, pass it through.
         const replyMe = `${message.reply_to_message?.from?.id}` === `${context.SHARE_CONTEXT.botId}`;
         if (replyMe) {
             if (context.SHARE_CONTEXT.botName && message.text?.endsWith(`@${context.SHARE_CONTEXT.botName}`)) {
@@ -75,7 +75,7 @@ export class GroupMention implements MessageHandler {
             return null;
         }
 
-        // 处理群组消息，过滤掉AT部分
+        // Process group messages and strip out the mention segment.
         let botName = context.SHARE_CONTEXT.botName;
         if (!botName) {
             const res = await createTelegramBotAPI(context.SHARE_CONTEXT.botToken).getMeWithReturns();
@@ -86,13 +86,13 @@ export class GroupMention implements MessageHandler {
             throw new Error('Not set bot name');
         }
         let isMention = false;
-        // 检查text中是否有机器人的提及
+        // Check whether the text mentions the bot.
         if (message.text && message.entities) {
             const res = checkMention(message.text, message.entities, botName, context.SHARE_CONTEXT.botId);
             isMention = res.isMention;
             message.text = res.content.trim();
         }
-        // 检查caption中是否有机器人的提及
+        // Check whether the caption mentions the bot.
         if (message.caption && message.caption_entities) {
             const res = checkMention(message.caption, message.caption_entities, botName, context.SHARE_CONTEXT.botId);
             isMention = res.isMention || isMention;
@@ -117,7 +117,7 @@ export class GroupMention implements MessageHandler {
         }
 
         if (!isMention) {
-            // 消息未触发，但已被缓存，直接返回
+            // The message was not triggered. If it has already been cached, return immediately.
             return new Response('Not mention');
         }
 

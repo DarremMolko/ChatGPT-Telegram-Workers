@@ -129,9 +129,9 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
             log.info(`message type: ${context.MIDDLE_CONTEXT.messageInfo.type}`);
             await this.initializeHistory(context);
 
-            // 处理原始消息
+            // Process the original incoming message.
             const params = await this.processOriginalMessage(message, context);
-            // 执行工作流
+            // Execute the workflow.
             await workflow(context, message, params, streamSender);
             return null;
         } catch (e) {
@@ -147,7 +147,7 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
     };
 
     private async initializeHistory(context: WorkerContext): Promise<void> {
-        // 初始化历史消息
+        // Initialize history messages.
         const historyKey = context.SHARE_CONTEXT.chatHistoryKey;
         if (!historyKey) {
             throw new Error('History key not found');
@@ -294,17 +294,17 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
                 heartWaitedTime = 0;
                 updateHeartbeat();
             }
-            // 判断是否需要等待
+            // Check whether we need to wait before the next send.
             if ((nextEnableTime || 0) > Date.now()) {
                 log.info(`Need await: ${(nextEnableTime || 0) - Date.now()}ms`);
                 return;
             }
-            // 未完成不发送
+            // Skip sending if the previous send is still in progress.
             if (sentPromise && (await Promise.race([sentPromise, immediatePromise]) === '[PROMISE DONE]')) {
                 return;
             }
 
-            // 设置最小流间隔
+            // Enforce the minimum stream interval.
             if (sendInterval > 0 && type === 'chat') {
                 nextEnableTime = Date.now() + sendInterval;
             }
@@ -331,9 +331,9 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
             sentPromise = sender.sendRichText(data, undefined, 'chat', expandParams);
             const resp = await sentPromise as Response;
-            // 判断429
+            // Handle 429 responses.
             if (resp.status === 429) {
-                // 获取重试时间
+                // Read the retry-after duration.
                 const retryAfter = Number.parseInt(resp.headers.get('Retry-After') || '');
                 if (retryAfter) {
                     nextEnableTime = Date.now() + retryAfter * 1000;

@@ -79,7 +79,7 @@ async function telegramWebhook(request: Request): Promise<Response> {
 }
 
 /**
- *用API_GUARD处理Telegram回调
+ * Process Telegram callbacks through API_GUARD.
  * @param {Request} request
  * @returns {Promise<Response>}
  */

@@ -12,7 +12,7 @@ export function Logger(
     context: ClassFieldDecoratorContext | ClassMethodDecoratorContext,
 ): any {
     if (context.kind === 'field') {
-        const configIndex = 1; // config 的索引
+        const configIndex = 1; // Index of the config argument.
         return function (initialValue: any) {
             if (typeof initialValue !== 'function')
                 return initialValue;
@@ -68,7 +68,7 @@ export function getLogSingleton({ config, init = true }: { config: AgentUserConf
     return logSingleton.get(config)!.at(-1)!;
 }
 
-// 获取日志
+// Get formatted log output.
 export function getLog(context: AgentUserConfig, { onlyModel = false, isParagraph = false }: { onlyModel?: boolean; isParagraph?: boolean } = {}) {
     if (!context.ENABLE_SHOWINFO && !isParagraph)
         return '';
