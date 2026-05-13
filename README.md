@@ -216,7 +216,7 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/new` | Clear the current chat history | Resets the active conversation |
 | `/redo [text]` | Re-run the previous user turn | Optional replacement text |
 | `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
-| `/img <prompt>` | Generate an image | Reply to an image to edit it through the active OpenAI-compatible image provider |
+| `/img [-n count] [-s size] [-m model] <prompt>` | Generate an image | Also supports `-q`, `-f`, `-c`, `-bg`, `-mod`, and `-if`; reply to an image to edit it through the active OpenAI-compatible image provider |
 | `/stt` | Transcribe an audio or voice message | Use it as the audio caption or reply to an audio message |
 | `/tts [-v voice] [-i instructions] <text>` | Generate speech from text | Also works when you reply to a text message; `-i` sends TTS instructions on compatible models |
 | `/set ...` | Apply stored runtime config changes | Supports inline message continuation when followed by normal chat text |

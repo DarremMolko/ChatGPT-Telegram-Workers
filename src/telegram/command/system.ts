@@ -151,11 +151,10 @@ function splitCommandTokens(text: string): { value: string }[] {
     return tokens;
 }
 
-function tokenizeTTSSubcommand(subcommand: string): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
+function tokenizeKnownFlags(subcommand: string, knownFlags: Set<string>): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
     const tokens = splitCommandTokens(subcommand);
     const flags: { flag: string; value: string | undefined }[] = [];
     const remainingTokens: string[] = [];
-    const knownFlags = new Set(['-v', '-i', '-instructions']);
 
     for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i].value;
@@ -167,7 +166,7 @@ function tokenizeTTSSubcommand(subcommand: string): { flags: { flag: string; val
         const nextToken = tokens[i + 1]?.value;
         const hasValue = nextToken !== undefined && !knownFlags.has(nextToken);
         flags.push({
-            flag: token.slice(1),
+            flag: token.replace(/^-+/, ''),
             value: hasValue ? nextToken : undefined,
         });
         if (hasValue) {
@@ -180,6 +179,51 @@ function tokenizeTTSSubcommand(subcommand: string): { flags: { flag: string; val
     return { flags, remainingText };
 }
 
+function tokenizeTTSSubcommand(subcommand: string): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
+    return tokenizeKnownFlags(subcommand, new Set(['-v', '-i', '-instructions']));
+}
+
+function tokenizeImgSubcommand(subcommand: string): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
+    return tokenizeKnownFlags(subcommand, new Set([
+        '-n',
+        '--n',
+        '--count',
+        '--quantity',
+        '-s',
+        '--s',
+        '-size',
+        '--size',
+        '-m',
+        '--m',
+        '-model',
+        '--model',
+        '-q',
+        '--q',
+        '-quality',
+        '--quality',
+        '-f',
+        '--f',
+        '-format',
+        '--format',
+        '-c',
+        '--c',
+        '-compression',
+        '--compression',
+        '-bg',
+        '--bg',
+        '-background',
+        '--background',
+        '-mod',
+        '--mod',
+        '-moderation',
+        '--moderation',
+        '-if',
+        '--if',
+        '-input-fidelity',
+        '--input-fidelity',
+    ]));
+}
+
 export class ImgCommandHandler implements CommandHandler {
     command = '/img';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
@@ -188,14 +232,93 @@ export class ImgCommandHandler implements CommandHandler {
             return sender.sendPlainText(ENV.I18N.command.help.img);
         }
         try {
-            const agent = loadImageGen(context.USER_CONFIG);
+            const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
+                ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
+                : subcommand.trim();
+            const { flags, remainingText } = tokenizeImgSubcommand(cleanedSubcommand);
+            if (remainingText === '') {
+                return sender.sendPlainText('Please input your image prompt');
+            }
             const extraParams: Record<string, any> = {};
             if (['image', 'photo'].includes(context.MIDDLE_CONTEXT.messageInfo?.type) && (context.MIDDLE_CONTEXT.messageInfo?.id?.length || 0) > 0) {
                 extraParams.referenceImages = await getTelegramFile(context.MIDDLE_CONTEXT.messageInfo.id!, context.SHARE_CONTEXT.botToken, 'base64');
             }
+            for (const { flag, value } of flags) {
+                if (flag === 'n' || flag === 'count' || flag === 'quantity') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide a quantity after -n');
+                    }
+                    const quantity = Number.parseInt(value, 10);
+                    if (!Number.isInteger(quantity) || quantity <= 0) {
+                        return sender.sendPlainText('Please provide a positive integer after -n');
+                    }
+                    extraParams.n = quantity;
+                    continue;
+                }
+                if (flag === 's' || flag === 'size') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide a size after -s');
+                    }
+                    extraParams.size = value;
+                    continue;
+                }
+                if (flag === 'm' || flag === 'model') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide a model after -m');
+                    }
+                    extraParams.model = value;
+                    continue;
+                }
+                if (flag === 'q' || flag === 'quality') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide a quality after -q');
+                    }
+                    extraParams.quality = value;
+                    continue;
+                }
+                if (flag === 'f' || flag === 'format') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide an output format after -f');
+                    }
+                    extraParams.outputFormat = value;
+                    continue;
+                }
+                if (flag === 'c' || flag === 'compression') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide an output compression after -c');
+                    }
+                    const compression = Number.parseInt(value, 10);
+                    if (!Number.isInteger(compression) || compression < 0 || compression > 100) {
+                        return sender.sendPlainText('Please provide an integer between 0 and 100 after -c');
+                    }
+                    extraParams.outputCompression = compression;
+                    continue;
+                }
+                if (flag === 'bg' || flag === 'background') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide a background after -bg');
+                    }
+                    extraParams.background = value;
+                    continue;
+                }
+                if (flag === 'mod' || flag === 'moderation') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide a moderation mode after -mod');
+                    }
+                    extraParams.moderation = value;
+                    continue;
+                }
+                if (flag === 'if' || flag === 'input-fidelity') {
+                    if (value === undefined) {
+                        return sender.sendPlainText('Please provide an input fidelity after -if');
+                    }
+                    extraParams.inputFidelity = value;
+                }
+            }
+            const agent = loadImageGen(context.USER_CONFIG);
             await sender.sendPlainText('Please wait a moment...');
             sendAction(context.SHARE_CONTEXT.botToken, message.chat.id, 'upload_photo');
-            const img = await agent.request(subcommand, context.USER_CONFIG, extraParams);
+            const img = await agent.request(remainingText, context.USER_CONFIG, extraParams);
             log.info(`img has been generated: ${JSON.stringify(img.url || img.message)} prompt: ${img.text}`);
             if ((img.raw || img.url)?.length === 0) {
                 return sender.sendPlainText(`${img.text || 'ERROR: No image found'}`);

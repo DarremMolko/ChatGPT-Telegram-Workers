@@ -417,6 +417,88 @@ describe('tTSCommandHandler', () => {
         });
     });
 
+    it('parses inline /img flags and forwards them as per-request overrides', async () => {
+        const request = vi.fn(async () => ({
+            raw: [new Blob(['png'])],
+            text: 'A neon fox',
+        }));
+        loadImageGenMock.mockReturnValue({
+            name: 'openai',
+            request,
+        });
+        sendImagesMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new ImgCommandHandler();
+        const message = createMessage('/img "A neon fox" -n 2 -s 1024x1536 -q high -f webp -c 80 -bg transparent -mod low -if high -m gpt-image-2');
+        const sender = createSender();
+        const context = createContext();
+
+        const response = await handler.handle(
+            message,
+            '"A neon fox" -n 2 -s 1024x1536 -q high -f webp -c 80 -bg transparent -mod low -if high -m gpt-image-2',
+            context,
+            sender,
+        );
+
+        expect(response.ok).toBe(true);
+        expect(request).toHaveBeenCalledWith('A neon fox', context.USER_CONFIG, {
+            n: 2,
+            size: '1024x1536',
+            quality: 'high',
+            outputFormat: 'webp',
+            outputCompression: 80,
+            background: 'transparent',
+            moderation: 'low',
+            inputFidelity: 'high',
+            model: 'gpt-image-2',
+        });
+    });
+
+    it('strips merged quote text before parsing /img flags on image replies', async () => {
+        getTelegramFileMock.mockResolvedValue(['base64-image']);
+        const request = vi.fn(async () => ({
+            raw: [new Blob(['png'])],
+            text: 'make it neon',
+        }));
+        loadImageGenMock.mockReturnValue({
+            name: 'oailike',
+            request,
+        });
+        sendImagesMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new ImgCommandHandler();
+        const message = createMessage('/img', 'Quoted reply');
+        const sender = createSender();
+        const context = createContext();
+        context.MIDDLE_CONTEXT.messageInfo = {
+            type: 'photo',
+            id: ['photo-file-id'],
+        };
+
+        await handler.handle(message, '-n 2 make it neon\n> Quoted reply — Alice (ID:789)', context, sender);
+
+        expect(getTelegramFileMock).toHaveBeenCalledWith(['photo-file-id'], 'bot-token', 'base64');
+        expect(request).toHaveBeenCalledWith('make it neon', context.USER_CONFIG, {
+            n: 2,
+            referenceImages: ['base64-image'],
+        });
+    });
+
+    it('rejects invalid /img quantities before calling the image agent', async () => {
+        const request = vi.fn();
+        loadImageGenMock.mockReturnValue({
+            name: 'openai',
+            request,
+        });
+        const handler = new ImgCommandHandler();
+        const message = createMessage('/img -n nope A neon fox');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, '-n nope A neon fox', context, sender);
+
+        expect(request).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide a positive integer after -n');
+    });
+
     it('promotes a replied user into the runtime admin list', async () => {
         const handler = new PromoteCommandHandler();
         const message = createMessage('/promote', 'Hello from reply');
