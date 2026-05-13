@@ -124,7 +124,7 @@ export function escape(text: string, expandParams: ExpandParams = { addQuote: fa
     } else if (textStartIndex < lines.length) {
         result.push(handleEscape(lines.slice(textStartIndex).join('\n'), 'text', expandParams));
     }
-    return addExpandable(restoreCollapsedLogs(result.join('\n'), expandParams), expandParams.quoteExpandable);
+    return addExpandable(result.join('\n'), expandParams.quoteExpandable);
 }
 
 function handleEscape(text: string, type: 'text' | 'code', { addQuote }: ExpandParams): string {
@@ -295,16 +295,6 @@ export function addExpandable(text: string, quoteExpandable: boolean): string {
 
         // Not expandable, return as-is
         return match;
-    });
-}
-
-function restoreCollapsedLogs(text: string, { addQuote, quoteExpandable }: ExpandParams): string {
-    return text.replace(/(^|\n)(>?)LOGSTART\\>([\s\S]*?)LOGEND(?=\n|$)/g, (_, prefix: string, _quote: string, content: string) => {
-        const body = content.trimEnd();
-        if (addQuote && quoteExpandable) {
-            return `${prefix}>${body}`;
-        }
-        return `${prefix}**>${body}||`;
     });
 }
 
