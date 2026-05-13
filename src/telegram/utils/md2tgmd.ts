@@ -40,13 +40,13 @@ const escapeRegexpMatch = [
     },
     // underline
     {
-        regex: /\\_\\_(\S|\S[^\n]*?\S)\\_\\_/g,
-        value: '__$1__',
+        regex: /(^|[^\\\w])\\_\\_(\S|\S[^\n]*?\S)\\_\\_\b/g,
+        value: '$1__$2__',
     },
     // italic
     {
-        regex: /\\(_|\*)(\S|\S[^\n]*?\S)\\\1/g,
-        value: '_$2_',
+        regex: /(^|[^\\\w])\\([_*])(\S|\S[^\n]*?\S)\\\2(?!\w)/g,
+        value: '$1_$3_',
     },
     // strikethrough
     {

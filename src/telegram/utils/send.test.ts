@@ -126,4 +126,23 @@ describe('messageSender.sendRichText', () => {
             text: '*User: Juan*\n• Age: 30\n• City: Cucuta\n• Favorite Food: Arepas con queso',
         }));
     });
+
+    it('keeps snake_case cell values escaped in card rendering', async () => {
+        const sender = MessageSender.from('token', createMessage('private'));
+        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        await sender.sendRichText([
+            '| Field | Value | Notes | Extra |',
+            '| --- | --- | --- | --- |',
+            '| foo_bar_baz | alpha_beta | note_value | extra_data |',
+        ].join('\n'));
+
+        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            chat_id: 123,
+            text: '*Field: foo\\_bar\\_baz*\n• Value: alpha\\_beta\n• Notes: note\\_value\n• Extra: extra\\_data',
+        }));
+    });
 });
