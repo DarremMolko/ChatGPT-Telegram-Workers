@@ -27,6 +27,19 @@ describe('transformPipeTables', () => {
         ].join('\n'));
     });
 
+    it('flattens markdown inside card cells to plain text', () => {
+        const input = [
+            '| Aspecto | Desafio |',
+            '| --- | --- |',
+            '| **Energias inaccesibles** | Para probar `directamente` con [aceleradores](https://example.com) |',
+        ].join('\n');
+
+        expect(transformPipeTables(input)).toBe([
+            '**Aspecto: Energias inaccesibles**',
+            '- Desafio: Para probar directamente con aceleradores (https://example.com)',
+        ].join('\n'));
+    });
+
     it('renders small tables in monospace blocks', () => {
         const input = [
             '| Key | Value |',

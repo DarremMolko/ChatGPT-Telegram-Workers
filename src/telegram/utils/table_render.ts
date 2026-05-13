@@ -184,8 +184,8 @@ function renderCardTable(table: ParsedTable): string {
     const titleIndex = Math.max(0, table.header.findIndex(cell => cell !== ''));
 
     return table.rows.map((row, rowIndex) => {
-        const titleLabel = table.header[titleIndex] || `Row ${rowIndex + 1}`;
-        const titleValue = row[titleIndex] || `Row ${rowIndex + 1}`;
+        const titleLabel = sanitizeCardText(table.header[titleIndex]) || `Row ${rowIndex + 1}`;
+        const titleValue = sanitizeCardText(row[titleIndex]) || `Row ${rowIndex + 1}`;
         const lines = [`**${titleLabel}: ${titleValue}**`];
 
         row.forEach((value, columnIndex) => {
@@ -193,12 +193,13 @@ function renderCardTable(table: ParsedTable): string {
                 return;
             }
 
-            const label = table.header[columnIndex] || `Column ${columnIndex + 1}`;
-            if (value === '') {
+            const label = sanitizeCardText(table.header[columnIndex]) || `Column ${columnIndex + 1}`;
+            const safeValue = sanitizeCardText(value);
+            if (safeValue === '') {
                 lines.push(`- ${label}: -`);
                 return;
             }
-            lines.push(`- ${label}: ${value}`);
+            lines.push(`- ${label}: ${safeValue}`);
         });
 
         return lines.join('\n');
@@ -207,4 +208,18 @@ function renderCardTable(table: ParsedTable): string {
 
 function isFenceLine(line: string): boolean {
     return line.trim().replace(/^>\s?/, '').startsWith('```');
+}
+
+function sanitizeCardText(text: string): string {
+    return text
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+        .replace(/`([^`]*)`/g, '$1')
+        .replace(/(^|\W)\*\*(\S|\S[^\n]*?\S)\*\*(?=$|\W)/g, '$1$2')
+        .replace(/(^|\W)\*(\S|\S[^\n]*?\S)\*(?=$|\W)/g, '$1$2')
+        .replace(/(^|\W)__(\S|\S[^\n]*?\S)__(?=$|\W)/g, '$1$2')
+        .replace(/(^|\W)_(\S|\S[^\n]*?\S)_(?=$|\W)/g, '$1$2')
+        .replace(/(^|\W)~~(\S|\S[^\n]*?\S)~~(?=$|\W)/g, '$1$2')
+        .replace(/(^|\W)~(\S|\S[^\n]*?\S)~(?=$|\W)/g, '$1$2')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
