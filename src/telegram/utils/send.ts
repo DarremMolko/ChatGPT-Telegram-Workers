@@ -7,6 +7,7 @@ import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
 import md2node from './md2node';
 import { chunkDocument, escape } from './md2tgmd';
+import { transformPipeTables } from './table_render';
 import { waitUntil } from './tg_utils';
 
 class MessageContext implements Record<string, any> {
@@ -616,7 +617,9 @@ function renderMessage(parse_mode: Telegram.ParseMode | null, message: string, e
     // Remove Grok rendering tags (xAI web UI internal tags that may leak into API responses)
     // These tags like <grok:render type="renderinlinecitation"> are used in Grok web interface
     // but should not appear in bot responses
-    const cleanedMessage = message.replace(/<grok:[^>]*>/g, '').replace(/<\/grok:[^>]*>/g, '');
+    const cleanedMessage = transformPipeTables(
+        message.replace(/<grok:[^>]*>/g, '').replace(/<\/grok:[^>]*>/g, ''),
+    );
 
     const chunkMessage = chunkDocument(cleanedMessage);
     if (parse_mode === 'MarkdownV2') {

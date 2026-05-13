@@ -107,4 +107,23 @@ describe('messageSender.sendRichText', () => {
             text: 'second chunk',
         }));
     });
+
+    it('transforms pipe tables before sending rich text', async () => {
+        const sender = MessageSender.from('token', createMessage('private'));
+        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        await sender.sendRichText([
+            '| User | Age | City | Favorite Food |',
+            '| --- | --- | --- | --- |',
+            '| Juan | 30 | Cucuta | Arepas con queso |',
+        ].join('\n'));
+
+        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            chat_id: 123,
+            text: '*User: Juan*\n• Age: 30\n• City: Cucuta\n• Favorite Food: Arepas con queso',
+        }));
+    });
 });

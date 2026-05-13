@@ -17,6 +17,7 @@ import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
 import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
+import { transformPipeTables } from '../utils/table_render';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
 
 /**
@@ -287,8 +288,9 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
 
     streamSender.send = async (text: string, type = 'chat'): Promise<any> => {
         try {
+            const outboundText = transformPipeTables(text);
             if (type === 'chat') {
-                cache = text;
+                cache = outboundText;
                 heartWaitedTime = 0;
                 updateHeartbeat();
             }
@@ -307,21 +309,23 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
                 nextEnableTime = Date.now() + sendInterval;
             }
 
-            if (isSendDocument(text)) {
+            if (isSendDocument(outboundText)) {
                 if (isSendDocumentTip) {
                     return;
                 }
                 isSendDocumentTip = true;
-                text += '\n\n**Hold on, answer will be sent as a document.**';
+                cache = `${outboundText}\n\n**Hold on, answer will be sent as a document.**`;
             }
 
-            if (isSendTelegraph(text)) {
-                sentPromise = sendTelegraph(telegraphContext(false, false), question || 'Redo Question', text);
+            const displayText = isSendDocumentTip ? cache : outboundText;
+
+            if (isSendTelegraph(displayText)) {
+                sentPromise = sendTelegraph(telegraphContext(false, false), question || 'Redo Question', displayText);
                 hasSentTelegraphLink = true;
                 return;
             }
 
-            const data = mergeLogMessages(text, context?.USER_CONFIG);
+            const data = mergeLogMessages(displayText, context?.USER_CONFIG);
             expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
             log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
@@ -358,13 +362,14 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         if (type === 'error') {
             text = `${cache}\n${text}`;
         }
-        if (isSendDocument(text)) {
-            return sendDocument(sender as MessageSender, { question: question || 'Redo Question', answer: text, log: getLog(context?.USER_CONFIG || {} as AgentUserConfig, { onlyModel: false, isParagraph: true }) });
+        const outboundText = transformPipeTables(text);
+        if (isSendDocument(outboundText)) {
+            return sendDocument(sender as MessageSender, { question: question || 'Redo Question', answer: outboundText, log: getLog(context?.USER_CONFIG || {} as AgentUserConfig, { onlyModel: false, isParagraph: true }) });
         }
-        if (isSendTelegraph(text)) {
-            return sendTelegraph(telegraphContext(true, false), question || 'Redo Question', text);
+        if (isSendTelegraph(outboundText)) {
+            return sendTelegraph(telegraphContext(true, false), question || 'Redo Question', outboundText);
         }
-        const data = context && needLog ? mergeLogMessages(text, context.USER_CONFIG) : text;
+        const data = context && needLog ? mergeLogMessages(outboundText, context.USER_CONFIG) : outboundText;
         log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
         expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
         let maxFetchFailedTimes = 3;
