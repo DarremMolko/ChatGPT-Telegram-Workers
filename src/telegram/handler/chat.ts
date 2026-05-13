@@ -15,7 +15,7 @@ import { imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
-import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
+import { escape, SEGMENTATION_MARK, wrapExpandableLog } from '../utils/md2tgmd';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { transformPipeTables } from '../utils/table_render';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
@@ -661,7 +661,7 @@ export function mergeLogMessages(text: string, config: AgentUserConfig | undefin
     if (!config?.ENABLE_SHOWINFO) {
         return content;
     }
-    const info = getLog(config).trim();
+    const info = wrapExpandableLog(getLog(config));
     if (!info) {
         return content;
     }

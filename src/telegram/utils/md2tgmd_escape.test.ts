@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escape } from './md2tgmd';
+import { escape, wrapExpandableLog } from './md2tgmd';
 
 describe('escape snake case safety', () => {
     it('keeps plain snake_case escaped as literal text', () => {
@@ -16,5 +16,13 @@ describe('escape snake case safety', () => {
 
     it('still renders intentional underline markdown', () => {
         expect(escape('This is __important__.')).toBe('This is __important__\\.');
+    });
+});
+
+describe('wrapExpandableLog', () => {
+    it('turns runtime log lines into an expandable block', () => {
+        const message = `${wrapExpandableLog('kimi-k2.6 3.2s\nsearch_tools: ["trending movies"]')}\nanswer`;
+
+        expect(escape(message)).toBe('**>kimi\\-k2\\.6 3\\.2s\n>search\\_tools: \\["trending movies"\\]||\nanswer');
     });
 });
