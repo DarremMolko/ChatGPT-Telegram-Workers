@@ -153,6 +153,8 @@ For PaaS deployments such as Render and Koyeb, `LOCAL_MODE=webhook` plus normal 
 
 To avoid overlapping replies in the same chat, the runtime now defaults to `CHAT_CONCURRENCY_POLICY=queue`. Other supported values are `cancel_previous`, `drop_if_busy`, and `parallel`.
 
+`queue` waits for the active reply to finish and notifies the user that their message was queued. `cancel_previous` cancels or supersedes older in-flight work so the newest message wins. `drop_if_busy` refuses new work while a reply is active and asks the user to wait or send `/stop`. `parallel` keeps the older overlapping behavior and does not try to serialize same-chat requests.
+
 If you use `polling` mode:
 
 - no `/init` step is needed

@@ -203,6 +203,13 @@ Telegram document notes:
 | `INLINE_QUERY_SHOW_INFO` | Show response info blocks in inline-query mode. | `false` |
 | `CALLBACK_QUERY_RC` | `/settings` inline keyboard layout in `rows x columns` form. | `'7x2'` |
 
+`CHAT_CONCURRENCY_POLICY` behavior:
+
+- `queue`: wait for the active reply to finish, then run the next request and notify the user that their message was queued
+- `cancel_previous`: cancel or supersede older in-flight work so the newest message wins
+- `drop_if_busy`: reject new work while a reply is active and ask the user to wait or send `/stop`
+- `parallel`: keep the legacy overlapping behavior with no same-chat serialization
+
 Scheduled deletion notes:
 
 - `EXPIRED_TIME` is in minutes
