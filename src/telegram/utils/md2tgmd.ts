@@ -82,18 +82,6 @@ const escapeRegexpMatch = [
 
 export const escapedCharsReverseMap = new Map(Object.entries(escapedChars).map(([key, value]) => [value, key]));
 
-export function wrapExpandableLog(text: string): string {
-    const content = text.trim();
-    if (!content) {
-        return '';
-    }
-    const quoted = content
-        .split('\n')
-        .map(line => `>${line}`)
-        .join('\n');
-    return `LOGSTART${quoted}LOGEND`;
-}
-
 export function escape(text: string, expandParams: ExpandParams = { addQuote: false, quoteExpandable: false }): string {
     const lines = text.split('\n');
     const codeStack: number[] = [];
