@@ -1,8 +1,9 @@
 import type { LLMChatParams } from './types';
 import { ENV } from '../config/env';
 import { loadChatLLM } from './index';
-import '../config/env.test';
+import '../config/env.manual';
 
+// Manual smoke script for exercising the chat agent against a live provider.
 {
     const agent = loadChatLLM({
         ...ENV.USER_CONFIG,

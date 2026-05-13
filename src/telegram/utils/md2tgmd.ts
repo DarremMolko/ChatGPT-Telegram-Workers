@@ -118,13 +118,13 @@ export function escape(text: string, expandParams: ExpandParams = { addQuote: fa
             }
         }
     }
-    // if (codeStack.length > 0) {
-    //     const last = `${lines.slice(codeStack[0]).join('\n')}\n\`\`\``;
-    //     result.push(handleEscape(last, 'code', expandParams));
-    if (codeStack.length === 0 && textStartIndex < lines.length) {
+    if (codeStack.length > 0) {
+        const last = `${lines.slice(codeStack[0]).join('\n')}\n\`\`\``;
+        result.push(handleEscape(last, 'code', expandParams));
+    } else if (textStartIndex < lines.length) {
         result.push(handleEscape(lines.slice(textStartIndex).join('\n'), 'text', expandParams));
     }
-    return addExpandable(result.join('\n'), expandParams.quoteExpandable);
+    return addExpandable(restoreCollapsedLogs(result.join('\n'), expandParams), expandParams.quoteExpandable);
 }
 
 function handleEscape(text: string, type: 'text' | 'code', { addQuote }: ExpandParams): string {
@@ -295,6 +295,16 @@ export function addExpandable(text: string, quoteExpandable: boolean): string {
 
         // Not expandable, return as-is
         return match;
+    });
+}
+
+function restoreCollapsedLogs(text: string, { addQuote, quoteExpandable }: ExpandParams): string {
+    return text.replace(/(^|\n)(>?)LOGSTART\\>([\s\S]*?)LOGEND(?=\n|$)/g, (_, prefix: string, _quote: string, content: string) => {
+        const body = content.trimEnd();
+        if (addQuote && quoteExpandable) {
+            return `${prefix}>${body}`;
+        }
+        return `${prefix}**>${body}||`;
     });
 }
 
