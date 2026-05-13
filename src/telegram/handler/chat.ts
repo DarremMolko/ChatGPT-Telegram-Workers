@@ -325,7 +325,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
                 return;
             }
 
-            const data = displayText;
+            const data = mergeLogMessages(displayText, context?.USER_CONFIG);
             expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
             log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
@@ -369,7 +369,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         if (isSendTelegraph(outboundText)) {
             return sendTelegraph(telegraphContext(true, false), question || 'Redo Question', outboundText);
         }
-        const data = outboundText;
+        const data = context && needLog ? mergeLogMessages(outboundText, context.USER_CONFIG) : outboundText;
         log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
         expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
         let maxFetchFailedTimes = 3;
@@ -387,9 +387,6 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
                     log.error(`send message failed: ${finalResp.status} ${await finalResp.json().then(j => j.description)}`);
                     await sendTelegraph(telegraphContext(true, true), question || 'Redo Question', text);
                     return;
-                }
-                if (context && needLog) {
-                    await sendLogFooter(sender, context.USER_CONFIG);
                 }
                 return finalResp;
             } catch (e) {
@@ -563,7 +560,7 @@ async function handleAudio(
     context.MIDDLE_CONTEXT.history.push({ role: 'user', content: text });
     const sender = streamSender.sender!;
     if (handleKey.endsWith('text') || !ENV.HIDE_MIDDLE_MESSAGE) {
-        await streamSender.end!(text);
+        await streamSender.end!(mergeLogMessages(text, context.USER_CONFIG));
     }
     if (handleKey.startsWith('stt')) {
         streamSender.clearHeartbeat!();
@@ -672,44 +669,6 @@ export function mergeLogMessages(text: string, config: AgentUserConfig | undefin
         return `${info}\n${SEGMENTATION_MARK}\n${content}`;
     }
     return `${content}\n${SEGMENTATION_MARK}\n${info}`;
-}
-
-function escapeHtml(text: string): string {
-    return text
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-}
-
-export function buildLogFooterHtml(config: AgentUserConfig | undefined): string | null {
-    if (!config?.ENABLE_SHOWINFO) {
-        return null;
-    }
-    const info = getLog(config).trim();
-    if (!info) {
-        return null;
-    }
-    return `<blockquote expandable>${escapeHtml(info)}</blockquote>`;
-}
-
-export async function sendLogFooter(sender: MessageSender | ChosenInlineSender, config: AgentUserConfig | undefined): Promise<void> {
-    if (!(sender instanceof MessageSender)) {
-        return;
-    }
-    const footer = buildLogFooterHtml(config);
-    if (!footer) {
-        return;
-    }
-    const footerSender = MessageSender.from(sender.api.token, sender.context.message);
-    if (sender.context.message_id) {
-        footerSender.update({
-            reply_to_message_id: sender.context.message_id,
-        });
-    }
-    const resp = await footerSender.sendRichText(footer, 'HTML', 'chat');
-    if (!resp.ok) {
-        log.error(`send log footer failed: ${resp.status} ${await resp.clone().json().then(j => j.description).catch(() => '')}`);
-    }
 }
 
 // MIME type mapping for common file extensions

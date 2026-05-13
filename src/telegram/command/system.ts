@@ -18,7 +18,7 @@ import { formatLocalDateTime } from '../../utils/others/time';
 import { getStats } from '../../utils/stats';
 import { addRuntimeAdmin, canManageRuntimeConfigForAccess, canViewSensitiveConfigForAccess, isOwner, isPrivilegedUser, isSensitiveRuntimeConfigKey, removeRuntimeAdmin, resolveRuntimeConfigAccessLevel, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
-import { chatWithLLM, sendImages, sendLogFooter, stt, tts } from '../handler/chat';
+import { chatWithLLM, mergeLogMessages, sendImages, stt, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { escape } from '../utils/md2tgmd';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
@@ -981,9 +981,7 @@ export class STTCommandHandler implements CommandHandler {
         }
 
         const text = await stt(audio, context.USER_CONFIG);
-        const resp = await sender.sendRichText(text);
-        await sendLogFooter(sender, context.USER_CONFIG);
-        return resp;
+        return sender.sendRichText(mergeLogMessages(text, context.USER_CONFIG));
     };
 }
 
