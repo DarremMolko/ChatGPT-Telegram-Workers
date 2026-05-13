@@ -107,4 +107,31 @@ describe('messageSender.sendRichText', () => {
             text: 'second chunk',
         }));
     });
+
+    it('formats markdown pipe tables before sending rich text', async () => {
+        const sender = MessageSender.from('token', createMessage('private'));
+        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        await sender.sendRichText(`Summary
+
+| Name | Role |
+| --- | --- |
+| Ada | Engineer |`);
+
+        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            chat_id: 123,
+            text: `Summary
+
+\`\`\`
+┌──────┬──────────┐
+│ Name │ Role     │
+├──────┼──────────┤
+│ Ada  │ Engineer │
+└──────┴──────────┘
+\`\`\``,
+        }));
+    });
 });
