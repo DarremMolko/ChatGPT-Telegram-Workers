@@ -9,7 +9,9 @@ interface ParsedTableBlock {
 const COLUMN_PADDING = 1;
 const MAX_COLUMN_WIDTH = 36;
 const MAX_TABLE_WIDTH = 72;
+const MAX_GRID_WIDTH = 52;
 const MIN_COLUMN_WIDTH = 4;
+const STACKED_CARD_WIDTH = 42;
 const TABLE_DELIMITER_REGEXP = /^:?-{3,}:?$/;
 const TABLE_ESCAPE_SENTINEL = '\u0000';
 
@@ -129,6 +131,10 @@ function parseAlignment(cell: string): TableAlignment {
 function renderTable(rows: string[][], alignments: TableAlignment[]): string[] {
     const columnCount = rows[0].length;
     const widths = resolveColumnWidths(rows, columnCount);
+    if (shouldRenderStacked(rows, widths)) {
+        return renderStackedTable(rows);
+    }
+
     const table: string[] = [];
 
     table.push(buildBorder(widths, '┌', '┬', '┐'));
@@ -141,6 +147,11 @@ function renderTable(rows: string[][], alignments: TableAlignment[]): string[] {
 
     table.push(buildBorder(widths, '└', '┴', '┘'));
     return table;
+}
+
+function shouldRenderStacked(rows: string[][], widths: number[]): boolean {
+    const columnCount = rows[0].length;
+    return columnCount > 3 || (columnCount > 2 && getTableWidth(widths) > MAX_GRID_WIDTH);
 }
 
 function resolveColumnWidths(rows: string[][], columnCount: number): number[] {
@@ -170,6 +181,55 @@ function buildBorder(widths: number[], left: string, middle: string, right: stri
     return left + widths.map(width => '─'.repeat(width + COLUMN_PADDING * 2)).join(middle) + right;
 }
 
+function renderStackedTable(rows: string[][]): string[] {
+    if (rows.length <= 1) {
+        return renderCompactSingleRow(rows[0] ?? []);
+    }
+
+    const headers = rows[0];
+    const titleHeader = headers[0] || 'Row';
+    const fieldHeaders = headers.slice(1);
+    const cards: string[] = [];
+
+    for (const [rowIndex, row] of rows.slice(1).entries()) {
+        if (rowIndex > 0) {
+            cards.push('');
+        }
+
+        const titleValue = row[0]?.trim() || `Row ${rowIndex + 1}`;
+        const contentLines = wrapText(`${titleHeader}: ${titleValue}`, STACKED_CARD_WIDTH);
+
+        for (const [fieldIndex, header] of fieldHeaders.entries()) {
+            const value = row[fieldIndex + 1]?.trim();
+            if (!value) {
+                continue;
+            }
+            contentLines.push(...wrapText(`${header}: ${value}`, STACKED_CARD_WIDTH));
+        }
+
+        const width = STACKED_CARD_WIDTH;
+        cards.push(buildBorder([width], '┌', '┬', '┐'));
+        cards.push(...contentLines.map(line => `│ ${padCell(line, width, 'left')} │`));
+        cards.push(buildBorder([width], '└', '┴', '┘'));
+    }
+
+    return cards;
+}
+
+function renderCompactSingleRow(row: string[]): string[] {
+    const contentLines = row.map(cell => cell.trim()).filter(Boolean);
+    if (contentLines.length === 0) {
+        return [];
+    }
+
+    const width = Math.max(...contentLines.map(displayWidth));
+    return [
+        buildBorder([width], '┌', '┬', '┐'),
+        ...contentLines.map(line => `│ ${padCell(line, width, 'left')} │`),
+        buildBorder([width], '└', '┴', '┘'),
+    ];
+}
+
 function renderRow(row: string[], widths: number[], alignments: TableAlignment[]): string[] {
     const wrappedCells = row.map((cell, index) => wrapCell(cell, widths[index]));
     const rowHeight = Math.max(...wrappedCells.map(lines => lines.length));
@@ -187,6 +247,10 @@ function renderRow(row: string[], widths: number[], alignments: TableAlignment[]
 }
 
 function wrapCell(text: string, width: number): string[] {
+    return wrapText(text, width);
+}
+
+function wrapText(text: string, width: number): string[] {
     const normalized = text.trim();
     if (!normalized) {
         return [''];
