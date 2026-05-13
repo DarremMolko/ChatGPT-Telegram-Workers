@@ -146,6 +146,7 @@ out
 .idea
 .vscode
 .wrangler
+/dist/
 /config.json
 /config.toml
 /dist/index.cjs

@@ -5,6 +5,7 @@
     "description": "Telegram bot for local and Docker deployment with OpenAI and OpenAI-compatible APIs.",
     "author": "tbxark <tbxark@outlook.com>",
     "license": "MIT",
+    "packageManager": "npm@10.8.2",
     "repository": "git@github.com:TBXark/ChatGPT-Telegram-Workers.git",
     "engines": {
         "node": "^20.19.0 || >=22.12.0"
@@ -21,6 +22,7 @@
         "start:dist": "node dist/index.js",
         "start:local": "tsx src/adapter/local/index.ts",
         "test": "vitest",
+        "verify": "npm run lint && npm test -- --run && npm run build",
         "clean": "rm -rf dist"
     },
     "dependencies": {
