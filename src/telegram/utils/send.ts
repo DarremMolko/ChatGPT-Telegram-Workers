@@ -7,6 +7,7 @@ import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
 import md2node from './md2node';
 import { chunkDocument, escape } from './md2tgmd';
+import { renderPipeTablesAsMonospaceBlocks } from './pipe_table';
 import { waitUntil } from './tg_utils';
 
 class MessageContext implements Record<string, any> {
@@ -368,7 +369,7 @@ export class TelegraphSender {
     }
 
     private async createOrEditPage(url: string, title: string, content: string, raw?: string): Promise<Response> {
-        const contentNode = md2node(content);
+        const contentNode = md2node(renderPipeTablesAsMonospaceBlocks(content));
         if (raw) {
             contentNode.push(...[
                 { tag: 'hr' },
@@ -617,8 +618,11 @@ function renderMessage(parse_mode: Telegram.ParseMode | null, message: string, e
     // These tags like <grok:render type="renderinlinecitation"> are used in Grok web interface
     // but should not appear in bot responses
     const cleanedMessage = message.replace(/<grok:[^>]*>/g, '').replace(/<\/grok:[^>]*>/g, '');
+    const normalizedMessage = parse_mode === 'MarkdownV2'
+        ? renderPipeTablesAsMonospaceBlocks(cleanedMessage)
+        : cleanedMessage;
 
-    const chunkMessage = chunkDocument(cleanedMessage);
+    const chunkMessage = chunkDocument(normalizedMessage);
     if (parse_mode === 'MarkdownV2') {
         return chunkMessage.map(lines => escape(lines, expandParams));
     }
