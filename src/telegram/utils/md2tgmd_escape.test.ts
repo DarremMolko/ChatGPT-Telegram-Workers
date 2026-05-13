@@ -23,6 +23,6 @@ describe('wrapExpandableLog', () => {
     it('turns runtime log lines into an expandable block', () => {
         const message = `${wrapExpandableLog('kimi-k2.6 3.2s\nsearch_tools: ["trending movies"]')}\nanswer`;
 
-        expect(escape(message)).toBe('**>kimi\\-k2\\.6 3\\.2s\n>search\\_tools: \\["trending movies"\\]||\nanswer');
+        expect(escape(message)).toBe('>kimi\\-k2\\.6 3\\.2s\n>search\\_tools: \\["trending movies"\\]||\nanswer');
     });
 });

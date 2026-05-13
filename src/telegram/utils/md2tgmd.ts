@@ -316,7 +316,7 @@ function restoreCollapsedLogs(text: string, { addQuote, quoteExpandable }: Expan
         if (addQuote && quoteExpandable) {
             return `${prefix}>${body}`;
         }
-        return `${prefix}**>${body}||`;
+        return `${prefix}>${body}||`;
     });
 }
 

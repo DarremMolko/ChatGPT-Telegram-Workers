@@ -23,7 +23,7 @@ Maybe you can.
 >You said:
 >The meaning of life is to be happy.`;
 
-const tgmd1 = `**>\`gpt-4o 12.5s\`
+const tgmd1 = `>\`gpt-4o 12.5s\`
 >\`search\`
 >\`110,12\`||
 
@@ -192,7 +192,7 @@ A photo of a small, fluffy, white kitten sitting with a slight lean to the left,
 
 // const data = escape(text5, { quoteExpandable: true, addQuote: true });
 
-const thmd5_noquote = `**>\`gemini-2.0-flash-exp c_t: 4.3s\`
+const thmd5_noquote = `>\`gemini-2.0-flash-exp c_t: 4.3s\`
 >\`imagen-3.0-fast-generate-001 6.5s\`
 >\`1240,307\`||
 A photo of a small, fluffy, white kitten sitting with a slight lean to the left, its legs together\\. Its head is turned approximately 20 degrees to the right, and its gaze is directed towards the upper right, giving it a pensive expression\\. Its fur is long and soft, with a naturally messy look, appearing slightly damp\\. Some strands fall over its forehead, partially obscuring its left eye, while the rest cascades over its shoulders and chest\\. It has soft facial features and fair skin, with thin, naturally shaped eyebrows`;
@@ -222,7 +222,7 @@ LOGSTART>\`gemini-2.0-flash-exp c_t: 4.3s\`
 
 const tgmd6_noquote_expand = `**>A photo of a small, fluffy, white kitten sitting with a slight lean to the left, its legs together\\. Its head is turned approximately 20 degrees to the right, and its gaze is directed towards the upper right, giving it a pensive expression\\. Its fur is long and soft, with a naturally messy look, appearing slightly damp\\. Some strands fall over its forehead, partially obscuring its left eye, while the rest cascades over its shoulders and chest\\. It has soft facial features and fair skin, with thin, naturally shaped eyebrows\\.||
 It's a photo\\.
-**>\`gemini-2.0-flash-exp c_t: 4.3s\`
+>\`gemini-2.0-flash-exp c_t: 4.3s\`
 >\`imagen-3.0-fast-generate-001 6.5s\`
 >\`1240,307\`||`;
 
@@ -234,13 +234,13 @@ const tgmd6_quote_expand = `**>A photo of a small, fluffy, white kitten sitting 
 
 const tgmd6_noquote_noexpand = `>A photo of a small, fluffy, white kitten sitting with a slight lean to the left, its legs together\\. Its head is turned approximately 20 degrees to the right, and its gaze is directed towards the upper right, giving it a pensive expression\\. Its fur is long and soft, with a naturally messy look, appearing slightly damp\\. Some strands fall over its forehead, partially obscuring its left eye, while the rest cascades over its shoulders and chest\\. It has soft facial features and fair skin, with thin, naturally shaped eyebrows\\.
 It's a photo\\.
-**>\`gemini-2.0-flash-exp c_t: 4.3s\`
+>\`gemini-2.0-flash-exp c_t: 4.3s\`
 >\`imagen-3.0-fast-generate-001 6.5s\`
 >\`1240,307\`||`;
 
 const tgmd6_quote_noexpand = `>A photo of a small, fluffy, white kitten sitting with a slight lean to the left, its legs together\\. Its head is turned approximately 20 degrees to the right, and its gaze is directed towards the upper right, giving it a pensive expression\\. Its fur is long and soft, with a naturally messy look, appearing slightly damp\\. Some strands fall over its forehead, partially obscuring its left eye, while the rest cascades over its shoulders and chest\\. It has soft facial features and fair skin, with thin, naturally shaped eyebrows\\.
 >It's a photo\\.
-**>\`gemini-2.0-flash-exp c_t: 4.3s\`
+>\`gemini-2.0-flash-exp c_t: 4.3s\`
 >\`imagen-3.0-fast-generate-001 6.5s\`
 >\`1240,307\`||`;
 
