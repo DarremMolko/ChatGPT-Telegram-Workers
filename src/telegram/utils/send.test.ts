@@ -108,7 +108,7 @@ describe('messageSender.sendRichText', () => {
         }));
     });
 
-    it('wraps markdown pipe tables unchanged in code blocks before sending rich text', async () => {
+    it('formats markdown pipe tables as monospace blocks before sending rich text', async () => {
         const sender = MessageSender.from('token', createMessage('private'));
         sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
             status: 200,
@@ -126,9 +126,7 @@ describe('messageSender.sendRichText', () => {
             text: `Summary
 
 \`\`\`
-| Dato | Valor |
-| --- | --- |
-| **Máxima** | **17.9°C** (18:00 hs) |
+Máxima: 17.9°C (18:00 hs)
 \`\`\``,
         }));
     });
