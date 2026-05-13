@@ -135,7 +135,6 @@ describe('text2', () => {
         expect(result).toBe(tgmd2_expand);
     });
 });
-// // escape(text2);
 
 describe('text3 code block', () => {
     it('code block', () => {
@@ -145,13 +144,6 @@ describe('text3 code block', () => {
         expect(escape(text3, { addQuote: true, quoteExpandable: true })).toBe(tgmd3_expand);
     });
 });
-
-// // escape(text3);
-
-// const result = quoteMessage(text1, 'group', true);
-// console.log(result);
-// console.log('quote expandable then escape--------------------------------');
-// escape(result, true);
 
 const text4 = `(\`test\`)
 
@@ -173,17 +165,6 @@ describe('text4', () => {
         expect(escape(text4, { addQuote: true, quoteExpandable: true })).toBe(tgmd4_expand);
     });
 });
-
-// const result = escape(text2);
-// console.log(result);
-
-// const text = `>\`gemini-2.0-flash-exp 1.5s\`
-// >\`47,24\`
-// > Hi\\! 👋 It's nice to hear from you again\\. Is there anything I can do for you today\\?
-// >Goodbye\\!
-// >Kakao
-// >wowo`;
-// addExpandable(text, true);
 
 const text7 = `\`test code\`
 link_1: [link 1](https://google.com/test/link_1_2.html)

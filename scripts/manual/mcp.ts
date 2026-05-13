@@ -8,14 +8,6 @@ let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | undefined;
 // Manual smoke script for exercising MCP integration against live services.
 async function main() {
     try {
-        // mcpClient = await createMCPClient({
-        //     name: 'amap',
-        //     transport: {
-        //         type: 'sse',
-        //         url: `https://mcp.amap.com/sse?key=${process.env.AMAP_KEY}`,
-        //     },
-        // });
-
         const transport = new MCPStdioTransport({
             command: 'npx',
             args: ['-y', '@amap/amap-maps-mcp-server'],

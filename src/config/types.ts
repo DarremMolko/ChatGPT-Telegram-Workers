@@ -1,5 +1,3 @@
-// import type { StreamableHTTPClientTransportOptions } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-
 export interface RedisStorage {
     get: (key: string | string[]) => Promise<string | any>;
     put: (key: string, value: string, info?: { expirationTtl?: number; expiration?: number; condition?: 'NX' | 'XX' }) => Promise<any>;
@@ -20,7 +18,6 @@ type FlowType = 'text' | 'image' | 'audio';
 
 export type FlowStruct = {
     [key in FlowType]?: {
-        // isParallel?: boolean;
         disableHistory?: boolean;
         disableTool?: boolean;
         workflow?: {

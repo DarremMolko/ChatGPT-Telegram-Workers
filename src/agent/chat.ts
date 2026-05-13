@@ -28,16 +28,6 @@ export async function loadHistory(key: string, length: number): Promise<HistoryI
     // 裁剪
     if (ENV.AUTO_TRIM_HISTORY) {
         history = trimHistory(history, length);
-        // 裁剪开始的tool result 以避免报错
-        // let validStart = 0;
-        // for (const h of history) {
-        //     if (h.role === 'tool') {
-        //         validStart++;
-        //         continue;
-        //     }
-        //     break;
-        // }
-        // history = history.slice(validStart);
     }
 
     return history;

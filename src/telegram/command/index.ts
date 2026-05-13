@@ -63,27 +63,6 @@ const SYSTEM_COMMANDS: CommandHandler[] = [
     new BlocklistCommandHandler(),
 ];
 
-// const commandHanders: any[] = [
-//     StartCommandHandler,
-//     NewCommandHandler,
-//     RedoCommandHandler,
-//     ImgCommandHandler,
-//     SetEnvCommandHandler,
-//     SetEnvsCommandHandler,
-//     DelEnvCommandHandler,
-//     ClearEnvCommandHandler,
-//     VersionCommandHandler,
-//     SystemCommandHandler,
-//     HelpCommandHandler,
-//     SetCommandHandler,
-// ];
-
-// function* SystemCommandGen(): Generator<CommandHandler, void, unknown> {
-//     for (const Command of commandHanders) {
-//         yield new Command();
-//     }
-// };
-
 async function handleSystemCommand(message: Telegram.Message, raw: string, command: CommandHandler, context: WorkerContext): Promise<Response | UnionData | ImageResult | null> {
     const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
     try {
@@ -121,15 +100,10 @@ export async function handleCommandMessage(message: Telegram.Message, context: W
     text = resolveCommandText(text);
 
     if (ENV.DEV_MODE) {
-        // 插入调试命令
         if (!SYSTEM_COMMANDS.some(cmd => cmd.command === '/echo')) {
             SYSTEM_COMMANDS.push(new EchoCommandHandler());
         }
     }
-
-    // const SYSTEM_COMMANDS = SystemCommandGen();
-
-    // 查找系统命令
     const command = resolveMatchedCommand(text);
     if (command) {
         log.info(`[SYSTEM COMMAND] handle system command: ${command.command}`);
@@ -139,7 +113,6 @@ export async function handleCommandMessage(message: Telegram.Message, context: W
 }
 
 export function commandsBindScope(): Record<string, Telegram.SetMyCommandsParams> {
-    // const SYSTEM_COMMANDS = SystemCommandGen();
     const scopeCommandMap: Record<string, Telegram.BotCommand[]> = {
         all_private_chats: [],
         all_group_chats: [],

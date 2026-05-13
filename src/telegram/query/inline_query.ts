@@ -173,17 +173,3 @@ export class AnswerInlineQuery implements ChosenInlineQueryHandler<ChosenInlineW
         return answer.handler(chosenInline, context);
     };
 }
-
-// class AnswerImageInlineQuery implements answerInlineQuery {
-//     type = ':i';
-//     handler = async (context: InlineQueryContext, query: string): Promise<Response> => {
-//         return new Response('ok');
-//     };
-// }
-
-// class AnswerSpeechInlineQuery implements answerInlineQuery {
-//     type = ':s';
-//     handler = async (context: InlineQueryContext, query: string): Promise<Response> => {
-//         return new Response('ok');
-//     };
-// }

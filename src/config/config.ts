@@ -162,11 +162,6 @@ export class EnvironmentConfig {
     ENABLE_SEARCH_SOURCE = true;
     // Whether to show thinking text
     SHOW_THINKING_TEXT = true;
-
-    // TODO: override command auth, key is command, value is auth role, support: 'creator', 'administrator', null
-    // COMMAND_AUTH_OVERRIDE: Record<string, string[]> = {
-    //     '/tts': ['creator', 'administrator'],
-    // };
 }
 
 // -- 通用配置 --

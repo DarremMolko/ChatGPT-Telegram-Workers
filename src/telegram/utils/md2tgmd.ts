@@ -58,11 +58,6 @@ const escapeRegexpMatch = [
         regex: /\\\|\\\|(\S|\S[^\n]*?\S)\\\|\\\|/g,
         value: '||$1||',
     },
-    // url
-    // {
-    //     regex: /\\\[([^\n]+)\\\]\\\((.+?)\\\)/g,
-    //     value: '[$1]($2)',
-    // },
     // quote
     {
         regex: /^(\x20*(?:\\\*\\\*)?)\\>\x20?([^\n]*)$/gm,
@@ -87,7 +82,6 @@ export function escape(text: string, expandParams: ExpandParams = { addQuote: fa
     const codeStack: number[] = [];
     const result: string[] = [];
     let lineTrim = '';
-    // let modifiedLine = '';
     let textStartIndex = 0;
 
     for (const [i, line] of lines.entries()) {
@@ -177,14 +171,6 @@ export function chunkDocument(text: string, chunkSize: number = 4000): string[] 
             chunks.push([]);
             if (codeStack.length > 0) {
                 // 存在末尾行为代码块起始导致分块异常，已存在冗余长度故不在处理
-                // // 如果插入结尾标记后超出长度限制
-                // if (chunks[chunkIndex - 1].join('\n').length + codeStack.length * 4 >= chunkSize) {
-                //     // 将上一个块中的末尾数据插入到新块开头
-                //     chunks[chunkIndex].push(...chunks[chunkIndex - 1].slice(-codeStack.length));
-                //     // 将上一个块中的末尾行取出
-                //     chunks[chunkIndex - 1].length -= codeStack.length;
-                // }
-
                 const lastLineIsCodeStart = chunks[chunkIndex - 1].at(-1)?.trimStart()?.startsWith('```');
                 lastLineIsCodeStart && chunks[chunkIndex - 1].pop();
                 // 插入结尾标记
@@ -201,14 +187,6 @@ export function chunkDocument(text: string, chunkSize: number = 4000): string[] 
                 }
                 // 插入开头标记
                 chunks[chunkIndex].unshift(...codeStack);
-                // 存在冗余, 不考虑以下情况: 新块代码行加line超出限制
-                // if (chunks[chunkIndex].join('\n').length + line.length > chunkSize) {
-                // // 插入结尾标记
-                //     chunks[chunkIndex].push(...Array.from({ length: codeStack.length }).fill('```') as string[]);
-                //     // 插入开头标记
-                //     chunkIndex++;
-                //     chunks[chunkIndex] = codeStack;
-                // }
             }
 
             chunks[chunkIndex].push(line);

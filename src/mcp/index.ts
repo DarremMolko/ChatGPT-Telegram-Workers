@@ -80,5 +80,3 @@ export async function updateMcp() {
     await initializeMcp();
     return Object.keys(mcpTools);
 }
-
-// initializeMcp().catch(console.error);

@@ -32,18 +32,12 @@ export function substituteMessage(message: Message, replacer: Record<string, str
 class Lock {
     static quireLock = async (lockKey: string) => {
         let retry = 0;
-        // 移除异常情况下未释放的锁
-        // const lock = await ENV.REDIS.get(this.lockKey);
-        // if (lock && lock.expiration < Math.floor(Date.now() / 1000)) {
-        //     await ENV.REDIS.delete(this.lockKey);
-        // }
         while (retry < 24) {
             const lock = await ENV.REDIS.put(lockKey, '1', { expirationTtl: 1, condition: 'NX' });
             if (lock === true || lock === undefined) {
                 log.info(`Lock success, key: ${lockKey}, retry: ${retry}`);
                 return;
             }
-            // log.info(`Lock failed, key: ${lockKey}, retry: ${retry}`);
             retry++;
             await new Promise(resolve => setTimeout(resolve, 15));
         }

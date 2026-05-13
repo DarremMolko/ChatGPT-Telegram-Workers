@@ -246,10 +246,6 @@ export async function handleCallbackQuery(token: string, callbackQuery: Telegram
             throw new Error('Not supported callback query type');
         }
 
-        // if (!isAuthorized(callbackQuery.from?.id ?? 0, message.reply_markup.inline_keyboard)) {
-        //     return new Response('Not authorized', { status: 403 });
-        // }
-
         const workContext = new WorkerContextBase(token, message);
 
         const handlers: MessageHandler<any>[] = [

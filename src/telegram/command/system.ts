@@ -272,7 +272,6 @@ export class StartCommandHandler extends BaseNewCommandHandler implements Comman
 export class SetEnvCommandHandler extends RenewConfig {
     command = '/setenv';
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
         const kv = subcommand.indexOf('=');
         if (kv === -1) {
             return sender.sendPlainText(ENV.I18N.command.help.setenv);
@@ -295,7 +294,6 @@ export class SetEnvCommandHandler extends RenewConfig {
 export class SetEnvsCommandHandler extends RenewConfig {
     command = '/setenvs';
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
         try {
             const values = JSON.parse(subcommand);
             const configKeys = Object.keys(context.USER_CONFIG);
@@ -318,7 +316,6 @@ export class SetEnvsCommandHandler extends RenewConfig {
 export class DelEnvCommandHandler extends RenewConfig {
     command = '/delenv';
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
         try {
             context.USER_CONFIG[subcommand] = null;
             context.USER_CONFIG.DEFINE_KEYS = context.USER_CONFIG.DEFINE_KEYS.filter(key => key !== subcommand);
@@ -333,7 +330,6 @@ export class DelEnvCommandHandler extends RenewConfig {
 export class ClearEnvCommandHandler extends RenewConfig {
     command = '/clearenv';
     handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        // const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
         try {
             await ENV.REDIS.put(
                 context.SHARE_CONTEXT.configStoreKey,
@@ -773,20 +769,6 @@ export class InlineCommandHandler implements CommandHandler {
                     value: ['audio', 'text'],
                 }],
             },
-            // {
-            //     label: 'Models',
-            //     config_key: '',
-            //     value: ['Chat', 'Image', 'Vision', 'Tool'].map((type) => {
-            //         const config_key = configKeyHandler(type);
-            //         const modelProvider = context[`AI_${type.toUpperCase()}_PROVIDER`] || context.AI_CHAT_PROVIDER;
-            //         return {
-            //             label: `${type} Model`,
-            //             config_key,
-            //             type: 'radio',
-            //             value: context[`${modelProvider.toUpperCase()}_MODELS`],
-            //         };
-            //     }),
-            // },
         ];
         if ((chatAgent === 'openai' || chatAgent === 'oailike') && resolveProviderApiBase(chatAgent, context).llmMode === 'responses') {
             inlines.push({

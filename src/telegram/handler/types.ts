@@ -1,12 +1,6 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import type { ImageResult } from '../../agent/types';
 import type { UnionData } from '../utils/tg_utils';
-// import type { ShareContext } from '../../config/context';
-
-// 分离handler 仅shareContext
-// export interface PreHandler {
-//     handle: (message: Telegram.Message, context: { SHARE_CONTEXT: ShareContext }) => Promise<Response | null>;
-// }
 
 // 中间件定义 function (message: TelegramMessage, context: Context): Promise<Response|null>
 // 1. 当函数抛出异常时，结束消息处理，返回异常信息

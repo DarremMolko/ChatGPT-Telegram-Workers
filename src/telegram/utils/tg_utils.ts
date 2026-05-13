@@ -373,14 +373,6 @@ export async function getTelegramFile(fileIds: string[], botToken: string, type:
     }
 }
 
-// export async function getStoreMediaIds(context: ShareContext, media_group_id: string | undefined): Promise<string[]> {
-//     if (!media_group_id || !context.storeMediaMessageKey) {
-//         return [];
-//     }
-//     const fileIds = JSON.parse(await ENV.REDIS.get(context.storeMediaMessageKey) || '{}');
-//     return fileIds[media_group_id] || [];
-// }
-
 export async function waitUntil(timestamp: number) {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, timestamp - Date.now())));
 }
