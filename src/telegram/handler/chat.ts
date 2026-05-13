@@ -288,7 +288,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
 
     streamSender.send = async (text: string, type = 'chat'): Promise<any> => {
         try {
-            const outboundText = transformPipeTables(text);
+            const outboundText = transformPipeTables(text, { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES });
             if (type === 'chat') {
                 cache = outboundText;
                 heartWaitedTime = 0;
@@ -362,7 +362,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         if (type === 'error') {
             text = `${cache}\n${text}`;
         }
-        const outboundText = transformPipeTables(text);
+        const outboundText = transformPipeTables(text, { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES });
         if (isSendDocument(outboundText)) {
             return sendDocument(sender as MessageSender, { question: question || 'Redo Question', answer: outboundText, log: getLog(context?.USER_CONFIG || {} as AgentUserConfig, { onlyModel: false, isParagraph: true }) });
         }

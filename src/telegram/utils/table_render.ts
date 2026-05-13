@@ -11,8 +11,8 @@ interface ParsedTable {
 // Telegram does not currently provide native rendering for pipe tables.
 // This transformer is a compatibility layer for MarkdownV2 output and should
 // be revisited if Telegram adds first-class table support in the future.
-export function transformPipeTables(text: string): string {
-    if (!text.includes('|')) {
+export function transformPipeTables(text: string, { enabled = true }: { enabled?: boolean } = {}): string {
+    if (!enabled || !text.includes('|')) {
         return text;
     }
 

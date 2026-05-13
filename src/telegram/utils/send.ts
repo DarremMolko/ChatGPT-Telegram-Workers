@@ -619,6 +619,7 @@ function renderMessage(parse_mode: Telegram.ParseMode | null, message: string, e
     // but should not appear in bot responses
     const cleanedMessage = transformPipeTables(
         message.replace(/<grok:[^>]*>/g, '').replace(/<\/grok:[^>]*>/g, ''),
+        { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES },
     );
 
     const chunkMessage = chunkDocument(cleanedMessage);

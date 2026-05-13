@@ -16,6 +16,7 @@ vi.mock('../../config/env', () => ({
         EXTRA_MESSAGE_CONTEXT: false,
         ENABLE_REPLY_TO_MENTION: false,
         LOG_POSITION_ON_TOP: true,
+        TELEGRAM_RENDER_PIPE_TABLES: true,
     },
 }));
 
@@ -41,6 +42,7 @@ vi.mock('./tg_utils', () => ({
     waitUntil: async () => {},
 }));
 
+const { ENV } = await import('../../config/env');
 const { MessageSender } = await import('./send');
 
 function createMessage(chatType: Telegram.ChatType): Telegram.Message {
@@ -64,6 +66,7 @@ describe('messageSender.sendRichText', () => {
     beforeEach(() => {
         sendMessage.mockReset();
         editMessageText.mockReset();
+        ENV.TELEGRAM_RENDER_PIPE_TABLES = true;
     });
 
     it('sends a new message on first stream chunk', async () => {
@@ -143,6 +146,26 @@ describe('messageSender.sendRichText', () => {
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
             text: '*Field: foo\\_bar\\_baz*\n• Value: alpha\\_beta\n• Notes: note\\_value\n• Extra: extra\\_data',
+        }));
+    });
+
+    it('passes raw pipe tables through when TELEGRAM_RENDER_PIPE_TABLES is disabled', async () => {
+        ENV.TELEGRAM_RENDER_PIPE_TABLES = false;
+        const sender = MessageSender.from('token', createMessage('private'));
+        sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+
+        await sender.sendRichText([
+            '| User | Age | City | Favorite Food |',
+            '| --- | --- | --- | --- |',
+            '| Juan | 30 | Cucuta | Arepas con queso |',
+        ].join('\n'));
+
+        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+            chat_id: 123,
+            text: '\\| User \\| Age \\| City \\| Favorite Food \\|\n\\| \\-\\-\\- \\| \\-\\-\\- \\| \\-\\-\\- \\| \\-\\-\\- \\|\n\\| Juan \\| 30 \\| Cucuta \\| Arepas con queso \\|',
         }));
     });
 });
