@@ -40,7 +40,7 @@ describe('transformPipeTables', () => {
         ].join('\n'));
     });
 
-    it('renders small tables in monospace blocks', () => {
+    it('renders small tables as cards too', () => {
         const input = [
             '| Key | Value |',
             '| --- | --- |',
@@ -49,12 +49,11 @@ describe('transformPipeTables', () => {
         ].join('\n');
 
         expect(transformPipeTables(input)).toBe([
-            '```',
-            'Key | Value',
-            '--- | -----',
-            'A   | 1    ',
-            'B   | 2    ',
-            '```',
+            '**Key: A**',
+            '- Value: 1',
+            '',
+            '**Key: B**',
+            '- Value: 2',
         ].join('\n'));
     });
 

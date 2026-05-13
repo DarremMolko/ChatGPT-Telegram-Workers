@@ -82,7 +82,7 @@ export class EnvironmentConfig {
     TELEGRAPH_AUTHOR_URL = '';
     // Disable link preview
     DISABLE_WEB_PREVIEW = false;
-    // Whether to rewrite GitHub-style pipe tables into Telegram-friendly text.
+    // Whether to rewrite GitHub-style pipe tables into Telegram-friendly card text.
     // This is a compatibility stopgap until Telegram supports native table rendering.
     TELEGRAM_RENDER_PIPE_TABLES = true;
     // Native Redis connection URL. Prefer rediss:// for hosted Redis with TLS.

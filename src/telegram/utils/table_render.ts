@@ -1,7 +1,3 @@
-const TABLE_MONOSPACE_MAX_WIDTH = 30;
-const TABLE_MONOSPACE_MAX_COLUMNS = 3;
-const TABLE_MONOSPACE_MAX_ROWS = 8;
-
 interface ParsedTable {
     header: string[];
     rows: string[][];
@@ -146,41 +142,7 @@ function isSeparatorRow(line: string, expectedCells: number): boolean {
 }
 
 function renderTable(table: ParsedTable): string {
-    return shouldUseMonospace(table) ? renderMonospaceTable(table) : renderCardTable(table);
-}
-
-function shouldUseMonospace(table: ParsedTable): boolean {
-    if (table.header.length > TABLE_MONOSPACE_MAX_COLUMNS || table.rows.length > TABLE_MONOSPACE_MAX_ROWS) {
-        return false;
-    }
-
-    const widths = getColumnWidths(table);
-    const renderedWidth = widths.reduce((sum, width) => sum + width, 0) + (widths.length - 1) * 3;
-    return renderedWidth <= TABLE_MONOSPACE_MAX_WIDTH;
-}
-
-function getColumnWidths(table: ParsedTable): number[] {
-    return table.header.map((_, columnIndex) => {
-        const values = [table.header[columnIndex], ...table.rows.map(row => row[columnIndex] || '')];
-        return Math.max(...values.map(value => value.length), 3);
-    });
-}
-
-function renderMonospaceTable(table: ParsedTable): string {
-    const widths = getColumnWidths(table);
-    const renderRow = (row: string[]) => row
-        .map((cell, index) => cell.padEnd(widths[index], ' '))
-        .join(' | ');
-
-    const divider = widths.map(width => '-'.repeat(width)).join(' | ');
-    const lines = [
-        '```',
-        renderRow(table.header),
-        divider,
-        ...table.rows.map(renderRow),
-        '```',
-    ];
-    return lines.join('\n');
+    return renderCardTable(table);
 }
 
 function renderCardTable(table: ParsedTable): string {
