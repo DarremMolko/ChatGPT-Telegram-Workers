@@ -336,14 +336,6 @@ function isNeedGetReplyMessage(message: Telegram.Message, currentBotId: number) 
     return ENV.EXTRA_MESSAGE_CONTEXT && replyMsg && (replyMsg.from?.id !== currentBotId || replyMsg.photo || replyMsg.audio || replyMsg.document || replyMsg.video || replyMsg.voice);
 }
 
-export function UUIDv4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-    });
-}
-
 export const isCfWorker = typeof globalThis !== 'undefined'
     && typeof (globalThis as any).ServiceWorkerGlobalScope !== 'undefined'
     && globalThis instanceof ((globalThis as any).ServiceWorkerGlobalScope);

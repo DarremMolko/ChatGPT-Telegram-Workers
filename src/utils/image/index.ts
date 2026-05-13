@@ -59,10 +59,6 @@ export async function imageToBase64String(url: string): Promise<Base64DataWithFo
     };
 }
 
-export function renderBase64DataURI(params: Base64DataWithFormat): string {
-    return `data:${params.format};base64,${params.data}`;
-}
-
 export async function base64StringToBlob(base64String: string, type: 'image/png' | 'image/jpeg' | 'audio/mp3' | 'audio/oga' = 'image/png'): Promise<Blob> {
     try {
         const { Buffer } = await import('node:buffer');

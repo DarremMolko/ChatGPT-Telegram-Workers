@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'toml';
-import { ENV } from './env';
+import { ENV } from '../../src/config/env';
 
 // Manual smoke script for inspecting merged env config outside Vitest.
 {

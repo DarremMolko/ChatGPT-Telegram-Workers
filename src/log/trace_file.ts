@@ -32,10 +32,6 @@ export function getDebugLogFilePath(): string | null {
     return null;
 }
 
-export function isDebugLogEnabled(): boolean {
-    return Boolean(getDebugLogFilePath());
-}
-
 export function writeDebugLog(entry: DebugLogEntry) {
     const filePath = getDebugLogFilePath();
     if (!filePath) {

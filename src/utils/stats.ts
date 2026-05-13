@@ -136,11 +136,3 @@ export function getStats(botId: string): StatsData {
         };
     }
 }
-
-/**
- * 重置统计数据（可选功能）
- * @param botId - Bot ID
- */
-export function resetStats(botId: string): void {
-    statsStores.delete(botId);
-}

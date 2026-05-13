@@ -3,7 +3,7 @@ import type { LanguageModelV3 } from '@ai-sdk/provider';
 import type { ModelMessage, StepResult, TextStreamPart } from 'ai';
 import type { AgentUserConfig } from '../config/env';
 import type { MessageInfo, ToolChoice } from './model_middleware';
-import type { ChatStreamTextHandler, OpenAIFuncCallData, ResponseMessage } from './types';
+import type { ChatStreamTextHandler, ResponseMessage } from './types';
 import { generateText, stepCountIs, streamText, TypeValidationError, wrapLanguageModel } from 'ai';
 import { ENV } from '../config/env';
 import { log } from '../log';
@@ -11,128 +11,7 @@ import { SEGMENTATION_MARK } from '../telegram/utils/md2tgmd';
 import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
-import { Stream } from './stream';
 import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
-
-export interface SseChatCompatibleOptions {
-    streamBuilder?: (resp: Response, controller: AbortController) => Stream;
-    contentExtractor?: (data: object) => string | null;
-    fullContentExtractor?: (data: object) => string | null;
-    functionCallExtractor?: (data: object, callList: any[]) => void;
-    fullFunctionCallExtractor?: (data: object) => OpenAIFuncCallData[] | null;
-    errorExtractor?: (data: object) => string | null;
-}
-
-function fixOpenAICompatibleOptions(options: SseChatCompatibleOptions | null): SseChatCompatibleOptions {
-    options = options || {};
-    options.streamBuilder = options.streamBuilder || function (r, c) {
-        return new Stream(r, c);
-    };
-    options.contentExtractor = options.contentExtractor || function (d: any) {
-        return d?.choices?.[0]?.delta?.content;
-    };
-    options.fullContentExtractor = options.fullContentExtractor || function (d: any) {
-        return d.choices?.[0]?.message.content;
-    };
-    options.functionCallExtractor
-        = options.functionCallExtractor
-            || function (d: any, callList: OpenAIFuncCallData[]) {
-                const chunk = d?.choices?.[0]?.delta?.tool_calls;
-                if (!Array.isArray(chunk))
-                    return;
-                for (const a of chunk) {
-                    if (!Object.hasOwn(a, 'index')) {
-                        throw new Error(`The function chunk don't have index: ${JSON.stringify(chunk)}`);
-                    }
-                    if (a?.type === 'function') {
-                        callList[a.index] = { id: a.id, type: a.type, function: a.function };
-                    } else {
-                        callList[a.index].function.arguments += a.function.arguments;
-                    }
-                }
-            };
-    options.fullFunctionCallExtractor
-        = options.fullFunctionCallExtractor
-            || function (d: any) {
-                return d?.choices?.[0]?.message?.tool_calls;
-            };
-    options.errorExtractor = options.errorExtractor || function (d: any) {
-        return d.error?.message;
-    };
-    return options;
-}
-
-export function isJsonResponse(resp: Response): boolean {
-    return resp.headers.get('content-type')?.includes('json') || false;
-}
-
-export function isEventStreamResponse(resp: Response): boolean {
-    const types = ['application/stream+json', 'text/event-stream'];
-    const content = resp.headers.get('content-type') || '';
-    return types.some(type => content.includes(type));
-}
-
-type OnResult = ((result: any) => Promise<any>) | null;
-
-export async function requestChatCompletions(url: string, header: Record<string, string>, body: any, onStream: ChatStreamTextHandler | null, onResult: OnResult = null, options: SseChatCompatibleOptions | null = null): Promise<string> {
-    const controller = new AbortController();
-    const { signal } = controller;
-    const messageInfo: MessageInfo = {
-        content: '',
-        occured_error: false,
-    };
-
-    let timeoutID = null;
-    if (ENV.CHAT_COMPLETE_API_TIMEOUT > 0 && !body?.model?.includes('o1')) {
-        timeoutID = setTimeout(() => controller.abort(), ENV.CHAT_COMPLETE_API_TIMEOUT * 1e3);
-    }
-
-    log.info('start request llm');
-    log.debug('request url, headers, body', url, header, body);
-    const resp = await fetch(url, {
-        method: 'POST',
-        headers: header,
-        body: JSON.stringify(body),
-        signal,
-    });
-
-    clearTimeoutID(timeoutID);
-    options = fixOpenAICompatibleOptions(options);
-
-    if (onStream && resp.ok && isEventStreamResponse(resp)) {
-        const stream = options.streamBuilder?.(resp, controller);
-        if (!stream) {
-            throw new Error('Stream builder error');
-        }
-        return streamHandler(stream, options.contentExtractor!, onStream, messageInfo);
-    }
-
-    if (!isJsonResponse(resp)) {
-        throw new Error(resp.statusText);
-    }
-
-    const result = await resp.json();
-    if (!result) {
-        throw new Error('Empty response');
-    }
-    if (options.errorExtractor?.(result)) {
-        throw new Error(options.errorExtractor?.(result) || 'Unknown error');
-    }
-
-    try {
-        await onResult?.(result);
-        return options.fullContentExtractor?.(result) || '';
-    } catch (e) {
-        console.error(e);
-        throw new Error(JSON.stringify(result));
-    }
-}
-
-function clearTimeoutID(timeoutID: any) {
-    if (timeoutID) {
-        clearTimeout(timeoutID);
-    }
-}
 
 export async function streamHandler(stream: AsyncIterable<any>, contentExtractor: (data: any) => string | null, onStream: ChatStreamTextHandler, messageInfo: MessageInfo, abortSignal?: AbortSignal): Promise<string> {
     let lengthDelta = 0;
