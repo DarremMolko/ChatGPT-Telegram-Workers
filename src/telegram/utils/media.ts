@@ -58,7 +58,7 @@ export async function stt(audio: Blob, config: AgentUserConfig) {
     return agent.request(audio, config);
 }
 
-export function mergeLogMessages(text: string, config: AgentUserConfig | undefined): string {
+export function mergeLogMessages(text: string, config: AgentUserConfig | undefined, { quoteInfo = false }: { quoteInfo?: boolean } = {}): string {
     const content = text.trim();
     if (!config?.ENABLE_SHOWINFO) {
         return content;
@@ -67,10 +67,13 @@ export function mergeLogMessages(text: string, config: AgentUserConfig | undefin
     if (!info) {
         return content;
     }
+    const formattedInfo = quoteInfo
+        ? info.split('\n').map(line => `> ${line}`).join('\n')
+        : info;
     if (ENV.LOG_POSITION_ON_TOP) {
-        return `${info}\n${SEGMENTATION_MARK}\n${content}`;
+        return `${formattedInfo}\n${SEGMENTATION_MARK}\n${content}`;
     }
-    return `${content}\n${SEGMENTATION_MARK}\n${info}`;
+    return `${content}\n${SEGMENTATION_MARK}\n${formattedInfo}`;
 }
 
 // MIME type mapping for common file extensions

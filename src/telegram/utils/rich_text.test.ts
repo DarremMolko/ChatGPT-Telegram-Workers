@@ -89,12 +89,17 @@ describe('markdownToEntities', () => {
 
 describe('renderSingleMessage', () => {
     it('keeps showinfo separate from streamed thinking when addQuote is off', () => {
-        expect(renderSingleMessage('MarkdownV2', `zai-org/glm-5.1 5.4s\n770,73\n${SEGMENTATION_MARK}\n>\`Thinking...\`\n> Thought for 1.9 seconds\n> The user is just asking how I am doing.\n>✹\n${SEGMENTATION_MARK}\n¡Muy bien, gracias por preguntar!`, {
+        expect(renderSingleMessage('MarkdownV2', `> zai-org/glm-5.1 5.4s\n> 770,73\n${SEGMENTATION_MARK}\n>\`Thinking...\`\n> Thought for 1.9 seconds\n> The user is just asking how I am doing.\n>✹\n${SEGMENTATION_MARK}\n¡Muy bien, gracias por preguntar!`, {
             addQuote: false,
             quoteExpandable: true,
         })).toEqual({
             text: 'zai-org/glm-5.1 5.4s\n770,73\n\nThinking...\nThought for 1.9 seconds\nThe user is just asking how I am doing.\n✹\n\n¡Muy bien, gracias por preguntar!',
             entities: [
+                {
+                    type: 'expandable_blockquote',
+                    offset: 0,
+                    length: 27,
+                },
                 {
                     type: 'expandable_blockquote',
                     offset: 29,

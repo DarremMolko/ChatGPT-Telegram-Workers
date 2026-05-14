@@ -317,7 +317,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
                 return;
             }
 
-            const data = mergeLogMessages(displayText, context?.USER_CONFIG);
+            const data = mergeLogMessages(displayText, context?.USER_CONFIG, { quoteInfo: true });
             expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
             log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
@@ -360,7 +360,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         if (isSendTelegraph(outboundText)) {
             return sendTelegraph(telegraphContext(true, false), question || 'Redo Question', outboundText);
         }
-        const data = context && needLog ? mergeLogMessages(outboundText, context.USER_CONFIG) : outboundText;
+        const data = context && needLog ? mergeLogMessages(outboundText, context.USER_CONFIG, { quoteInfo: true }) : outboundText;
         log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
         expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
         let maxFetchFailedTimes = 3;
@@ -495,7 +495,7 @@ async function handleAudio(
     context.MIDDLE_CONTEXT.history.push({ role: 'user', content: text });
     const sender = streamSender.sender!;
     if (handleKey.endsWith('text') || !ENV.HIDE_MIDDLE_MESSAGE) {
-        await streamSender.end!(mergeLogMessages(text, context.USER_CONFIG));
+        await streamSender.end!(mergeLogMessages(text, context.USER_CONFIG, { quoteInfo: true }));
     }
     if (handleKey.startsWith('stt')) {
         streamSender.clearHeartbeat!();
