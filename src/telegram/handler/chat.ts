@@ -16,7 +16,7 @@ import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
 import { SEGMENTATION_MARK } from '../utils/render_shared';
-import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
+import { MessageSender, sendAction, sendDocument, sendTelegraph, TelegraphSender } from '../utils/send';
 import { transformPipeTables } from '../utils/table_render';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
 
@@ -113,12 +113,6 @@ export async function chatWithLLM(
     } finally {
         activeRequest?.done();
     }
-}
-
-export function findPhotoFileID(photos: Telegram.PhotoSize[], offset: number): string {
-    let sizeIndex = offset >= 0 ? offset : photos.length + offset;
-    sizeIndex = Math.max(0, Math.min(sizeIndex, photos.length - 1));
-    return photos[sizeIndex].file_id;
 }
 
 export class ChatHandler implements MessageHandler<WorkerContext> {
@@ -403,62 +397,6 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     };
 
     return streamSender as unknown as ChatStreamTextHandler;
-}
-
-async function sendTelegraph(sendContext: {
-    context: WorkerContext;
-    textSender: MessageSender | ChosenInlineSender;
-    telegraphSender: TelegraphSender;
-    hasSentTelegraphLink?: boolean;
-    isEnd?: boolean;
-    containRaw?: boolean;
-}, question: string, text: string) {
-    log.info(`start send telegraph`);
-    const { context, textSender, telegraphSender, hasSentTelegraphLink, isEnd, containRaw } = sendContext;
-    let trimedQuestion = question;
-    if (question.length > 600) {
-        trimedQuestion = `${question.slice(0, 300)}...${question.slice(-300)}`;
-    }
-    const prefix = `#Question\n\`\`\`\n${trimedQuestion}\n\`\`\`\n---`;
-
-    const telegraph_prefix = `${prefix}\n#Answer\n🤖 **${getLog(context.USER_CONFIG, { onlyModel: true, isParagraph: true })}**\n`;
-    const debug_info = `${getLog(context.USER_CONFIG, { onlyModel: false, isParagraph: true })}`;
-    const telegraph_suffix = `\n---\n\`\`\`\n${debug_info}\n\`\`\``;
-    const textLength = (telegraph_prefix + text + telegraph_suffix).length;
-    try {
-        if (textLength >= 10917 * 6) {
-            throw new Error('Telegraph message too long');
-        }
-        const resp = await telegraphSender.send(
-            'Daily Q&A',
-            telegraph_prefix + text + telegraph_suffix,
-            containRaw ? text : undefined,
-        );
-
-        if (!hasSentTelegraphLink) {
-            const url = `https://telegra.ph/${telegraphSender.teleph_path}`;
-            const msg = `${containRaw ? 'Rendering failed, ' : ''}the answer was converted into an article.\n[🔗Click here to view it](${url})`.trim();
-            log.info(`send telegraph message: ${msg}`);
-            return textSender.sendRichText(msg);
-        }
-        return resp;
-    } catch {
-        if (isEnd) {
-            return sendDocument(textSender as MessageSender, { question, answer: text, log: debug_info });
-        }
-    }
-}
-interface DocumentText {
-    question: string;
-    answer: string;
-    log: string;
-}
-
-async function sendDocument(textSender: MessageSender, document: DocumentText) {
-    const { question, answer, log } = document;
-    const text = `🆀 ${question}\n🅻 ${log}\n\n🅰${answer}\n`;
-    const file = new File([text], 'answer.md', { type: 'text/markdown' });
-    return textSender.sendDocument(file, '>`Answer is cooked, check the document`', 'MarkdownV2');
 }
 
 type WorkflowHandler = (

@@ -1,10 +1,11 @@
 /* eslint-disable antfu/if-newline */
 import type * as Telegram from 'telegram-bot-api-types';
+import type { WorkerContext } from '../../config/context';
 import type { TelegramBotAPI } from '../api';
 import type { ExpandParams } from './render_shared';
 import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
-import { log, tagMessageIds } from '../../log';
+import { getLog, log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
 import { parseMarkdownDocument, renderMarkdownDocumentToTelegraph } from './markdown_core';
 import { renderMessageChunks, renderSingleMessage } from './rich_text';
@@ -494,6 +495,65 @@ export class TelegraphSender {
         }
         return resp;
     }
+}
+
+interface TelegraphSendContext {
+    context: WorkerContext;
+    textSender: MessageSender | ChosenInlineSender;
+    telegraphSender: TelegraphSender;
+    hasSentTelegraphLink?: boolean;
+    isEnd?: boolean;
+    containRaw?: boolean;
+}
+
+interface TelegraphDocumentText {
+    question: string;
+    answer: string;
+    log: string;
+}
+
+export async function sendTelegraph(sendContext: TelegraphSendContext, question: string, text: string) {
+    log.info(`start send telegraph`);
+    const { context, textSender, telegraphSender, hasSentTelegraphLink, isEnd, containRaw } = sendContext;
+    let trimedQuestion = question;
+    if (question.length > 600) {
+        trimedQuestion = `${question.slice(0, 300)}...${question.slice(-300)}`;
+    }
+    const prefix = `#Question\n\`\`\`\n${trimedQuestion}\n\`\`\`\n---`;
+
+    const telegraph_prefix = `${prefix}\n#Answer\n🤖 **${getLog(context.USER_CONFIG, { onlyModel: true, isParagraph: true })}**\n`;
+    const debug_info = `${getLog(context.USER_CONFIG, { onlyModel: false, isParagraph: true })}`;
+    const telegraph_suffix = `\n---\n\`\`\`\n${debug_info}\n\`\`\``;
+    const textLength = (telegraph_prefix + text + telegraph_suffix).length;
+    try {
+        if (textLength >= 10917 * 6) {
+            throw new Error('Telegraph message too long');
+        }
+        const resp = await telegraphSender.send(
+            'Daily Q&A',
+            telegraph_prefix + text + telegraph_suffix,
+            containRaw ? text : undefined,
+        );
+
+        if (!hasSentTelegraphLink) {
+            const url = `https://telegra.ph/${telegraphSender.teleph_path}`;
+            const msg = `${containRaw ? 'Rendering failed, ' : ''}the answer was converted into an article.\n[🔗Click here to view it](${url})`.trim();
+            log.info(`send telegraph message: ${msg}`);
+            return textSender.sendRichText(msg);
+        }
+        return resp;
+    } catch {
+        if (isEnd) {
+            return sendDocument(textSender as MessageSender, { question, answer: text, log: debug_info });
+        }
+    }
+}
+
+export async function sendDocument(textSender: MessageSender, document: TelegraphDocumentText) {
+    const { question, answer, log: documentLog } = document;
+    const text = `🆀 ${question}\n🅻 ${documentLog}\n\n🅰${answer}\n`;
+    const file = new File([text], 'answer.md', { type: 'text/markdown' });
+    return textSender.sendDocument(file, '>`Answer is cooked, check the document`', 'MarkdownV2');
 }
 
 export function sendAction(botToken: string, chat_id: number, action: Telegram.ChatAction = 'typing') {

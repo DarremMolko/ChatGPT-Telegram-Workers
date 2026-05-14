@@ -2,7 +2,6 @@ import type * as Telegram from 'telegram-bot-api-types';
 import { ENV } from '../../config/env';
 import { log } from '../../log';
 import { createTelegramBotAPI } from '../api';
-import { findPhotoFileID } from '../handler/chat';
 
 export function isTelegramChatTypeGroup(type: string): boolean {
     return type === 'group' || type === 'supergroup';
@@ -262,6 +261,12 @@ function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType
         return 'text';
     }
     return 'unsupported';
+}
+
+export function findPhotoFileID(photos: Telegram.PhotoSize[], offset: number): string {
+    let sizeIndex = offset >= 0 ? offset : photos.length + offset;
+    sizeIndex = Math.max(0, Math.min(sizeIndex, photos.length - 1));
+    return photos[sizeIndex].file_id;
 }
 
 function extractTypeFromMessage(message: Telegram.Message): UnionData {

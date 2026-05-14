@@ -16,10 +16,6 @@ vi.mock('../../config/env', () => ({
     },
 }));
 
-vi.mock('../handler/chat', () => ({
-    findPhotoFileID: vi.fn(() => 'photo-file-id'),
-}));
-
 vi.mock('../api', () => ({
     createTelegramBotAPI: () => ({
         getFileWithReturns,
