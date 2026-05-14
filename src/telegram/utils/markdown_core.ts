@@ -512,7 +512,7 @@ function isFenceCloseLine(line: string): boolean {
     return line.trim() === '```';
 }
 
-function isQuoteLine(line: string): boolean {
+export function isQuoteLine(line: string): boolean {
     const stripped = stripUpToThreeSpaces(line);
     return stripped.startsWith('>');
 }
@@ -831,7 +831,7 @@ function renderInlineNodeToPlainText(node: InlineNode): string {
     }
 }
 
-export function stripLeadingSpaces(line: string): string {
+function stripLeadingSpaces(line: string): string {
     let index = 0;
     while (index < line.length && line[index] === ' ') {
         index++;

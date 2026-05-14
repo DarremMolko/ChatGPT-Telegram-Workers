@@ -3,11 +3,11 @@ import type { RenderedText as CoreRenderedText } from './markdown_core';
 import type { ExpandParams } from './render_shared';
 import { ENV } from '../../config/env';
 import {
+    isQuoteLine,
     isWhitespaceChar,
     parseMarkdownDocument,
     renderMarkdownDocumentToTelegram,
     stripBlockquotePrefix,
-    stripUpToThreeSpaces,
 } from './markdown_core';
 import { SEGMENTATION_MARK } from './render_shared';
 import { transformPipeTables } from './table_render';
@@ -33,9 +33,7 @@ export function renderMessageChunks(
     expandParams: ExpandParams = { addQuote: false, quoteExpandable: false },
 ): RenderedText[] {
     const normalized = normalizeMessage(
-        stripGrokTags(
-            transformPipeTables(message, { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES }),
-        ).trim(),
+        transformPipeTables(message, { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES }).trim(),
         expandParams,
     );
 
@@ -72,30 +70,11 @@ function normalizeMessage(message: string, expandParams: ExpandParams): { text: 
             if (line === SEGMENTATION_MARK) {
                 return '';
             }
-            return isBlockquoteLine(line) ? stripBlockquotePrefix(line) : line;
+            return isQuoteLine(line) ? stripBlockquotePrefix(line) : line;
         }).join('\n').trim(),
         quoteEntireMessage: true,
         quoteExpandable: expandParams.quoteExpandable,
     };
-}
-
-function stripGrokTags(message: string): string {
-    let index = 0;
-    let text = '';
-    while (index < message.length) {
-        if (message.startsWith('<grok:', index) || message.startsWith('</grok:', index)) {
-            const closeIndex = message.indexOf('>', index);
-            index = closeIndex === -1 ? message.length : closeIndex + 1;
-            continue;
-        }
-        text += message[index];
-        index++;
-    }
-    return text;
-}
-
-function isBlockquoteLine(line: string): boolean {
-    return stripUpToThreeSpaces(line).startsWith('>');
 }
 
 function splitRenderedText(rendered: RenderedText, chunkSize: number): RenderedText[] {
