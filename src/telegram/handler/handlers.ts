@@ -11,6 +11,7 @@ import { canAccessGroupChat, canUsePrivateChat, isPrivilegedUser } from '../acce
 import { createTelegramBotAPI } from '../api';
 import { handleCommandMessage } from '../command';
 import { isAuthorized } from '../query';
+import { renderSingleMessage } from '../utils/rich_text';
 import { MessageSender } from '../utils/send';
 import { extractMessageInfo, getMergedQuoteText, getMessageText, isTelegramChatTypeGroup } from '../utils/tg_utils';
 import { HandleChunkMessage, HandleMediaGroupMessage, substituteMessage } from './msg_trimer';
@@ -179,10 +180,13 @@ export class ReplyInlineHandler implements MessageHandler<WorkerContext> {
         if (variable) {
             message.text = `/set -${variable} ${message.text}`;
         } else {
+            const rendered = renderSingleMessage('MarkdownV2', '```Tip\nSelect a variable first, then reply.\n```');
             return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
                 chat_id: message.chat.id,
-                text: '```Tip\nSelect a variable first, then reply.\n```',
-                parse_mode: 'MarkdownV2',
+                text: rendered.text,
+                ...(rendered.useEntities
+                    ? { ...(rendered.entities ? { entities: rendered.entities } : {}) }
+                    : { parse_mode: 'MarkdownV2' }),
             });
         }
         return null;

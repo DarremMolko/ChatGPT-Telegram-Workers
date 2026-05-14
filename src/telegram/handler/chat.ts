@@ -15,7 +15,7 @@ import { imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
-import { escape, SEGMENTATION_MARK } from '../utils/md2tgmd';
+import { SEGMENTATION_MARK } from '../utils/md2tgmd';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { transformPipeTables } from '../utils/table_render';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
@@ -617,13 +617,13 @@ export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: 
         return sender.editMessageMedia({
             type: sendAsFile ? 'document' : 'photo',
             media: img.url?.[0] || '',
-            caption: escape(mergeLogMessages(caption[0], config), { quoteExpandable: true, addQuote: true }),
+            caption: mergeLogMessages(caption[0], config),
         }, ENV.DEFAULT_PARSE_MODE as Telegram.ParseMode, img.raw?.[0] && new File([img.raw[0]], 'image.png', { type: 'image/png' }));
     }
     const medias = (img.url || img.raw)!.map((media: string | Blob, index: number) => ({
         type: sendAsFile ? 'document' : 'photo',
         media: typeof media === 'string' ? media : '',
-        caption: caption[index] && escape(caption[index], { quoteExpandable: true, addQuote: true }),
+        caption: caption[index],
         parse_mode: ENV.DEFAULT_PARSE_MODE as Telegram.ParseMode,
     })) as Telegram.InputMedia[];
 

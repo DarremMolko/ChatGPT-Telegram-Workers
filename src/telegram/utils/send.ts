@@ -2,12 +2,12 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import type { TelegramBotAPI } from '../api';
 import type { ExpandParams } from './md2tgmd';
+import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
 import md2node from './md2node';
-import { chunkDocument, escape } from './md2tgmd';
-import { transformPipeTables } from './table_render';
+import { renderMessageChunks, renderSingleMessage } from './rich_text';
 import { waitUntil } from './tg_utils';
 
 class MessageContext implements Record<string, any> {
@@ -82,7 +82,7 @@ export class MessageSender {
         return this;
     }
 
-    private async sendMessage(message: string, context: MessageContext, retryCount = 0): Promise<Response> {
+    private async sendMessage(message: RenderedText, context: MessageContext, retryCount = 0): Promise<Response> {
         const maxRetries = 3;
         let resp: Response;
 
@@ -90,8 +90,10 @@ export class MessageSender {
             const params: Telegram.EditMessageTextParams = {
                 chat_id: context.chat_id,
                 message_id: context.message_id,
-                parse_mode: context.parse_mode || undefined,
-                text: message,
+                text: message.text,
+                ...(message.useEntities
+                    ? { ...(message.entities ? { entities: message.entities } : {}) }
+                    : { parse_mode: context.parse_mode || undefined }),
             };
             if (context.disable_web_page_preview) {
                 params.link_preview_options = {
@@ -103,8 +105,10 @@ export class MessageSender {
             const params: Telegram.SendMessageParams = {
                 chat_id: context.chat_id,
                 message_thread_id: context.message_thread_id || undefined,
-                parse_mode: context.parse_mode || undefined,
-                text: message,
+                text: message.text,
+                ...(message.useEntities
+                    ? { ...(message.entities ? { entities: message.entities } : {}) }
+                    : { parse_mode: context.parse_mode || undefined }),
             };
             if (context.reply_to_message_id) {
                 params.reply_parameters = {
@@ -136,7 +140,7 @@ export class MessageSender {
 
     private async sendLongMessage(message: string, context: MessageContext, expandParams?: ExpandParams): Promise<Response> {
         const chatContext = { ...context };
-        const messages = renderMessage(context.parse_mode, message, expandParams);
+        const messages = renderMessageChunks(context.parse_mode, message, expandParams);
         let lastMessageResponse = null;
         let lastMessageRespJson = null;
         for (let i = 0; i < messages.length; i++) {
@@ -151,7 +155,7 @@ export class MessageSender {
             }
 
             // Do not send empty messages.
-            if (messages[i].trim() === '') {
+            if (messages[i].text.trim() === '') {
                 continue;
             }
 
@@ -210,12 +214,19 @@ export class MessageSender {
         if (!this.context) {
             throw new Error('Message context not set');
         }
+        const renderedCaption = caption ? renderSingleMessage(parse_mode || null, caption) : null;
         const params: Telegram.SendPhotoParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
             photo,
-            ...(caption ? { caption: renderMessage(parse_mode || null, caption)[0] } : {}),
-            parse_mode,
+            ...(renderedCaption
+                ? {
+                        caption: renderedCaption.text,
+                        ...(renderedCaption.useEntities
+                            ? { ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}) }
+                            : { parse_mode }),
+                    }
+                : {}),
         };
         if (this.context.reply_to_message_id) {
             params.reply_parameters = {
@@ -231,10 +242,22 @@ export class MessageSender {
         if (!this.context) {
             throw new Error('Message context not set');
         }
+        const renderedMedia = media.map((item) => {
+            if (!item.caption || item.parse_mode !== 'MarkdownV2') {
+                return item;
+            }
+            const renderedCaption = renderSingleMessage(item.parse_mode, item.caption);
+            return {
+                ...item,
+                caption: renderedCaption.text,
+                ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}),
+                ...(renderedCaption.useEntities ? { parse_mode: undefined } : {}),
+            };
+        });
         const params: Telegram.SendMediaGroupParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
-            media,
+            media: renderedMedia,
         };
         if (this.context.reply_to_message_id) {
             params.reply_parameters = {
@@ -258,12 +281,19 @@ export class MessageSender {
         if (!this.context) {
             throw new Error('Message context not set');
         }
+        const renderedCaption = caption ? renderSingleMessage(parse_mode || null, caption) : null;
         const params: Telegram.SendDocumentParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
             document,
-            caption,
-            parse_mode,
+            ...(renderedCaption
+                ? {
+                        caption: renderedCaption.text,
+                        ...(renderedCaption.useEntities
+                            ? { ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}) }
+                            : { parse_mode }),
+                    }
+                : {}),
         };
         if (this.context.reply_to_message_id) {
             params.reply_parameters = {
@@ -282,12 +312,20 @@ export class MessageSender {
         if (!this.context.message_id) {
             throw new Error('Message id is null');
         }
+        const renderedCaption = media.caption ? renderSingleMessage(parse_mode || null, media.caption) : null;
         const params: Telegram.EditMessageMediaParams = {
             chat_id: this.context.chat_id,
             message_id: this.context.message_id,
             media: {
                 ...media,
-                parse_mode,
+                ...(renderedCaption
+                    ? {
+                            caption: renderedCaption.text,
+                            ...(renderedCaption.useEntities
+                                ? { ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}) }
+                                : { parse_mode }),
+                        }
+                    : { parse_mode }),
                 ...(file && { media: `attach://file` }),
             },
             ...(file && { file }),
@@ -525,10 +563,13 @@ export class ChosenInlineSender {
     }
 
     editMessageText(text: string, parse_mode?: Telegram.ParseMode, expandParams?: ExpandParams): Promise<Response> {
+        const rendered = renderSingleMessage(parse_mode || null, text, expandParams);
         return this.api.editMessageText({
             inline_message_id: this.context.inline_message_id,
-            text: renderMessage(parse_mode || null, text, expandParams)[0],
-            parse_mode,
+            text: rendered.text,
+            ...(rendered.useEntities
+                ? { ...(rendered.entities ? { entities: rendered.entities } : {}) }
+                : { parse_mode }),
             link_preview_options: {
                 is_disabled: ENV.DISABLE_WEB_PREVIEW,
             },
@@ -544,20 +585,4 @@ export class ChosenInlineSender {
             },
         });
     }
-}
-
-function renderMessage(parse_mode: Telegram.ParseMode | null, message: string, expandParams?: ExpandParams): string[] {
-    // Remove Grok rendering tags (xAI web UI internal tags that may leak into API responses)
-    // These tags like <grok:render type="renderinlinecitation"> are used in Grok web interface
-    // but should not appear in bot responses
-    const cleanedMessage = transformPipeTables(
-        message.replace(/<grok:[^>]*>/g, '').replace(/<\/grok:[^>]*>/g, ''),
-        { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES },
-    );
-
-    const chunkMessage = chunkDocument(cleanedMessage);
-    if (parse_mode === 'MarkdownV2') {
-        return chunkMessage.map(lines => escape(lines, expandParams));
-    }
-    return chunkMessage;
 }

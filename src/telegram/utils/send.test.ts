@@ -80,10 +80,13 @@ describe('messageSender.sendRichText', () => {
 
         expect(response.ok).toBe(true);
         expect(sendMessage).toHaveBeenCalledTimes(1);
-        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        const payload = sendMessage.mock.calls[0][0];
+        expect(payload).toEqual(expect.objectContaining({
             chat_id: 123,
             text: 'streaming reply',
         }));
+        expect(payload).not.toHaveProperty('parse_mode');
+        expect(payload).not.toHaveProperty('entities');
         expect(editMessageText).not.toHaveBeenCalled();
     });
 
@@ -104,11 +107,14 @@ describe('messageSender.sendRichText', () => {
         expect(response.ok).toBe(true);
         expect(sendMessage).toHaveBeenCalledTimes(1);
         expect(editMessageText).toHaveBeenCalledTimes(1);
-        expect(editMessageText).toHaveBeenCalledWith(expect.objectContaining({
+        const payload = editMessageText.mock.calls[0][0];
+        expect(payload).toEqual(expect.objectContaining({
             chat_id: 123,
             message_id: 99,
             text: 'second chunk',
         }));
+        expect(payload).not.toHaveProperty('parse_mode');
+        expect(payload).not.toHaveProperty('entities');
     });
 
     it('transforms pipe tables before sending rich text', async () => {
@@ -126,7 +132,12 @@ describe('messageSender.sendRichText', () => {
 
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
-            text: '*User: Juan*\n• Age: 30\n• City: Cucuta\n• Favorite Food: Arepas con queso',
+            text: 'User: Juan\n• Age: 30\n• City: Cucuta\n• Favorite Food: Arepas con queso',
+            entities: [{
+                type: 'bold',
+                offset: 0,
+                length: 10,
+            }],
         }));
     });
 
@@ -145,7 +156,12 @@ describe('messageSender.sendRichText', () => {
 
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
-            text: '*Field: foo\\_bar\\_baz*\n• Value: alpha\\_beta\n• Notes: note\\_value\n• Extra: extra\\_data',
+            text: 'Field: foo_bar_baz\n• Value: alpha_beta\n• Notes: note_value\n• Extra: extra_data',
+            entities: [{
+                type: 'bold',
+                offset: 0,
+                length: 18,
+            }],
         }));
     });
 
@@ -163,9 +179,12 @@ describe('messageSender.sendRichText', () => {
             '| Juan | 30 | Cucuta | Arepas con queso |',
         ].join('\n'));
 
-        expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        const payload = sendMessage.mock.calls[0][0];
+        expect(payload).toEqual(expect.objectContaining({
             chat_id: 123,
-            text: '\\| User \\| Age \\| City \\| Favorite Food \\|\n\\| \\-\\-\\- \\| \\-\\-\\- \\| \\-\\-\\- \\| \\-\\-\\- \\|\n\\| Juan \\| 30 \\| Cucuta \\| Arepas con queso \\|',
+            text: '| User | Age | City | Favorite Food |\n| --- | --- | --- | --- |\n| Juan | 30 | Cucuta | Arepas con queso |',
         }));
+        expect(payload).not.toHaveProperty('parse_mode');
+        expect(payload).not.toHaveProperty('entities');
     });
 });

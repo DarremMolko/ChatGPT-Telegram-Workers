@@ -20,7 +20,7 @@ import { addRuntimeAdmin, canManageRuntimeConfigForAccess, canViewSensitiveConfi
 import { createTelegramBotAPI } from '../api';
 import { chatWithLLM, mergeLogMessages, sendImages, stt, tts } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
-import { escape } from '../utils/md2tgmd';
+import { renderSingleMessage } from '../utils/rich_text';
 import { checkIsNeedTagIds, sendAction } from '../utils/send';
 import { chunkArray, getMessageText, getMessageTextWithoutBotShowInfo, getTelegramFile, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
 import { sendCommandError } from './error';
@@ -866,6 +866,7 @@ export class InlineCommandHandler implements CommandHandler {
             callback_data: 'close',
         }];
 
+        const rendered = renderSingleMessage('MarkdownV2', settingMsg, { quoteExpandable: true, addQuote: true });
         return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
             chat_id: message.chat.id,
             ...(message.chat.type === 'private'
@@ -876,8 +877,10 @@ export class InlineCommandHandler implements CommandHandler {
                             chat_id: message.chat.id,
                         },
                     }),
-            text: escape(settingMsg, { quoteExpandable: true, addQuote: true }),
-            parse_mode: 'MarkdownV2',
+            text: rendered.text,
+            ...(rendered.useEntities
+                ? { ...(rendered.entities ? { entities: rendered.entities } : {}) }
+                : { parse_mode: 'MarkdownV2' }),
             reply_markup: {
                 inline_keyboard: [headKeyboard, ...this.inlineKeyboard(context.USER_CONFIG, defaultInlines), closeKeyboard],
             },
