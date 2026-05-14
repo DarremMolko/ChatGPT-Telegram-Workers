@@ -1,4 +1,5 @@
-import { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK } from '../telegram/utils/render_shared';
+import { ENV } from '../config/env';
+import { SEGMENTATION_MARK, wrapExpandableQuote } from '../telegram/utils/render_shared';
 
 export function renderThinkingTag(
     content: string,
@@ -6,17 +7,18 @@ export function renderThinkingTag(
     { separateFromPrevious = false }: { separateFromPrevious?: boolean } = {},
 ) {
     const trimmedContent = content.trimEnd();
-    const expandableThinkingTag = `${EXPANDABLE_QUOTE_MARK}\n${thinkingTag}`;
     if (trimmedContent.length === 0) {
-        return expandableThinkingTag;
+        return wrapExpandableQuote(thinkingTag, ENV.EXPANDABLE_THINKING);
     }
     if (trimmedContent.endsWith(SEGMENTATION_MARK) || trimmedContent.endsWith('>')) {
-        return expandableThinkingTag;
+        return wrapExpandableQuote(thinkingTag, ENV.EXPANDABLE_THINKING);
     }
     if (separateFromPrevious) {
-        return content.endsWith('\n') ? expandableThinkingTag : `\n${expandableThinkingTag}`;
+        return content.endsWith('\n')
+            ? wrapExpandableQuote(thinkingTag, ENV.EXPANDABLE_THINKING)
+            : wrapExpandableQuote(thinkingTag, ENV.EXPANDABLE_THINKING, true);
     }
-    return `\n${expandableThinkingTag}`;
+    return wrapExpandableQuote(thinkingTag, ENV.EXPANDABLE_THINKING, true);
 }
 
 export function renderResponseBreak(content: string) {

@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ENV } from '../config/env';
 import { EXPANDABLE_QUOTE_MARK } from '../telegram/utils/render_shared';
 import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
+
+const previousExpandableThinking = ENV.EXPANDABLE_THINKING;
+
+beforeAll(() => {
+    ENV.EXPANDABLE_THINKING = true;
+});
+
+afterAll(() => {
+    ENV.EXPANDABLE_THINKING = previousExpandableThinking;
+});
 
 describe('renderThinkingTag', () => {
     it('starts a new line when previous streamed text already exists', () => {

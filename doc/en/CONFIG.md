@@ -168,6 +168,8 @@ Telegram document notes:
 | `DEFAULT_PARSE_MODE` | Telegram parse mode for rich messages. | `MarkdownV2` |
 | `DISABLE_WEB_PREVIEW` | Disable Telegram link previews. | `false` |
 | `SHOW_THINKING_TEXT` | Show streamed reasoning text when the underlying model/provider returns it. | `true` |
+| `EXPANDABLE_BANNER` | Render the show-info banner as an expandable quote. | `false` |
+| `EXPANDABLE_THINKING` | Render streamed thinking blocks as expandable quotes. | `false` |
 | `ENABLE_SEARCH_SOURCE` | Show provider search/source metadata when available. | `true` |
 | `QUOTE_EXPANDABLE` | Make quoted long replies expandable. | `false` |
 | `ADD_QUOTE_LIMIT` | Quote replies longer than this length. Set `-1` to disable. | `-1` |

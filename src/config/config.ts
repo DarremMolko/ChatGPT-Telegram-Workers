@@ -138,6 +138,10 @@ export class EnvironmentConfig {
 
     // If true, will expand the quote message; log always be expandable
     QUOTE_EXPANDABLE = false;
+    // If true, the info banner quote is rendered as expandable.
+    EXPANDABLE_BANNER = false;
+    // If true, streamed thinking quotes are rendered as expandable.
+    EXPANDABLE_THINKING = false;
     // whether log position on top, default is true
     LOG_POSITION_ON_TOP = true;
 
