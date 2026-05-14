@@ -517,7 +517,7 @@ function isQuoteLine(line: string): boolean {
     return stripped.startsWith('>');
 }
 
-function stripBlockquotePrefix(line: string): string {
+export function stripBlockquotePrefix(line: string): string {
     let index = 0;
     while (index < line.length && index < 3 && line[index] === ' ') {
         index++;
@@ -831,7 +831,7 @@ function renderInlineNodeToPlainText(node: InlineNode): string {
     }
 }
 
-function stripLeadingSpaces(line: string): string {
+export function stripLeadingSpaces(line: string): string {
     let index = 0;
     while (index < line.length && line[index] === ' ') {
         index++;
@@ -839,7 +839,7 @@ function stripLeadingSpaces(line: string): string {
     return line.slice(index);
 }
 
-function stripUpToThreeSpaces(line: string): string {
+export function stripUpToThreeSpaces(line: string): string {
     let index = 0;
     while (index < line.length && index < 3 && line[index] === ' ') {
         index++;
@@ -858,7 +858,7 @@ function readLeadingSpaces(line: string, limit: number): { offset: number; value
     };
 }
 
-function isWhitespaceChar(char: string | undefined): boolean {
+export function isWhitespaceChar(char: string | undefined): boolean {
     return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f' || char === '\v';
 }
 

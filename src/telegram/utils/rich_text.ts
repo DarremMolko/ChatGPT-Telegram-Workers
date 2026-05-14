@@ -2,7 +2,13 @@ import type * as Telegram from 'telegram-bot-api-types';
 import type { RenderedText as CoreRenderedText } from './markdown_core';
 import type { ExpandParams } from './render_shared';
 import { ENV } from '../../config/env';
-import { parseMarkdownDocument, renderMarkdownDocumentToTelegram } from './markdown_core';
+import {
+    isWhitespaceChar,
+    parseMarkdownDocument,
+    renderMarkdownDocumentToTelegram,
+    stripBlockquotePrefix,
+    stripUpToThreeSpaces,
+} from './markdown_core';
 import { SEGMENTATION_MARK } from './render_shared';
 import { transformPipeTables } from './table_render';
 
@@ -92,29 +98,6 @@ function isBlockquoteLine(line: string): boolean {
     return stripUpToThreeSpaces(line).startsWith('>');
 }
 
-function stripBlockquotePrefix(line: string): string {
-    let index = 0;
-    while (index < line.length && index < 3 && line[index] === ' ') {
-        index++;
-    }
-    if (line[index] !== '>') {
-        return line;
-    }
-    index++;
-    if (line[index] === ' ') {
-        index++;
-    }
-    return line.slice(index);
-}
-
-function stripUpToThreeSpaces(line: string): string {
-    let index = 0;
-    while (index < line.length && index < 3 && line[index] === ' ') {
-        index++;
-    }
-    return line.slice(index);
-}
-
 function splitRenderedText(rendered: RenderedText, chunkSize: number): RenderedText[] {
     if (rendered.text.length <= chunkSize) {
         return [finalizeRenderedText(rendered)];
@@ -194,10 +177,6 @@ function findPreferredBreak(text: string, start: number, end: number): number {
     }
 
     return end;
-}
-
-function isWhitespaceChar(char: string | undefined): boolean {
-    return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f' || char === '\v';
 }
 
 function finalizeRenderedText(rendered: RenderedText): RenderedText {
