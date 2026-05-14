@@ -235,8 +235,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         return ENV.FILE_SIZE_LIMIT > 0 && ENV.QUOTE_EXPANDABLE && text.length > ENV.ADD_QUOTE_LIMIT && text.length > ENV.FILE_SIZE_LIMIT;
     };
     const addQuotePrerequisites = ENV.ADD_QUOTE_LIMIT > 0 && ENV.ADD_QUOTE_SCOPE.includes(sender.context.chatType);
-    // Stream banners and thinking blocks should stay expandable even when the global quote setting is off.
-    const expandParams = { addQuote: false, quoteExpandable: true };
+    const expandParams = { addQuote: false, quoteExpandable: false };
     const botName = context?.SHARE_CONTEXT?.botName || 'AI';
     const telegraphAccessTokenKey = context?.SHARE_CONTEXT?.telegraphAccessTokenKey || '';
     const telegraphSender = new TelegraphSender(botName, telegraphAccessTokenKey);

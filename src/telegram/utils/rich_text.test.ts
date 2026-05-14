@@ -6,7 +6,7 @@ vi.mock('../../config/env', () => ({
     },
 }));
 
-const { SEGMENTATION_MARK } = await import('./render_shared');
+const { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK } = await import('./render_shared');
 const { markdownToEntities, renderMessageChunks, renderSingleMessage } = await import('./rich_text');
 
 describe('markdownToEntities', () => {
@@ -69,6 +69,24 @@ describe('markdownToEntities', () => {
     });
 
     it('converts quoted markdown blocks into blockquote entities', () => {
+        expect(markdownToEntities('> Quoted _text_\n> - item')).toEqual({
+            text: 'Quoted text\n• item',
+            entities: [
+                {
+                    type: 'blockquote',
+                    offset: 0,
+                    length: 18,
+                },
+                {
+                    type: 'italic',
+                    offset: 7,
+                    length: 4,
+                },
+            ],
+        });
+    });
+
+    it('allows explicit expandable quotes when requested', () => {
         expect(markdownToEntities('> Quoted _text_\n> - item', { quoteEntireMessage: false, quoteExpandable: true })).toEqual({
             text: 'Quoted text\n• item',
             entities: [
@@ -89,26 +107,31 @@ describe('markdownToEntities', () => {
 
 describe('renderSingleMessage', () => {
     it('keeps showinfo separate from streamed thinking when addQuote is off', () => {
-        expect(renderSingleMessage('MarkdownV2', `> zai-org/glm-5.1 5.4s\n> 770,73\n${SEGMENTATION_MARK}\n>\`Thinking...\`\n> Thought for 1.9 seconds\n> The user is just asking how I am doing.\n>✹\n${SEGMENTATION_MARK}\n¡Muy bien, gracias por preguntar!`, {
+        expect(renderSingleMessage('MarkdownV2', `${EXPANDABLE_QUOTE_MARK}\n> banner\n${SEGMENTATION_MARK}\n${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> thought\n>✹\n${SEGMENTATION_MARK}\nanswer\n> user quote`, {
             addQuote: false,
-            quoteExpandable: true,
+            quoteExpandable: false,
         })).toEqual({
-            text: 'zai-org/glm-5.1 5.4s\n770,73\n\nThinking...\nThought for 1.9 seconds\nThe user is just asking how I am doing.\n✹\n\n¡Muy bien, gracias por preguntar!',
+            text: 'banner\n\nThinking...\nthought\n✹\n\nanswer\nuser quote',
             entities: [
                 {
                     type: 'expandable_blockquote',
                     offset: 0,
-                    length: 27,
+                    length: 6,
                 },
                 {
                     type: 'expandable_blockquote',
-                    offset: 29,
-                    length: 77,
+                    offset: 8,
+                    length: 21,
                 },
                 {
                     type: 'code',
-                    offset: 29,
+                    offset: 8,
                     length: 11,
+                },
+                {
+                    type: 'blockquote',
+                    offset: 38,
+                    length: 10,
                 },
             ],
             useEntities: true,

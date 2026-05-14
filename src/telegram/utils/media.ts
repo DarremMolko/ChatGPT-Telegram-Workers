@@ -8,7 +8,7 @@ import { ENV } from '../../config/env';
 import { getLog, log } from '../../log';
 import { imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
-import { SEGMENTATION_MARK } from './render_shared';
+import { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK } from './render_shared';
 
 export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: MessageSender, config: AgentUserConfig) {
     if (img.url?.length === 0 && img.raw?.length === 0) {
@@ -68,7 +68,7 @@ export function mergeLogMessages(text: string, config: AgentUserConfig | undefin
         return content;
     }
     const formattedInfo = quoteInfo
-        ? info.split('\n').map(line => `> ${line}`).join('\n')
+        ? `${EXPANDABLE_QUOTE_MARK}\n${info.split('\n').map(line => `> ${line}`).join('\n')}`
         : info;
     if (ENV.LOG_POSITION_ON_TOP) {
         return `${formattedInfo}\n${SEGMENTATION_MARK}\n${content}`;

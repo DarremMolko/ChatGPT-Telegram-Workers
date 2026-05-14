@@ -1,4 +1,5 @@
 import type * as Telegram from 'telegram-bot-api-types';
+import { EXPANDABLE_QUOTE_MARK } from './render_shared';
 
 export interface RenderedText {
     text: string;
@@ -15,7 +16,7 @@ export type MarkdownBlock
     = | { kind: 'paragraph'; content: InlineNode[] }
         | { kind: 'prefixed'; prefix: string; content: InlineNode[] }
         | { kind: 'heading'; level: number; prefix: string; content: InlineNode[] }
-        | { kind: 'blockquote'; blocks: MarkdownBlock[] }
+        | { kind: 'blockquote'; blocks: MarkdownBlock[]; expandable?: boolean }
         | { kind: 'code'; language?: string; text: string }
         | { kind: 'hr' };
 
@@ -72,9 +73,15 @@ const INLINE_TOKENS: InlineToken[] = [
 export function parseMarkdownDocument(text: string): MarkdownBlock[] {
     const lines = text.split('\n');
     const blocks: MarkdownBlock[] = [];
+    let nextQuoteExpandable = false;
 
     for (let index = 0; index < lines.length; index++) {
         const line = lines[index];
+
+        if (line === EXPANDABLE_QUOTE_MARK) {
+            nextQuoteExpandable = true;
+            continue;
+        }
 
         if (isFenceStartLine(line)) {
             const codeBlock = parseCodeBlock(lines, index);
@@ -84,7 +91,8 @@ export function parseMarkdownDocument(text: string): MarkdownBlock[] {
         }
 
         if (isQuoteLine(line)) {
-            const quoteBlock = parseQuoteBlock(lines, index);
+            const quoteBlock = parseQuoteBlock(lines, index, nextQuoteExpandable ? true : undefined);
+            nextQuoteExpandable = false;
             blocks.push(quoteBlock.block);
             index = quoteBlock.endIndex;
             continue;
@@ -273,7 +281,7 @@ function renderTelegramBlock(block: MarkdownBlock, quoteExpandable: boolean): Re
                 text: inner.text,
                 entities: [
                     {
-                        type: quoteExpandable ? 'expandable_blockquote' : 'blockquote',
+                        type: (block.expandable ?? quoteExpandable) ? 'expandable_blockquote' : 'blockquote',
                         offset: 0,
                         length: inner.text.length,
                     },
@@ -532,7 +540,7 @@ export function stripBlockquotePrefix(line: string): string {
     return line.slice(index);
 }
 
-function parseQuoteBlock(lines: string[], startIndex: number): { block: MarkdownBlock; endIndex: number } {
+function parseQuoteBlock(lines: string[], startIndex: number, expandable?: boolean): { block: MarkdownBlock; endIndex: number } {
     const quoteLines: string[] = [];
     let endIndex = startIndex;
 
@@ -548,6 +556,7 @@ function parseQuoteBlock(lines: string[], startIndex: number): { block: Markdown
         block: {
             kind: 'blockquote',
             blocks: parseMarkdownDocument(quoteLines.join('\n')),
+            ...(expandable ? { expandable } : {}),
         },
         endIndex,
     };

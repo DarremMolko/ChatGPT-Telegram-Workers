@@ -7,7 +7,7 @@ import type { ChatStreamTextHandler, ResponseMessage } from './types';
 import { generateText, stepCountIs, streamText, TypeValidationError, wrapLanguageModel } from 'ai';
 import { ENV } from '../config/env';
 import { log } from '../log';
-import { SEGMENTATION_MARK } from '../telegram/utils/render_shared';
+import { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK } from '../telegram/utils/render_shared';
 import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
@@ -121,7 +121,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         }
     } else {
         const result = await generateText(handledParams);
-        contentFull = `${result.reasoning ? `>\`Thought for several seconds\`\n>${(result.reasoningText ?? '').trim().replace(/\n/g, '\n>')}\n>✹\n` : ''}${result.text}`;
+        contentFull = `${result.reasoning ? `${EXPANDABLE_QUOTE_MARK}\n>\`Thought for several seconds\`\n>${(result.reasoningText ?? '').trim().replace(/\n/g, '\n>')}\n>✹\n` : ''}${result.text}`;
         responseMessages = result.response.messages;
         contentFull = metaDataExtractor(result.providerMetadata, model.provider, contentFull);
     }
@@ -233,7 +233,7 @@ function thinkingExtractor(messageInfo: MessageInfo) {
                     detectedInlineThought = true;
                     inlineThoughtBuffer = textDelta;
                     log.info('[thinkingExtractor] Detected inline thought text from AI model');
-                    return `${thinkingTag}${renderQuotedChunk(textDelta, true)}`;
+                    return `${EXPANDABLE_QUOTE_MARK}\n${thinkingTag}${renderQuotedChunk(textDelta, true)}`;
                 }
 
                 if (detectedInlineThought) {

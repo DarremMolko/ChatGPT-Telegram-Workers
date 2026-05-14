@@ -9,7 +9,7 @@ import {
     renderMarkdownDocumentToTelegram,
     stripBlockquotePrefix,
 } from './markdown_core';
-import { SEGMENTATION_MARK } from './render_shared';
+import { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK } from './render_shared';
 import { transformPipeTables } from './table_render';
 
 const MAX_CHUNK_SIZE = 4000;
@@ -100,7 +100,7 @@ function renderQuotedSegment(lines: string[]): string {
     const end = findLastMeaningfulLine(lines);
     return lines
         .slice(start, end + 1)
-        .map(line => line === '' ? '>' : `> ${line}`)
+        .map(line => line === EXPANDABLE_QUOTE_MARK ? line : line === '' ? '>' : `> ${line}`)
         .join('\n');
 }
 

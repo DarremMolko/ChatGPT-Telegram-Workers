@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { EXPANDABLE_QUOTE_MARK } from '../telegram/utils/render_shared';
 import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 describe('renderThinkingTag', () => {
     it('starts a new line when previous streamed text already exists', () => {
-        expect(renderThinkingTag('herramientas disponibles.')).toBe('\n>`Thinking...`');
+        expect(renderThinkingTag('herramientas disponibles.')).toBe(`\n${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
     });
 
     it('does not add an extra newline after a segmentation boundary', () => {
-        expect(renderThinkingTag('//SEGMENTATIONMARK//\n')).toBe('>`Thinking...`');
+        expect(renderThinkingTag('//SEGMENTATIONMARK//\n')).toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
     });
 
     it('adds a blank line before thinking after prior tool chatter', () => {
         expect(renderThinkingTag('Voy a buscar herramientas.', '>`Thinking...`', { separateFromPrevious: true }))
-            .toBe('\n>`Thinking...`');
+            .toBe(`\n${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
     });
 });
 
