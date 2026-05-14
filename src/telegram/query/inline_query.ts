@@ -48,7 +48,7 @@ export class AnswerChatInlineQuery implements AnswerInlineQueryType {
         } catch (e) {
             OnStream.clearHeartbeat!();
             const filtered = (e as Error).message.replace(context.botToken, '[REDACTED]');
-            return OnStream.sender!.sendRichText(`<pre><code class="language-error">${filtered.substring(0, 2048)}</code></pre>`, 'HTML', 'tip');
+            return OnStream.sender!.sendRichText(`\`\`\`\nError\n${filtered.substring(0, 2048)}\n\`\`\``, 'MarkdownV2', 'tip');
         }
     };
 

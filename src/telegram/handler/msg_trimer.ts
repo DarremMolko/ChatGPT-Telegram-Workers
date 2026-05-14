@@ -73,9 +73,9 @@ export class HandleMediaGroupMessage {
 
                     // Send notification about how many images were collected
                     if (fileIds.length === 1) {
-                        sender.sendRichText(`<pre><code class="language-tip">Processing 1 image... (Additional images may arrive separately due to Telegram delays)</code></pre>`, 'HTML', 'tip');
+                        sender.sendRichText('```\nProcessing 1 image... (Additional images may arrive separately due to Telegram delays)\n```', 'MarkdownV2', 'tip');
                     } else {
-                        sender.sendRichText(`<pre><code class="language-tip">Processing ${fileIds.length} images from media group...</code></pre>`, 'HTML', 'tip');
+                        sender.sendRichText(`\`\`\`\nProcessing ${fileIds.length} images from media group...\n\`\`\``, 'MarkdownV2', 'tip');
                     }
 
                     log.info(`[MEDIA GROUP] Processing ${fileIds.length} images with caption after 3s wait`);
@@ -98,7 +98,7 @@ export class HandleMediaGroupMessage {
                 // This is the last image, process all of them
                 context.MIDDLE_CONTEXT.messageInfo.id = fileIds;
                 const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
-                sender.sendRichText(`<pre><code class="language-tip">Processing ${fileIds.length} image${fileIds.length > 1 ? 's' : ''} from media group...</code></pre>`, 'HTML', 'tip');
+                sender.sendRichText(`\`\`\`\nProcessing ${fileIds.length} image${fileIds.length > 1 ? 's' : ''} from media group...\n\`\`\``, 'MarkdownV2', 'tip');
                 log.info(`[MEDIA GROUP] Processing ${fileIds.length} images (last image in group)`);
                 return null; // Continue to process
             }
@@ -112,7 +112,7 @@ export class HandleMediaGroupMessage {
             if (fileIds) {
                 context.MIDDLE_CONTEXT.messageInfo.id = fileIds;
                 const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
-                sender.sendRichText(`<pre><code class="language-tip">Has received ${fileIds.length} images, processing...</code></pre>`, 'HTML', 'tip');
+                sender.sendRichText(`\`\`\`\nHas received ${fileIds.length} images, processing...\n\`\`\``, 'MarkdownV2', 'tip');
             }
         }
         return null;

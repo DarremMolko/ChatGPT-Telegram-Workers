@@ -35,15 +35,6 @@ export const COMMAND_AUTH_CHECKER = {
     },
 };
 
-function escapeHtml(text: string): string {
-    return text
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll('\'', '&#39;');
-}
-
 function describeAgentConfig(
     providerName: string | undefined,
     context: WorkerContext,
@@ -603,24 +594,24 @@ export class SystemCommandHandler implements CommandHandler {
             },
         };
         const otherInfo = await customInfo(context.USER_CONFIG, { format: 'object' });
-        let msg = `<b>Usage Statistics</b>\n`
-            + `Total Users: <code>${stats.totalUsers}</code>\n`
-            + `Total Groups: <code>${stats.totalGroups}</code>\n`
-            + `Total Messages: <code>${stats.totalMessages}</code>\n`
-            + `Today Messages: <code>${stats.todayMessages}</code>\n\n`
-            + `<b>Agent</b>\n<pre>${escapeHtml(JSON.stringify(agent, null, 2))}</pre>\n\n`
-            + `<b>Other</b>\n<pre>${escapeHtml(JSON.stringify(otherInfo, null, 2))}</pre>`;
+        let msg = `*Usage Statistics*\n`
+            + `Total Users: \`${stats.totalUsers}\`\n`
+            + `Total Groups: \`${stats.totalGroups}\`\n`
+            + `Total Messages: \`${stats.totalMessages}\`\n`
+            + `Today Messages: \`${stats.todayMessages}\`\n\n`
+            + `*Agent*\n\`\`\`\n${JSON.stringify(agent, null, 2)}\n\`\`\`\n\n`
+            + `*Other*\n\`\`\`\n${JSON.stringify(otherInfo, null, 2)}\n\`\`\``;
         if (ENV.DEV_MODE) {
             const shareCtx = { ...context.SHARE_CONTEXT };
             shareCtx.botToken = '******';
             context.USER_CONFIG.OPENAI_API_KEY = ['******'];
             context.USER_CONFIG.OAILIKE_API_KEY = '******';
             const config = ConfigMerger.trim(context.USER_CONFIG);
-            msg += `\n\n<b>Dev User Config</b>\n<pre>${escapeHtml(JSON.stringify(config, null, 2))}</pre>`;
-            msg += `\n\n<b>Chat Context</b>\n<pre>${escapeHtml(JSON.stringify(sender.context || {}, null, 2))}</pre>`;
-            msg += `\n\n<b>Share Context</b>\n<pre>${escapeHtml(JSON.stringify(shareCtx, null, 2))}</pre>`;
+            msg += `\n\n*Dev User Config*\n\`\`\`\n${JSON.stringify(config, null, 2)}\n\`\`\``;
+            msg += `\n\n*Chat Context*\n\`\`\`\n${JSON.stringify(sender.context || {}, null, 2)}\n\`\`\``;
+            msg += `\n\n*Share Context*\n\`\`\`\n${JSON.stringify(shareCtx, null, 2)}\n\`\`\``;
         }
-        return sender.sendRichText(msg, 'HTML', 'tip');
+        return sender.sendRichText(msg, 'MarkdownV2', 'tip');
     };
 }
 
@@ -684,10 +675,8 @@ export class CancelCommandHandler extends StopCommandHandler {
 export class EchoCommandHandler implements CommandHandler {
     command = '/echo';
     handle = (message: Telegram.Message, _subcommand: string, _context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        let msg = '<pre>';
-        msg += JSON.stringify({ message }, null, 2);
-        msg += '</pre>';
-        return sender.sendRichText(msg, 'HTML');
+        const msg = `\`\`\`\n${JSON.stringify({ message }, null, 2)}\n\`\`\``;
+        return sender.sendRichText(msg, 'MarkdownV2');
     };
 }
 
@@ -703,7 +692,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
         try {
             if (!subcommand) {
                 const detailSet = ENV.I18N.command?.detail?.set || 'No detailed help is available for this language.';
-                return sender.sendRichText(`<pre>${detailSet}</pre>`, 'HTML');
+                return sender.sendRichText(`\`\`\`\n${detailSet}\n\`\`\``, 'MarkdownV2');
             }
 
             const { keys, values } = this.parseMappings(context);
@@ -737,7 +726,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
                 message.text = remainingText;
                 return null;
             }
-            return sender.sendRichText(`<pre><code class="language-update">${msg}</code></pre>`, 'HTML', 'tip');
+            return sender.sendRichText(`\`\`\`\n${msg}\n\`\`\``, 'MarkdownV2', 'tip');
         } catch (e) {
             log.error(`/set error: ${(e as Error).message}`);
             return sendCommandError(sender, e, { redactions: [context.SHARE_CONTEXT.botToken] });
