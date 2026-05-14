@@ -25,7 +25,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, `/stop`, per-chat blocklists, and history export |
 | Deployment | Local webhook mode, local polling mode, Docker, and Docker Compose |
 
-Telegram still does not natively render GitHub-style pipe tables. The current bot rewrites detected pipe tables into Telegram-friendly card text as a compatibility layer. Treat that behavior as a stopgap rather than a permanent rendering model, and revisit it if Telegram adds first-class table support. You can disable the rewrite with `TELEGRAM_RENDER_PIPE_TABLES=false`.
+Telegram still does not natively render GitHub-style pipe tables. The current bot rewrites detected pipe tables into boxed monospace tables as a compatibility layer. Treat that behavior as a stopgap rather than a permanent rendering model, and revisit it if Telegram adds first-class table support. You can disable the rewrite with `TELEGRAM_RENDER_PIPE_TABLES=false`.
 
 ## How Configuration Works
 

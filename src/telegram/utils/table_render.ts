@@ -3,11 +3,14 @@ import { parseInlineNodes, renderInlineNodesToPlainText } from './markdown_core'
 interface ParsedTable {
     header: string[];
     rows: string[][];
+    alignments: TableAlignment[];
     endIndex: number;
 }
 
+type TableAlignment = 'left' | 'center' | 'right' | 'default';
+
 // Telegram does not currently provide native rendering for pipe tables.
-// This transformer converts them into compact card-like paragraphs.
+// This transformer converts them into boxed monospace tables.
 export function transformPipeTables(text: string, { enabled = true }: { enabled?: boolean } = {}): string {
     if (!enabled || !text.includes('|')) {
         return text;
@@ -55,6 +58,11 @@ function parseTable(lines: string[], startIndex: number): ParsedTable | null {
         return null;
     }
 
+    const separator = parseSeparatorRow(separatorLine, header.length);
+    if (!separator) {
+        return null;
+    }
+
     const rows: string[][] = [];
     let endIndex = startIndex + 1;
 
@@ -71,7 +79,7 @@ function parseTable(lines: string[], startIndex: number): ParsedTable | null {
         return null;
     }
 
-    return { header, rows, endIndex };
+    return { header, rows, alignments: separator, endIndex };
 }
 
 function parseTableRow(line: string): string[] | null {
@@ -144,11 +152,32 @@ function normalizeCell(cell: string): string {
 }
 
 function isSeparatorRow(line: string, expectedCells: number): boolean {
+    return parseSeparatorRow(line, expectedCells) !== null;
+}
+
+function parseSeparatorRow(line: string, expectedCells: number): TableAlignment[] | null {
     const cells = parseTableRow(line);
     if (!cells || cells.length !== expectedCells) {
-        return false;
+        return null;
     }
-    return cells.every(isSeparatorCell);
+    const alignments = cells.map((cell) => {
+        if (!isSeparatorCell(cell)) {
+            return null;
+        }
+        const hasLeft = cell.startsWith(':');
+        const hasRight = cell.endsWith(':');
+        if (hasLeft && hasRight) {
+            return 'center';
+        }
+        if (hasLeft) {
+            return 'left';
+        }
+        if (hasRight) {
+            return 'right';
+        }
+        return 'default';
+    });
+    return alignments.includes(null) ? null : alignments as TableAlignment[];
 }
 
 function isSeparatorCell(cell: string): boolean {
@@ -172,33 +201,20 @@ function isSeparatorCell(cell: string): boolean {
 }
 
 function renderTable(table: ParsedTable): string {
-    return renderCardTable(table);
-}
-
-function renderCardTable(table: ParsedTable): string {
-    const titleIndex = Math.max(0, table.header.findIndex(cell => cell !== ''));
-
-    return table.rows.map((row, rowIndex) => {
-        const titleLabel = sanitizeCardText(table.header[titleIndex]) || `Row ${rowIndex + 1}`;
-        const titleValue = sanitizeCardText(row[titleIndex]) || `Row ${rowIndex + 1}`;
-        const lines = [`**${titleLabel}: ${titleValue}**`];
-
-        row.forEach((value, columnIndex) => {
-            if (columnIndex === titleIndex) {
-                return;
-            }
-
-            const label = sanitizeCardText(table.header[columnIndex]) || `Column ${columnIndex + 1}`;
-            const safeValue = sanitizeCardText(value);
-            if (safeValue === '') {
-                lines.push(`- ${label}: -`);
-                return;
-            }
-            lines.push(`- ${label}: ${safeValue}`);
-        });
-
-        return lines.join('\n');
-    }).join('\n\n');
+    const header = table.header.map((cell, index) => sanitizeTableCell(cell) || `Column ${index + 1}`);
+    const rows = table.rows.map(row => row.map(cell => sanitizeTableCell(cell)));
+    const widths = header.map((cell, index) => Math.max(
+        measureCellWidth(cell),
+        ...rows.map(row => measureCellWidth(row[index] || '')),
+    ));
+    const lines = [
+        renderBorder('┌', '┬', '┐', widths),
+        renderRow(header, widths, table.alignments),
+        renderBorder('├', '┼', '┤', widths),
+        ...rows.map(row => renderRow(row, widths, table.alignments)),
+        renderBorder('└', '┴', '┘', widths),
+    ];
+    return `\`\`\`text\n${lines.join('\n')}\n\`\`\``;
 }
 
 function isFenceLine(line: string): boolean {
@@ -215,8 +231,36 @@ function isFenceLine(line: string): boolean {
     return line.slice(index).startsWith('```');
 }
 
-function sanitizeCardText(text: string): string {
+function sanitizeTableCell(text: string): string {
     return collapseWhitespace(renderInlineNodesToPlainText(parseInlineNodes(text).nodes));
+}
+
+function renderBorder(left: string, join: string, right: string, widths: number[]): string {
+    return `${left}${widths.map(width => '─'.repeat(width + 2)).join(join)}${right}`;
+}
+
+function renderRow(values: string[], widths: number[], alignments: TableAlignment[]): string {
+    return `│ ${values.map((value, index) => padCell(value, widths[index], alignments[index])).join(' │ ')} │`;
+}
+
+function padCell(value: string, width: number, alignment: TableAlignment): string {
+    const cellWidth = measureCellWidth(value);
+    const gap = Math.max(0, width - cellWidth);
+    switch (alignment) {
+        case 'right':
+            return `${' '.repeat(gap)}${value}`;
+        case 'center': {
+            const left = Math.floor(gap / 2);
+            const right = gap - left;
+            return `${' '.repeat(left)}${value}${' '.repeat(right)}`;
+        }
+        default:
+            return `${value}${' '.repeat(gap)}`;
+    }
+}
+
+function measureCellWidth(text: string): number {
+    return Array.from(text).length;
 }
 
 function collapseWhitespace(text: string): string {
