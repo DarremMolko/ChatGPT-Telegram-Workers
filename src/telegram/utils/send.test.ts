@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendMessage = vi.fn();
 const editMessageText = vi.fn();
+const redisGet = vi.fn();
+const redisPut = vi.fn();
+const redisDelete = vi.fn();
+const fetchMock = vi.fn();
+
+vi.stubGlobal('fetch', fetchMock);
 
 vi.mock('../../config/env', () => ({
     ENV: {
@@ -17,6 +23,11 @@ vi.mock('../../config/env', () => ({
         ENABLE_REPLY_TO_MENTION: false,
         LOG_POSITION_ON_TOP: true,
         TELEGRAM_RENDER_PIPE_TABLES: true,
+        REDIS: {
+            get: redisGet,
+            put: redisPut,
+            delete: redisDelete,
+        },
     },
 }));
 
@@ -43,7 +54,7 @@ vi.mock('./tg_utils', () => ({
 }));
 
 const { ENV } = await import('../../config/env');
-const { MessageSender } = await import('./send');
+const { MessageSender, TelegraphSender } = await import('./send');
 
 function createMessage(chatType: Telegram.ChatType): Telegram.Message {
     return {
@@ -66,6 +77,10 @@ describe('messageSender.sendRichText', () => {
     beforeEach(() => {
         sendMessage.mockReset();
         editMessageText.mockReset();
+        redisGet.mockReset();
+        redisPut.mockReset();
+        redisDelete.mockReset();
+        fetchMock.mockReset();
         ENV.TELEGRAM_RENDER_PIPE_TABLES = true;
     });
 
@@ -186,5 +201,59 @@ describe('messageSender.sendRichText', () => {
         }));
         expect(payload).not.toHaveProperty('parse_mode');
         expect(payload).not.toHaveProperty('entities');
+    });
+});
+
+describe('telegraphSender.send', () => {
+    beforeEach(() => {
+        redisGet.mockReset();
+        redisPut.mockReset();
+        redisDelete.mockReset();
+        fetchMock.mockReset();
+    });
+
+    it('recreates the telegraph account when the cached token is invalid', async () => {
+        redisGet
+            .mockResolvedValueOnce('bad-token')
+            .mockResolvedValueOnce(null);
+        redisDelete.mockResolvedValue(1);
+        redisPut.mockResolvedValue('OK');
+        fetchMock
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                ok: false,
+                error: 'ACCESS_TOKEN_INVALID',
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                ok: true,
+                result: { access_token: 'new-token' },
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                ok: true,
+                result: { path: 'new-path', url: 'https://telegra.ph/new-path' },
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }));
+
+        const sender = new TelegraphSender('BotName', 'telegraph_access_token:123');
+        const response = await sender.send('Title', 'Hello world');
+
+        expect(response.ok).toBe(true);
+        expect(redisGet).toHaveBeenCalledWith('telegraph_access_token:123');
+        expect(redisDelete).toHaveBeenCalledWith('telegraph_access_token:123');
+        expect(redisPut).toHaveBeenCalledWith('telegraph_access_token:123', 'new-token');
+        expect(sender.teleph_path).toBe('new-path');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(fetchMock.mock.calls[0][0]).toContain('createPage');
+        expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).access_token).toBe('bad-token');
+        expect(fetchMock.mock.calls[1][0]).toContain('createAccount');
+        expect(fetchMock.mock.calls[2][0]).toContain('createPage');
+        expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).access_token).toBe('new-token');
     });
 });

@@ -442,8 +442,7 @@ export class TelegraphSender {
         });
     }
 
-    async send(title: string, content: string, raw?: string): Promise<Response> {
-        let endPoint = 'https://api.telegra.ph/editPage';
+    private async ensureAccessToken() {
         if (!this.telegraphAccessToken) {
             this.telegraphAccessToken = await ENV.REDIS.get(this.telegraphAccessTokenKey);
             if (!this.telegraphAccessToken) {
@@ -451,6 +450,19 @@ export class TelegraphSender {
                 await ENV.REDIS.put(this.telegraphAccessTokenKey, this.telegraphAccessToken).catch(console.error);
             }
         }
+    }
+
+    private async resetAccount() {
+        this.telegraphAccessToken = undefined;
+        this.teleph_path = undefined;
+        if (this.telegraphAccessTokenKey) {
+            await ENV.REDIS.delete(this.telegraphAccessTokenKey).catch(console.error);
+        }
+    }
+
+    async send(title: string, content: string, raw?: string, retried = false): Promise<Response> {
+        let endPoint = 'https://api.telegra.ph/editPage';
+        await this.ensureAccessToken();
 
         if (!this.teleph_path) {
             endPoint = 'https://api.telegra.ph/createPage';
@@ -459,6 +471,10 @@ export class TelegraphSender {
         if (resp.ok) {
             const data = await resp.json() as CreateOrEditPageResponse;
             if (!data.ok) {
+                if (data.error === 'ACCESS_TOKEN_INVALID' && !retried) {
+                    await this.resetAccount();
+                    return this.send(title, content, raw, true);
+                }
                 console.error('telegraph send error:', JSON.stringify(data));
                 throw new Error(JSON.stringify(data));
             }
@@ -471,7 +487,7 @@ export class TelegraphSender {
             } else {
                 await waitUntil(Date.now() + 5_000);
             }
-            return this.send(title, content, raw);
+            return this.send(title, content, raw, retried);
         } else if (!resp.ok) {
             log.error('Send telegraph page failed:', resp.status);
             throw new Error(await resp.text());

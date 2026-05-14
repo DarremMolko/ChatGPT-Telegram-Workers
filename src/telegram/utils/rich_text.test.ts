@@ -29,6 +29,12 @@ describe('markdownToEntities', () => {
         });
     });
 
+    it('keeps placeholder markdown links literal when the URL is invalid', () => {
+        expect(markdownToEntities('Sintaxis: [texto](url)')).toEqual({
+            text: 'Sintaxis: [texto](url)',
+        });
+    });
+
     it('keeps snake_case text literal', () => {
         expect(markdownToEntities('foo_bar_baz and some_text_with__double__underscores')).toEqual({
             text: 'foo_bar_baz and some_text_with__double__underscores',

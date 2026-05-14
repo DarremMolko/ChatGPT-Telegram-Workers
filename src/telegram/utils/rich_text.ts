@@ -406,10 +406,15 @@ function parseLink(input: string, startIndex: number): { text: string; entities:
         return null;
     }
 
+    const url = decodeText(input.slice(label.nextIndex + 1, urlEnd));
+    if (!isSupportedTelegramUrl(url)) {
+        return null;
+    }
+
     return {
         text: label.text,
         entities: label.entities,
-        url: decodeText(input.slice(label.nextIndex + 1, urlEnd)),
+        url,
         nextIndex: urlEnd + 1,
     };
 }
@@ -516,6 +521,15 @@ function findLinkUrlEnd(input: string, openParenIndex: number): number {
         }
     }
     return -1;
+}
+
+function isSupportedTelegramUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'tg:';
+    } catch {
+        return false;
+    }
 }
 
 function splitRenderedText(rendered: RenderedText, chunkSize: number): RenderedText[] {
