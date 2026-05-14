@@ -1,4 +1,4 @@
-import { escapedChars, escapedCharsReverseMap, escapedRegexp } from './md2tgmd';
+import { escapedChars, escapedCharsReverseMap, escapedRegexp } from './markdown_escape';
 import { SEGMENTATION_MARK } from './render_shared';
 
 /* eslint-disable no-cond-assign */

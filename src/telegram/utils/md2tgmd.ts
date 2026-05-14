@@ -1,31 +1,9 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
 import type { ExpandParams } from './render_shared';
+import { escapedChars, escapedCharsReverseMap, escapedRegexp } from './markdown_escape';
 import { SEGMENTATION_MARK } from './render_shared';
 
 const escapeChars = /[_*[\]()\\~`>#+\-=|{}.!]/g;
-export const escapedChars = {
-    '\\*': 'ESCAPEASTERISK',
-    '\\_': 'ESCAPEUNDERSCORE',
-    '\\~': 'ESCAPETILDE',
-    '\\|': 'ESCAPEPIP',
-    '\\`': 'ESCAPEBACKTICK',
-    '\\\\': 'ESCAPEBACKSLASH',
-    '\\(': 'ESCAPELEFTPARENTHESIS',
-    '\\)': 'ESCAPERIGHTPARENTHESIS',
-    '\\[': 'ESCAPELEFTBRACKET',
-    '\\]': 'ESCAPERIGHTBRACKET',
-    '\\{': 'ESCAPELEFTBRACE',
-    '\\}': 'ESCAPERIGHTBRACE',
-    '\\>': 'ESCAPEGREATERTHAN',
-    '\\#': 'ESCAPEHASH',
-    '\\+': 'ESCAPEPLUS',
-    '\\-': 'ESCAPEMINUS',
-    '\\=': 'ESCAPEEQUAL',
-    '\\.': 'ESCAPEDOT',
-    '\\!': 'ESCAPEEXCLAMATION',
-    '\\?': 'ESCAPEQUESTION',
-};
-export const escapedRegexp = /\\[*_~|`\\()[\]{}>#+\-=.!]/g;
 const reverseCodeRegexp = /\\`\\`\\`([\s\S]+)\\`\\`\\`$/g;
 const inlineCodeRegexp = /`[^\n]*?`/g;
 const linkRegexp = /\\\[([^\]\n]+?)\\\]\\\((.+?)\\\)/g;
@@ -76,8 +54,6 @@ const escapeRegexpMatch = [
         value: '$1\x20*$2*',
     },
 ];
-
-export const escapedCharsReverseMap = new Map(Object.entries(escapedChars).map(([key, value]) => [value, key]));
 
 export function escape(text: string, expandParams: ExpandParams = { addQuote: false, quoteExpandable: false }): string {
     const lines = text.split('\n');
