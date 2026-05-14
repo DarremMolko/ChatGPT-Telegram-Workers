@@ -1,6 +1,8 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
+import type { ExpandParams } from './render_shared';
+import { SEGMENTATION_MARK } from './render_shared';
+
 const escapeChars = /[_*[\]()\\~`>#+\-=|{}.!]/g;
-export const SEGMENTATION_MARK = '//SEGMENTATIONMARK//';
 export const escapedChars = {
     '\\*': 'ESCAPEASTERISK',
     '\\_': 'ESCAPEUNDERSCORE',
@@ -275,11 +277,6 @@ export function addExpandable(text: string, quoteExpandable: boolean): string {
         // Not expandable, return as-is
         return match;
     });
-}
-
-export interface ExpandParams {
-    addQuote: boolean;
-    quoteExpandable: boolean;
 }
 
 function quoteMessage(text: string, addQuote: boolean) {

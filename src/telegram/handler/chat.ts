@@ -15,7 +15,7 @@ import { imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
-import { SEGMENTATION_MARK } from '../utils/md2tgmd';
+import { SEGMENTATION_MARK } from '../utils/render_shared';
 import { MessageSender, sendAction, TelegraphSender } from '../utils/send';
 import { transformPipeTables } from '../utils/table_render';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';

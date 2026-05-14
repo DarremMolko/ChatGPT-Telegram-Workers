@@ -7,7 +7,7 @@ import type { ChatStreamTextHandler, ResponseMessage } from './types';
 import { generateText, stepCountIs, streamText, TypeValidationError, wrapLanguageModel } from 'ai';
 import { ENV } from '../config/env';
 import { log } from '../log';
-import { SEGMENTATION_MARK } from '../telegram/utils/md2tgmd';
+import { SEGMENTATION_MARK } from '../telegram/utils/render_shared';
 import { isUserCancelledSignal } from '../utils/abort';
 import { getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';

@@ -1,7 +1,7 @@
 /* eslint-disable antfu/if-newline */
 import type * as Telegram from 'telegram-bot-api-types';
 import type { TelegramBotAPI } from '../api';
-import type { ExpandParams } from './md2tgmd';
+import type { ExpandParams } from './render_shared';
 import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';

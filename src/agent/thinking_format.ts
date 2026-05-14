@@ -1,4 +1,4 @@
-import { SEGMENTATION_MARK } from '../telegram/utils/md2tgmd';
+import { SEGMENTATION_MARK } from '../telegram/utils/render_shared';
 
 export function renderThinkingTag(
     content: string,
