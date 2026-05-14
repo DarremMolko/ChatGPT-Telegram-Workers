@@ -59,7 +59,7 @@ function normalizeMessage(message: string, expandParams: ExpandParams): { text: 
     const lines = message.split('\n');
     if (!expandParams.addQuote) {
         return {
-            text: lines.filter(line => line !== SEGMENTATION_MARK).join('\n').trim(),
+            text: lines.map(line => line === SEGMENTATION_MARK ? '' : line).join('\n').trim(),
             quoteEntireMessage: false,
             quoteExpandable: expandParams.quoteExpandable,
         };
