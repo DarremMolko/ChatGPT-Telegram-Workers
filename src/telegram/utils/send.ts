@@ -6,7 +6,7 @@ import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
-import md2node from './md2node';
+import { parseMarkdownDocument, renderMarkdownDocumentToTelegraph } from './markdown_core';
 import { renderMessageChunks, renderSingleMessage } from './rich_text';
 import { waitUntil } from './tg_utils';
 
@@ -407,7 +407,7 @@ export class TelegraphSender {
     }
 
     private async createOrEditPage(url: string, title: string, content: string, raw?: string): Promise<Response> {
-        const contentNode = md2node(content);
+        const contentNode = renderMarkdownDocumentToTelegraph(parseMarkdownDocument(content));
         if (raw) {
             contentNode.push(...[
                 { tag: 'hr' },
