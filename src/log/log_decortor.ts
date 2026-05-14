@@ -7,6 +7,31 @@ import { randomUUID } from 'node:crypto';
 export const logSingleton = new WeakMap<AgentUserConfig, LogStruct[]>();
 export const tagMessageIds = new WeakMap<Message, Set<number>>();
 
+type LoggedRequestArgs = [unknown, AgentUserConfig, ...unknown[]];
+
+export function withRequestLogger<TArgs extends LoggedRequestArgs, TResult>(
+    instance: { model: (ctx: AgentUserConfig, params?: any) => string },
+    request: (...args: TArgs) => Promise<TResult>,
+): (...args: TArgs) => Promise<TResult> {
+    return async (...args: TArgs): Promise<TResult> => {
+        const config = args[1];
+        const log = getLogSingleton({ config });
+        log.model = (args[0] as { model?: string } | null | undefined)?.model || instance.model(config, args[0] as any);
+        log.start_time = Date.now();
+        const result = await request(...args);
+        log.end_time = Date.now();
+
+        const usage = (result as { usage?: CompletionData['usage'] } | null | undefined)?.usage;
+        if (usage) {
+            log.tokens = {
+                prompt: usage.prompt_tokens,
+                completion: usage.completion_tokens,
+            };
+        }
+        return result;
+    };
+}
+
 export function Logger(
     value: any,
     context: ClassFieldDecoratorContext | ClassMethodDecoratorContext,

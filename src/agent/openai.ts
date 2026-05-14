@@ -4,7 +4,7 @@ import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ChatAgent, ChatStreamTextHandler, GeneratedImage, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSAgent, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
-import { Logger } from '../log';
+import { withRequestLogger } from '../log';
 import { base64StringToBlob } from '../utils';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
@@ -64,8 +64,7 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
         return ctx.OPENAI_IMAGE_MODEL;
     };
 
-    @Logger
-    request = async (prompt: string, context: AgentUserConfig, extraParams?: Record<string, any>): Promise<ImageResult> => {
+    request = withRequestLogger(this, async (prompt: string, context: AgentUserConfig, extraParams?: Record<string, any>): Promise<ImageResult> => {
         const {
             modelId,
             n,
@@ -120,7 +119,7 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
             model: actualModel,
         };
         return requestText2Image(url, header, body, this.render);
-    };
+    });
 
     readonly render = renderImage;
 }
@@ -132,10 +131,9 @@ export class OpenAIASR extends OpenAIBase implements ASRAgent {
         return ctx.OPENAI_STT_MODEL;
     };
 
-    @Logger
-    request = async (audio: Blob, context: AgentUserConfig): Promise<string> => {
+    request = withRequestLogger(this, async (audio: Blob, context: AgentUserConfig): Promise<string> => {
         return requestOpenAIStyleTranscription(OPENAI_AUDIO_PROVIDER, audio, context);
-    };
+    });
 }
 
 export class OpenAITTS extends OpenAIBase implements TTSAgent {
