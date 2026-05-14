@@ -2,7 +2,7 @@ import { SEGMENTATION_MARK } from '../telegram/utils/render_shared';
 
 export function renderThinkingTag(
     content: string,
-    thinkingTag = '>`Thinking\\.\\.\\.`',
+    thinkingTag = '>`Thinking...`',
     { separateFromPrevious = false }: { separateFromPrevious?: boolean } = {},
 ) {
     const trimmedContent = content.trimEnd();

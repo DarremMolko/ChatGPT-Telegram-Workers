@@ -3,16 +3,16 @@ import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, 
 
 describe('renderThinkingTag', () => {
     it('starts a new line when previous streamed text already exists', () => {
-        expect(renderThinkingTag('herramientas disponibles.')).toBe('\n>`Thinking\\.\\.\\.`');
+        expect(renderThinkingTag('herramientas disponibles.')).toBe('\n>`Thinking...`');
     });
 
     it('does not add an extra newline after a segmentation boundary', () => {
-        expect(renderThinkingTag('//SEGMENTATIONMARK//\n')).toBe('>`Thinking\\.\\.\\.`');
+        expect(renderThinkingTag('//SEGMENTATIONMARK//\n')).toBe('>`Thinking...`');
     });
 
     it('adds a blank line before thinking after prior tool chatter', () => {
-        expect(renderThinkingTag('Voy a buscar herramientas.', '>`Thinking\\.\\.\\.`', { separateFromPrevious: true }))
-            .toBe('\n>`Thinking\\.\\.\\.`');
+        expect(renderThinkingTag('Voy a buscar herramientas.', '>`Thinking...`', { separateFromPrevious: true }))
+            .toBe('\n>`Thinking...`');
     });
 });
 

@@ -65,16 +65,61 @@ function normalizeMessage(message: string, expandParams: ExpandParams): { text: 
         };
     }
 
+    const quotedSegments = splitQuotedSegments(lines)
+        .map(segment => renderQuotedSegment(segment))
+        .filter(segment => segment.length > 0)
+        .join('\n\n')
+        .trim();
+
     return {
-        text: lines.map((line) => {
-            if (line === SEGMENTATION_MARK) {
-                return '';
-            }
-            return isQuoteLine(line) ? stripBlockquotePrefix(line) : line;
-        }).join('\n').trim(),
-        quoteEntireMessage: true,
+        text: quotedSegments,
+        quoteEntireMessage: false,
         quoteExpandable: expandParams.quoteExpandable,
     };
+}
+
+function splitQuotedSegments(lines: string[]): string[][] {
+    const segments: string[][] = [[]];
+    for (const line of lines) {
+        if (line === SEGMENTATION_MARK) {
+            if (segments[segments.length - 1].length > 0) {
+                segments.push([]);
+            }
+            continue;
+        }
+        segments[segments.length - 1].push(isQuoteLine(line) ? stripBlockquotePrefix(line) : line);
+    }
+    return segments;
+}
+
+function renderQuotedSegment(lines: string[]): string {
+    const start = findFirstMeaningfulLine(lines);
+    if (start === -1) {
+        return '';
+    }
+    const end = findLastMeaningfulLine(lines);
+    return lines
+        .slice(start, end + 1)
+        .map(line => line === '' ? '>' : `> ${line}`)
+        .join('\n');
+}
+
+function findFirstMeaningfulLine(lines: string[]): number {
+    for (let index = 0; index < lines.length; index++) {
+        if (lines[index].trim() !== '') {
+            return index;
+        }
+    }
+    return -1;
+}
+
+function findLastMeaningfulLine(lines: string[]): number {
+    for (let index = lines.length - 1; index >= 0; index--) {
+        if (lines[index].trim() !== '') {
+            return index;
+        }
+    }
+    return -1;
 }
 
 function splitRenderedText(rendered: RenderedText, chunkSize: number): RenderedText[] {

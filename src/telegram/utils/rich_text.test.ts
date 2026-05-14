@@ -98,7 +98,39 @@ describe('renderSingleMessage', () => {
                 {
                     type: 'expandable_blockquote',
                     offset: 0,
-                    length: 11,
+                    length: 5,
+                },
+                {
+                    type: 'expandable_blockquote',
+                    offset: 7,
+                    length: 4,
+                },
+            ],
+            useEntities: true,
+        });
+    });
+
+    it('keeps pre-quoted thinking text separate from segmented info banners', () => {
+        expect(renderSingleMessage('MarkdownV2', `>\`Thought for 1.2 seconds\`\n> step one\n>✹\n${SEGMENTATION_MARK}\nmodel 1.2s`, {
+            addQuote: true,
+            quoteExpandable: true,
+        })).toEqual({
+            text: 'Thought for 1.2 seconds\nstep one\n✹\n\nmodel 1.2s',
+            entities: [
+                {
+                    type: 'expandable_blockquote',
+                    offset: 0,
+                    length: 34,
+                },
+                {
+                    type: 'code',
+                    offset: 0,
+                    length: 23,
+                },
+                {
+                    type: 'expandable_blockquote',
+                    offset: 36,
+                    length: 10,
                 },
             ],
             useEntities: true,
