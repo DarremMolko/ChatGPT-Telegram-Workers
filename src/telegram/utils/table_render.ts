@@ -1,3 +1,5 @@
+import { parseInlineNodes, renderInlineNodesToPlainText } from './markdown_core';
+
 interface ParsedTable {
     header: string[];
     rows: string[][];
@@ -5,8 +7,7 @@ interface ParsedTable {
 }
 
 // Telegram does not currently provide native rendering for pipe tables.
-// This transformer is a compatibility layer for MarkdownV2 output and should
-// be revisited if Telegram adds first-class table support in the future.
+// This transformer converts them into compact card-like paragraphs.
 export function transformPipeTables(text: string, { enabled = true }: { enabled?: boolean } = {}): string {
     if (!enabled || !text.includes('|')) {
         return text;
@@ -130,7 +131,16 @@ function trimOuterPipes(line: string): string {
 }
 
 function normalizeCell(cell: string): string {
-    return cell.trim().replace(/\\\|/g, '|');
+    let output = '';
+    for (let index = 0; index < cell.length; index++) {
+        if (cell[index] === '\\' && cell[index + 1] === '|') {
+            output += '|';
+            index++;
+            continue;
+        }
+        output += cell[index];
+    }
+    return collapseWhitespace(output.trim());
 }
 
 function isSeparatorRow(line: string, expectedCells: number): boolean {
@@ -138,7 +148,27 @@ function isSeparatorRow(line: string, expectedCells: number): boolean {
     if (!cells || cells.length !== expectedCells) {
         return false;
     }
-    return cells.every(cell => /^:?-{3,}:?$/.test(cell));
+    return cells.every(isSeparatorCell);
+}
+
+function isSeparatorCell(cell: string): boolean {
+    let start = 0;
+    let end = cell.length - 1;
+    if (cell[start] === ':') {
+        start++;
+    }
+    if (cell[end] === ':') {
+        end--;
+    }
+    if (end - start + 1 < 3) {
+        return false;
+    }
+    for (let index = start; index <= end; index++) {
+        if (cell[index] !== '-') {
+            return false;
+        }
+    }
+    return true;
 }
 
 function renderTable(table: ParsedTable): string {
@@ -172,19 +202,36 @@ function renderCardTable(table: ParsedTable): string {
 }
 
 function isFenceLine(line: string): boolean {
-    return line.trim().replace(/^>\s?/, '').startsWith('```');
+    let index = 0;
+    while (index < line.length && line[index] === ' ') {
+        index++;
+    }
+    if (line[index] === '>') {
+        index++;
+        if (line[index] === ' ') {
+            index++;
+        }
+    }
+    return line.slice(index).startsWith('```');
 }
 
 function sanitizeCardText(text: string): string {
-    return text
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-        .replace(/`([^`]*)`/g, '$1')
-        .replace(/(^|\W)\*\*(\S|\S[^\n]*?\S)\*\*(?=$|\W)/g, '$1$2')
-        .replace(/(^|\W)\*(\S|\S[^\n]*?\S)\*(?=$|\W)/g, '$1$2')
-        .replace(/(^|\W)__(\S|\S[^\n]*?\S)__(?=$|\W)/g, '$1$2')
-        .replace(/(^|\W)_(\S|\S[^\n]*?\S)_(?=$|\W)/g, '$1$2')
-        .replace(/(^|\W)~~(\S|\S[^\n]*?\S)~~(?=$|\W)/g, '$1$2')
-        .replace(/(^|\W)~(\S|\S[^\n]*?\S)~(?=$|\W)/g, '$1$2')
-        .replace(/\s+/g, ' ')
-        .trim();
+    return collapseWhitespace(renderInlineNodesToPlainText(parseInlineNodes(text).nodes));
+}
+
+function collapseWhitespace(text: string): string {
+    let output = '';
+    let inSpace = false;
+    for (const char of text.trim()) {
+        if (char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f' || char === '\v') {
+            if (!inSpace) {
+                output += ' ';
+                inSpace = true;
+            }
+            continue;
+        }
+        output += char;
+        inSpace = false;
+    }
+    return output.trim();
 }

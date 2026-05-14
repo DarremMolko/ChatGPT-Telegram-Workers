@@ -112,10 +112,6 @@ vi.mock('../utils/active_request', () => ({
     getActiveRequestCount: vi.fn(),
 }));
 
-vi.mock('../utils/md2tgmd', () => ({
-    escape: vi.fn((value: string) => value),
-}));
-
 vi.mock('../utils/send', () => ({
     checkIsNeedTagIds: vi.fn(),
     sendAction: sendActionMock,
