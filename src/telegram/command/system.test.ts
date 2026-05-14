@@ -101,6 +101,9 @@ vi.mock('../api', () => ({
 
 vi.mock('../handler/chat', () => ({
     chatWithLLM: chatWithLLMMock,
+}));
+
+vi.mock('../utils/media', () => ({
     mergeLogMessages: vi.fn((text: string) => text),
     sendImages: sendImagesMock,
     stt: sttMock,

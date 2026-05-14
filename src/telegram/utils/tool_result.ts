@@ -2,7 +2,7 @@ import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from './send';
 import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
-import { sendImages } from '../handler/chat';
+import { sendImages } from './media';
 
 export type ToolResultType = 'text' | 'image' | 'audio' | 'video' | 'file' | 'resource';
 
