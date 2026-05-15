@@ -119,11 +119,15 @@ OPENAI_TTS_VOICE = "alloy"
 # -----------------------------------------------------------------------------
 # 7. Optional Debugging And Provider Extras
 # -----------------------------------------------------------------------------
-# Optional: enable detailed NDJSON debugging for reasoning and tool calls.
-# If DEBUG_MODE = true and DEBUG_LOG_FILE is omitted, the default path is:
-# ./logs/chatgpt-telegram-workers.debug.ndjson
-# DEBUG_MODE = true
-# DEBUG_LOG_FILE = "./logs/chatgpt-telegram-workers.debug.ndjson"
+# Optional: increase console verbosity.
+# LOG_LEVEL = "debug"
+#
+# Optional: write structured NDJSON traces for runtime, config, request,
+# reasoning, and tool-call diagnostics.
+# LOG_TO_FILE = "./logs/chatgpt-telegram-workers.debug.ndjson"
+#
+# Optional: persist the last raw Telegram message payload in Redis for a chat.
+# SAVE_LAST_TELEGRAM_MESSAGE = true
 #
 # Optional: enable OpenAI provider-side tools when using the Responses API.
 # USE_OPENAI_BUILDIN = ["webSearch"]

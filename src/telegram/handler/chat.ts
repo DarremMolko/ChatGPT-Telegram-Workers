@@ -9,7 +9,8 @@ import { APICallError } from 'ai';
 import { loadChatLLM, loadImageGen } from '../../agent';
 import { loadHistory, requestCompletionsFromLLM } from '../../agent/chat';
 import { ENV } from '../../config/env';
-import { clearLog, getLog, log } from '../../log';
+import { clearLog, getLog, log, writeDebugLog } from '../../log';
+import { formatDiagnosticFields, summarizeModelMessage, summarizeShareContext, summarizeTelegramMessage, summarizeUserConfig } from '../../log/diagnostics';
 import { isUserCancelledSignal } from '../../utils/abort';
 import { formatErrorAsMarkdown } from '../../utils/error';
 import { canUseAdminUtilityForAccess, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
@@ -49,7 +50,12 @@ function getUserIdentifier(user?: Telegram.User): string | null {
 
 async function messageInitialize(sender: MessageSender, context?: WorkerContext, message?: Telegram.Message): Promise<ChatStreamTextHandler> {
     setTimeout(sendAction, 0, sender.api.token, sender.context.chat_id, 'typing');
-    log.info(`send init message`);
+    log.info(`[STREAM] init ${formatDiagnosticFields({
+        chatId: sender.context.chat_id,
+        chatType: sender.context.chatType,
+        hasContext: Boolean(context),
+        messageLength: (message?.text || message?.caption || '').length,
+    })}`);
     const streamSender = OnStreamHander(sender, context, message?.text || message?.caption || '');
     streamSender.send('...');
     return streamSender;
@@ -65,9 +71,25 @@ export async function chatWithLLM(
 ): Promise<Response | string> {
     const streamSender = sender ?? OnStreamHander(MessageSender.from(context.SHARE_CONTEXT.botToken, message), context, message?.text || message?.caption || '');
     const activeRequest = !isMiddle ? registerActiveRequest(context.SHARE_CONTEXT.chatHistoryKey) : null;
+    let agentName = '';
     try {
         const agent = loadChatLLM(context.USER_CONFIG);
-        log.info(`start chat with LLM`);
+        agentName = agent.name;
+        log.info(`[CHAT] start ${formatDiagnosticFields({
+            agent: agent.name,
+            scopeKey: context.SHARE_CONTEXT.chatHistoryKey,
+            isMiddle: Boolean(isMiddle),
+            stream: ENV.STREAM_MODE && !isMiddle,
+        })}`);
+        writeDebugLog({
+            source: 'telegram',
+            event: 'chat-start',
+            data: {
+                message: summarizeTelegramMessage(message),
+                shareContext: summarizeShareContext(context.SHARE_CONTEXT),
+                userConfig: summarizeUserConfig(context.USER_CONFIG),
+            },
+        });
         const answer = await requestCompletionsFromLLM(
             params,
             context,
@@ -76,7 +98,12 @@ export async function chatWithLLM(
             ENV.STREAM_MODE && !isMiddle ? streamSender : null,
             activeRequest?.signal,
         );
-        log.info(`chat with LLM done`);
+        log.info(`[CHAT] completed ${formatDiagnosticFields({
+            agent: agent.name,
+            scopeKey: context.SHARE_CONTEXT.chatHistoryKey,
+            contentLength: answer.content.length,
+            isMiddle: Boolean(isMiddle),
+        })}`);
 
         if (isMiddle) {
             return answer.content;
@@ -95,7 +122,16 @@ export async function chatWithLLM(
             }
             return new Response('cancelled');
         }
-        log.error((e as Error).message, (e as Error).stack);
+        log.error(`[CHAT] failed agent=${agentName || 'unknown'} scopeKey=${context.SHARE_CONTEXT.chatHistoryKey} ${(e as Error).message}`, (e as Error).stack);
+        writeDebugLog({
+            source: 'telegram',
+            event: 'chat-error',
+            data: {
+                agent: agentName,
+                scopeKey: context.SHARE_CONTEXT.chatHistoryKey,
+                error: e,
+            },
+        });
         if (APICallError.isInstance(e)) {
             log.error(e.responseBody);
         }
@@ -136,6 +172,10 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
 
             // Process the original incoming message.
             const params = await this.processOriginalMessage(message, context);
+            log.info(`[CHAT HANDLER] prepared ${formatDiagnosticFields({
+                messageType: context.MIDDLE_CONTEXT.messageInfo.type,
+                historyCount: context.MIDDLE_CONTEXT.history.length,
+            })}`);
             // Execute the workflow.
             await workflow(context, message, params, streamSender);
             return null;
@@ -159,6 +199,7 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
         if (!historyKey) {
             throw new Error('History key not found');
         }
+        log.info(`[CHAT HANDLER] historyInit key=${historyKey} storeLength=${ENV.STORE_HISTORY_LENGTH}`);
         if (ENV.STORE_HISTORY_LENGTH > 0) {
             context.MIDDLE_CONTEXT.history = await loadHistory(historyKey, ENV.STORE_HISTORY_LENGTH);
         }
@@ -188,12 +229,23 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
             content: messageText,
         };
 
-        if (!id)
+        if (!id) {
+            writeDebugLog({
+                source: 'telegram',
+                event: 'message-processed',
+                data: {
+                    message: summarizeTelegramMessage(message),
+                    params: summarizeModelMessage(params),
+                },
+            });
             return params;
+        }
 
         const urls = await getTelegramFile(id, context.SHARE_CONTEXT.botToken, 'url') as string[];
-        if (urls.length === 0)
+        if (urls.length === 0) {
+            log.warn(`[MESSAGE CONTENT] file lookup returned no URLs type=${type} fileId=${id}`);
             return params;
+        }
 
         params.content = [];
         if (message.text || message.caption) {
@@ -223,7 +275,7 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
             });
         }
 
-        return fileUrlToBase64Message({
+        const result = await fileUrlToBase64Message({
             urls,
             type,
             mimeType: mime_type,
@@ -232,6 +284,22 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
             text: messageText,
             AUDIO_HANDLE_TYPE: context.USER_CONFIG.AUDIO_HANDLE_TYPE,
         });
+        log.info(`[MESSAGE CONTENT] ${formatDiagnosticFields({
+            messageType: type,
+            fileId: id,
+            urlCount: urls.length,
+            mimeType: mime_type || '',
+            fileName: file_name || '',
+        })}`);
+        writeDebugLog({
+            source: 'telegram',
+            event: 'message-processed',
+            data: {
+                message: summarizeTelegramMessage(message),
+                params: summarizeModelMessage(result),
+            },
+        });
+        return result;
     }
 }
 

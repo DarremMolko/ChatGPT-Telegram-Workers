@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../config/env', () => ({
     ENV: {
-        DEBUG_MODE: false,
-        DEBUG_LOG_FILE: '',
+        LOG_TO_FILE: '',
         DEBUG_LOG_MAX_STRING_LENGTH: 16,
     },
 }));

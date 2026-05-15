@@ -2,7 +2,6 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { ENV } from '../config/env';
 
-const DEFAULT_DEBUG_LOG_FILE = resolve(process.cwd(), 'logs', 'chatgpt-telegram-workers.debug.ndjson');
 const MAX_DEPTH = 8;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OBJECT_KEYS = 100;
@@ -14,7 +13,7 @@ const preparedDirectories = new Set<string>();
 const failedLogPaths = new Set<string>();
 
 export interface DebugLogEntry {
-    source: 'logger' | 'llm';
+    source: 'logger' | 'llm' | 'telegram' | 'config' | 'concurrency' | 'runtime';
     event: string;
     level?: string;
     traceId?: string;
@@ -22,12 +21,9 @@ export interface DebugLogEntry {
 }
 
 export function getDebugLogFilePath(): string | null {
-    const configuredPath = ENV.DEBUG_LOG_FILE?.trim();
+    const configuredPath = (ENV.LOG_TO_FILE || '').trim();
     if (configuredPath) {
         return resolve(process.cwd(), configuredPath);
-    }
-    if (ENV.DEBUG_MODE) {
-        return DEFAULT_DEBUG_LOG_FILE;
     }
     return null;
 }

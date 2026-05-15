@@ -3,6 +3,8 @@ import type { HistoryItem } from '../agent/types';
 import type { MessageSender } from '../telegram/utils/send';
 import type { UnionData } from '../telegram/utils/tg_utils';
 import type { AgentUserConfig } from './env';
+import { log, writeDebugLog } from '../log';
+import { formatDiagnosticFields, summarizeShareContext, summarizeUserConfig } from '../log/diagnostics';
 import { ENV } from './env';
 import { ConfigMerger } from './merger';
 
@@ -130,12 +132,35 @@ export class WorkerContext implements WorkerContextBase {
 
     static async from(SHARE_CONTEXT: ShareContext, MIDDLE_CONTEXT: MiddleContext): Promise<WorkerContext> {
         const USER_CONFIG = { ...ENV.USER_CONFIG };
+        let hasStoredConfig = false;
+        let storedConfigKeys: string[] = [];
         try {
-            const userConfig: AgentUserConfig = JSON.parse(await ENV.REDIS.get(SHARE_CONTEXT.configStoreKey)) || {};
+            const storedRaw = await ENV.REDIS.get(SHARE_CONTEXT.configStoreKey);
+            hasStoredConfig = Boolean(storedRaw);
+            const userConfig: AgentUserConfig = JSON.parse(storedRaw || 'null') || {};
+            storedConfigKeys = Object.keys(userConfig || {});
             ConfigMerger.merge(USER_CONFIG, ConfigMerger.trim(userConfig) || {});
         } catch (e) {
             console.warn(e);
         }
+        log.info(`[CONFIG LOAD] ${formatDiagnosticFields({
+            scope: 'chat',
+            source: hasStoredConfig ? 'redis' : 'default',
+            configKey: SHARE_CONTEXT.configStoreKey,
+            storedKeys: storedConfigKeys.length,
+            historyKey: SHARE_CONTEXT.chatHistoryKey,
+            chatId: SHARE_CONTEXT.chatId,
+        })}`);
+        writeDebugLog({
+            source: 'config',
+            event: 'worker-context-load',
+            data: {
+                source: hasStoredConfig ? 'redis' : 'default',
+                storedConfigKeys,
+                shareContext: summarizeShareContext(SHARE_CONTEXT),
+                userConfig: summarizeUserConfig(USER_CONFIG),
+            },
+        });
         return new WorkerContext(USER_CONFIG, SHARE_CONTEXT, MIDDLE_CONTEXT);
     }
 }

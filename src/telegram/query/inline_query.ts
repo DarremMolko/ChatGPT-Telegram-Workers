@@ -5,7 +5,8 @@ import type { MessageSender } from '../utils/send';
 import type { ChosenInlineQueryHandler, InlineQueryHandler } from './types';
 import { loadChatLLM } from '../../agent';
 import { resolveSystemMessage } from '../../agent/chat';
-import { log } from '../../log/logger';
+import { log, writeDebugLog } from '../../log';
+import { formatDiagnosticFields, summarizeChosenInlineQuery, summarizeInlineQuery } from '../../log/diagnostics';
 import { canUseAdminUtilityForAccess, canUseInlineQuery, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { SetCommandHandler } from '../command/system';
@@ -84,7 +85,13 @@ class CheckInlineQueryWhiteList implements InlineQueryHandler<InlineQueryContext
 }
 
 export async function handleInlineQuery(token: string, inlineQuery: Telegram.InlineQuery) {
-    log.info(`handleInlineQuery`, inlineQuery);
+    const summary = summarizeInlineQuery(inlineQuery);
+    log.info(`[INLINE QUERY] received ${formatDiagnosticFields(summary)}`);
+    writeDebugLog({
+        source: 'telegram',
+        event: 'inline-query-received',
+        data: summary,
+    });
     try {
         const context = new InlineQueryContext(token, inlineQuery);
         const handlers: InlineQueryHandler<InlineQueryContext>[] = [
@@ -104,7 +111,13 @@ export async function handleInlineQuery(token: string, inlineQuery: Telegram.Inl
 }
 
 export async function handleChosenInlineQuery(token: string, chosenInlineQuery: Telegram.ChosenInlineResult) {
-    log.info(`handleChosenInlineQueryQuery`, chosenInlineQuery);
+    const summary = summarizeChosenInlineQuery(chosenInlineQuery);
+    log.info(`[INLINE QUERY] chosen ${formatDiagnosticFields(summary)}`);
+    writeDebugLog({
+        source: 'telegram',
+        event: 'chosen-inline-query-received',
+        data: summary,
+    });
     try {
         const context = await ChosenInlineWorkerContext.from(token, chosenInlineQuery);
         const handlers: ChosenInlineQueryHandler<ChosenInlineWorkerContext>[] = [
@@ -164,7 +177,15 @@ export class HandlerInlineQuery implements InlineQueryHandler<InlineQueryContext
                 },
             }],
         }).then(r => r.json());
-        log.info(`[INLINE QUERY] Answer inline query: ${JSON.stringify(resp)}`);
+        log.info(`[INLINE QUERY] answered queryId=${context.query_id} ok=${Boolean((resp as { ok?: boolean }).ok)}`);
+        writeDebugLog({
+            source: 'telegram',
+            event: 'inline-query-answered',
+            data: {
+                query: summarizeInlineQuery(chosenInline),
+                response: resp,
+            },
+        });
         return new Response('success', { status: 200 });
     };
 }

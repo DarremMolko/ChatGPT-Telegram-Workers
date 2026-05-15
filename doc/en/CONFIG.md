@@ -231,9 +231,9 @@ Telegram document notes:
 | `CHAT_COMPLETE_API_TIMEOUT` | Per-request timeout in seconds for direct chat completion calls. | `0` |
 | `CHAT_TOTAL_DURATION_LIMIT` | Total conversation request timeout in seconds. | `1800` |
 | `LOG_LEVEL` | Runtime logger level. | `info` |
-| `DEBUG_MODE` | Store more debugging data and keep extra diagnostics. | `false` |
-| `DEBUG_LOG_FILE` | Optional NDJSON file path for detailed runtime, reasoning, and tool-call traces. When empty and `DEBUG_MODE=true`, defaults to `./logs/chatgpt-telegram-workers.debug.ndjson`. | `''` |
+| `LOG_TO_FILE` | Optional NDJSON file path for structured runtime, config, reasoning, and tool-call traces. When empty, file logging is disabled. | `''` |
 | `DEBUG_LOG_MAX_STRING_LENGTH` | Max string length written to the debug log file before truncation. | `8000` |
+| `SAVE_LAST_TELEGRAM_MESSAGE` | Persist the last raw Telegram message payload in Redis for the current chat/session. | `false` |
 | `DEV_MODE` | Expose additional debug output in commands such as `/system`. | `false` |
 | `HIDE_MIDDLE_MESSAGE` | Hide intermediate transcription/tool status messages where possible. | `false` |
 | `INLINE_QUERY_SEND_INTERVAL` | Stream update interval used for inline query answers. | `2000` |

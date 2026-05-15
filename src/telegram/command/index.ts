@@ -4,6 +4,7 @@ import type { WorkerContext } from '../../config/context';
 import type { UnionData } from '../utils/tg_utils';
 import type { CommandHandler } from './types';
 import { ENV } from '../../config/env';
+import { formatDiagnosticFields } from '../../log/diagnostics';
 import { log } from '../../log/logger';
 import { canUseAdminUtilityForAccess, describeAdminUtilityDisabled, describeCommandAccess, resolveCommandAccess, resolveUserAccess } from '../access';
 import { MessageSender } from '../utils/send';
@@ -103,7 +104,8 @@ export function resolveMatchedCommand(rawText: string): CommandHandler | null {
 }
 
 export async function handleCommandMessage(message: Telegram.Message, context: WorkerContext): Promise<Response | UnionData | ImageResult | null> {
-    let text = (message.text || message.caption || '').trim();
+    const rawText = (message.text || message.caption || '').trim();
+    let text = rawText;
 
     text = resolveCommandText(text);
 
@@ -114,6 +116,15 @@ export async function handleCommandMessage(message: Telegram.Message, context: W
     }
     const command = resolveMatchedCommand(text);
     if (command) {
+        log.info(`[COMMAND DISPATCH] ${formatDiagnosticFields({
+            command: command.command,
+            rawLength: rawText.length,
+            normalizedLength: text.length,
+            usedCustomAlias: rawText !== text,
+            subcommandLength: Math.max(0, text.substring(command.command.length).trim().length),
+            chatId: message.chat.id,
+            userId: message.from?.id ?? null,
+        })}`);
         log.info(`[SYSTEM COMMAND] handle system command: ${command.command}`);
         return handleSystemCommand(message, text, command, context);
     }

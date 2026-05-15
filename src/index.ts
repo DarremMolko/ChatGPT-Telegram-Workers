@@ -1,4 +1,6 @@
 import { ENV } from './config/env';
+import { log } from './log';
+import { formatDiagnosticFields, summarizeUserConfig } from './log/diagnostics';
 import { createRouter } from './route';
 import { tasks } from './schedule';
 import { createRedisStorage } from './utils/cache/redis_store';
@@ -14,6 +16,12 @@ export default {
         try {
             attachRedis(env);
             ENV.merge(env);
+            log.info(`[RUNTIME] fetch ${formatDiagnosticFields({
+                method: request.method,
+                pathname: new URL(request.url).pathname,
+                build: ENV.BUILD_VERSION,
+            })}`);
+            log.info(`[RUNTIME] default-config ${formatDiagnosticFields(summarizeUserConfig(ENV.USER_CONFIG))}`);
             return createRouter().fetch(request);
         } catch (e) {
             console.error(e);
@@ -26,6 +34,8 @@ export default {
     async scheduled(_event: Event, env: any, _ctx: any) {
         try {
             attachRedis(env);
+            ENV.merge(env);
+            log.info(`[RUNTIME] scheduled build=${ENV.BUILD_VERSION}`);
             const promises = [];
             for (const task of Object.values(tasks)) {
                 promises.push(task(env));

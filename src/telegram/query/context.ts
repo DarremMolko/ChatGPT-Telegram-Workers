@@ -3,6 +3,8 @@ import type { ShareContext, WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
+import { log, writeDebugLog } from '../../log';
+import { formatDiagnosticFields, summarizeChosenInlineQuery, summarizeUserConfig } from '../../log/diagnostics';
 
 export class CallbackQueryContext {
     query_id: string;
@@ -75,8 +77,13 @@ export class ChosenInlineWorkerContext {
         if (botId) {
             userConfigKey += `:${botId}`;
         }
+        let hasStoredConfig = false;
+        let storedConfigKeys: string[] = [];
         try {
-            const userConfig: AgentUserConfig = JSON.parse(await ENV.REDIS.get(userConfigKey));
+            const storedRaw = await ENV.REDIS.get(userConfigKey);
+            hasStoredConfig = Boolean(storedRaw);
+            const userConfig: AgentUserConfig = JSON.parse(storedRaw || 'null');
+            storedConfigKeys = Object.keys(userConfig || {});
             ConfigMerger.merge(USER_CONFIG, ConfigMerger.trim(userConfig) || {});
             USER_CONFIG.ENABLE_SHOWINFO = ENV.INLINE_QUERY_SHOW_INFO;
             // Telegram will reject requests that are too frequent.
@@ -84,6 +91,23 @@ export class ChosenInlineWorkerContext {
         } catch (e) {
             console.warn(e);
         }
+        log.info(`[CONFIG LOAD] ${formatDiagnosticFields({
+            scope: 'chosen-inline',
+            source: hasStoredConfig ? 'redis' : 'default',
+            configKey: userConfigKey,
+            storedKeys: storedConfigKeys.length,
+            userId: chosenInline.from.id,
+        })}`);
+        writeDebugLog({
+            source: 'config',
+            event: 'chosen-inline-context-load',
+            data: {
+                source: hasStoredConfig ? 'redis' : 'default',
+                storedConfigKeys,
+                chosenInline: summarizeChosenInlineQuery(chosenInline),
+                userConfig: summarizeUserConfig(USER_CONFIG),
+            },
+        });
         return new ChosenInlineWorkerContext(chosenInline, token, USER_CONFIG);
     }
 }

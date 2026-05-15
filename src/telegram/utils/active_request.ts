@@ -1,3 +1,4 @@
+import { log } from '../../log';
 import { abortWithReason, isUserCancelledSignal, USER_CANCELLED_REASON } from '../../utils/abort';
 
 interface ActiveRequestRecord {
@@ -76,11 +77,13 @@ export function registerActiveRequest(scopeKey: string): ActiveRequestHandle {
         controller: new AbortController(),
     };
     scope.set(record.id, record);
+    log.info(`[ACTIVE REQUEST] registered scope=${scopeKey} requestId=${record.id} active=${scope.size}`);
 
     return {
         signal: record.controller.signal,
         done: () => {
             scope.delete(record.id);
+            log.info(`[ACTIVE REQUEST] completed scope=${scopeKey} requestId=${record.id} active=${scope.size}`);
             cleanupScope(scopeKey);
         },
         isUserCancelled: () => isUserCancelledSignal(record.controller.signal),
@@ -93,11 +96,13 @@ export function getPendingScopedExecutionCount(scopeKey: string): number {
 
 export async function runScopedExecution<T>(scopeKey: string, policy: ScopedExecutionPolicy, task: () => Promise<T>): Promise<T> {
     if (policy === 'parallel') {
+        log.info(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=run-immediately`);
         return task();
     }
 
     const state = getExecutionState(scopeKey);
     if (policy === 'drop_if_busy' && state.pendingCount > 0) {
+        log.warn(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=drop pending=${state.pendingCount}`);
         throw new ScopeBusyError(scopeKey);
     }
 
@@ -105,11 +110,14 @@ export async function runScopedExecution<T>(scopeKey: string, policy: ScopedExec
     if (policy === 'cancel_previous') {
         state.latestToken = token;
         if (state.pendingCount > 0) {
+            log.info(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=cancel-previous pending=${state.pendingCount}`);
             cancelActiveRequests(scopeKey);
         }
     }
 
+    const pendingBefore = state.pendingCount;
     state.pendingCount++;
+    log.info(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=queued pendingBefore=${pendingBefore} pendingAfter=${state.pendingCount}`);
     let finalized = false;
     const finalize = () => {
         if (finalized) {
@@ -117,14 +125,17 @@ export async function runScopedExecution<T>(scopeKey: string, policy: ScopedExec
         }
         finalized = true;
         state.pendingCount--;
+        log.info(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=finalized pending=${state.pendingCount}`);
         cleanupExecutionState(scopeKey, state);
     };
 
     const waitForTurn = state.tail.catch(() => undefined);
     const taskPromise = waitForTurn.then(async () => {
         if (policy === 'cancel_previous' && token !== state.latestToken) {
+            log.info(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=superseded token=${token} latest=${state.latestToken}`);
             throw new ScopeSupersededError(scopeKey);
         }
+        log.info(`[SCOPED EXECUTION] scope=${scopeKey} policy=${policy} action=start pending=${state.pendingCount}`);
         return task();
     });
     state.tail = taskPromise.then(() => undefined, () => undefined).finally(finalize);
@@ -134,6 +145,7 @@ export async function runScopedExecution<T>(scopeKey: string, policy: ScopedExec
 export function cancelActiveRequests(scopeKey: string): number {
     const scope = activeRequests.get(scopeKey);
     if (!scope) {
+        log.info(`[ACTIVE REQUEST] cancel scope=${scopeKey} cancelled=0`);
         return 0;
     }
 
@@ -145,6 +157,7 @@ export function cancelActiveRequests(scopeKey: string): number {
         abortWithReason(record.controller, USER_CANCELLED_REASON);
         cancelled++;
     }
+    log.info(`[ACTIVE REQUEST] cancel scope=${scopeKey} cancelled=${cancelled}`);
     return cancelled;
 }
 

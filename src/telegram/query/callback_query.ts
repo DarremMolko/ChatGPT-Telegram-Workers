@@ -1,12 +1,13 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import type { AgentUserConfig, WorkerContext } from '../../config/types';
 import type { TelegramBotAPI } from '../api';
-import type { InlineItem } from '../command/types';
+import type { InlineChoice, InlineItem } from '../command/types';
 import type { MessageHandler } from '../handler/types';
 import type { CallbackQueryHandler } from './types';
 import { WorkerContextBase } from '../../config/context';
 import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
+import { writeDebugLog } from '../../log';
 import { log } from '../../log/logger';
 import { canManageRuntimeConfigForAccess, canUseAdminUtilityForAccess, canViewSensitiveConfigForAccess, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
@@ -33,6 +34,25 @@ function describeVisionConfig(config: AgentUserConfig): string {
         `OAILIKE_VISION_MODEL=${config.OAILIKE_VISION_MODEL || ''}`,
         `effectiveVisionModel=${resolveEffectiveVisionModel(config)}`,
     ].join(' ');
+}
+
+function isInlineChoice(item: string | InlineChoice | InlineItem): item is InlineChoice {
+    return typeof item === 'object' && item !== null && 'value' in item && typeof item.value === 'string' && !('config_key' in item);
+}
+
+function isInlineItem(item: string | InlineChoice | InlineItem): item is InlineItem {
+    return typeof item === 'object' && item !== null && 'config_key' in item;
+}
+
+function getInlineOptionLabel(item: string | InlineChoice | InlineItem): string {
+    if (typeof item === 'string') {
+        return item;
+    }
+    return item.label;
+}
+
+function getInlineOptionValue(item: string | InlineChoice): string {
+    return typeof item === 'string' ? item : item.value;
 }
 
 class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext> {
@@ -80,6 +100,20 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         const pageIndexData = keyboard.flat().find(i => i.callback_data?.startsWith('PAGE_INDEX:'))?.callback_data?.replace('PAGE_INDEX:', '');
         const pathDetail = keyboard[0]?.[0]?.callback_data || '';
         let { path, data, pageIndex, pageNum, newCallBackData, configKey, label, callback } = getNextpage({ pathDetail, pageIndexData, callbackData: query.data, inlineList: defaltData, pageLength });
+        writeDebugLog({
+            source: 'telegram',
+            event: 'callback-query-navigation',
+            data: {
+                queryData: query.data,
+                path,
+                pageIndex,
+                pageNum,
+                configKey,
+                label,
+                callback: callback?.name || '',
+                selectedIndex: typeof newCallBackData === 'number' ? newCallBackData : null,
+            },
+        });
 
         try {
             if (query.data === 'fresh' || (configKey.endsWith('_MODEL') && data.length === 0)) {
@@ -87,10 +121,15 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
                     throw new Error('This operation requires higher privileges');
                 }
                 data = await callback?.(context, configKey) || [];
+                const refreshedInlines = await queryHandler.defaultInlines(context.USER_CONFIG, { access });
+                const refreshedInline = refreshedInlines.find(inline => inline.config_key === configKey);
+                if (refreshedInline) {
+                    data = refreshedInline.value;
+                }
                 this.sendAlert(api, context.query_id, `✅ ${label} updated successfully`, false);
                 ({ data, pageNum } = paging(data, 0, pageLength));
             } else if (typeof newCallBackData === 'number' && configKey !== 'ENVS') {
-                await this.updateConfig(context, api, { data: data as unknown as string[], configKey, newCallBack: newCallBackData });
+                await this.updateConfig(context, api, { data: data as (string | InlineChoice)[], configKey, newCallBack: newCallBackData });
             }
         } catch (e) {
             return this.sendAlert(api, context.query_id, `❌ Failed to refresh ${label}\n${(e as Error).message}`, true);
@@ -130,7 +169,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         });
     }
 
-    private async updateConfig(context: CallbackQueryContext, api: TelegramBotAPI, data: { data: string[]; configKey: string; newCallBack: number }) {
+    private async updateConfig(context: CallbackQueryContext, api: TelegramBotAPI, data: { data: (string | InlineChoice)[]; configKey: string; newCallBack: number }) {
         const { data: dataList, configKey, newCallBack } = data;
         if (!Object.hasOwn(context.USER_CONFIG, configKey)) {
             return;
@@ -140,7 +179,7 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
             throw new Error(`Permission denied to update ${configKey}`);
         }
         const oldValue = context.USER_CONFIG[configKey];
-        const newValue = dataList[newCallBack];
+        const newValue = getInlineOptionValue(dataList[newCallBack]);
         const type = Array.isArray(oldValue) ? 'array' : typeof oldValue;
         switch (type) {
             case 'string':
@@ -190,13 +229,14 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         });
     }
 
-    private constructInlineList({ path, data, label, key, config, callbackData, pageIndex, pageNum, col, callback }: { path: number[]; data: (string | InlineItem)[]; label?: string; key?: string; config: AgentUserConfig; callbackData: number | string; pageIndex: number; pageNum: number; col: number; callback?: (...args: any[]) => Promise<string[]> }): Telegram.InlineKeyboardButton[][] {
-        const isSelected = (item: string | InlineItem, index: number) => {
+    private constructInlineList({ path, data, label, key, config, callbackData, pageIndex, pageNum, col, callback }: { path: number[]; data: (string | InlineChoice | InlineItem)[]; label?: string; key?: string; config: AgentUserConfig; callbackData: number | string; pageIndex: number; pageNum: number; col: number; callback?: (...args: any[]) => Promise<any[]> }): Telegram.InlineKeyboardButton[][] {
+        const isSelected = (item: string | InlineChoice | InlineItem, index: number) => {
+            const itemValue = isInlineChoice(item) ? item.value : item;
             // Single-select
             if ((key && callbackData === index && !Array.isArray(config[key]))
-                || (key && config[key] === item)
+                || (key && config[key] === itemValue)
             // Multi-select
-                || (key && (Array.isArray(config[key]) && (config[key].includes(item))))) {
+                || (key && (Array.isArray(config[key]) && (config[key].includes(itemValue))))) {
                 return '✅';
             }
             return '';
@@ -204,12 +244,12 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         let inlineList: Telegram.InlineKeyboardButton[] = [];
         if (path.length > 1 && key) {
             inlineList = data.map((item, index) => ({
-                text: `${isSelected(item, index)}${item}`,
+                text: `${isSelected(item, index)}${getInlineOptionLabel(item)}`,
                 callback_data: index.toString(),
             }));
         } else {
             inlineList = data.map((item, index) => ({
-                text: (item as InlineItem).label,
+                text: getInlineOptionLabel(item),
                 callback_data: index.toString(),
             }));
         }
@@ -310,7 +350,7 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
     let pageIndex = pageIndexData ? Number(pageIndexData) : 0;
     const path = pathData.split('.').map(Number);
     (callbackData === 'back') && path.pop();
-    let data = inlineList;
+    let data: (string | InlineChoice | InlineItem)[] = inlineList;
     let configKey = '';
     let label;
     let pageNum = 1;
@@ -320,12 +360,12 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
             throw new Error(`Invalid path: index ${i} not found in data array of length ${data.length}`);
         }
         // Safety check: ensure data[i] exists and has the required properties.
-        if (!data[i].label || data[i].config_key === undefined) {
+        if (!isInlineItem(data[i])) {
             throw new Error(`Invalid data at index ${i}: missing label or config_key`);
         }
         ({ label, config_key: configKey } = data[i]);
         callback = data[i].callback;
-        data = data[i].value as InlineItem[];
+        data = data[i].value;
     }
 
     switch (callbackData) {
@@ -353,14 +393,15 @@ function getNextpage({ pathDetail, pageIndexData, callbackData, inlineList, page
                 if (!data[callbackData]) {
                     throw new Error(`Invalid callback index: ${callbackData} not found in data array of length ${data.length}`);
                 }
-                if (!data[callbackData].label || data[callbackData].config_key === undefined) {
+                const currentItem = data[callbackData];
+                if (!isInlineItem(currentItem)) {
                     throw new Error(`Invalid data at callback index ${callbackData}: missing label or config_key`);
                 }
                 path.push(callbackData);
-                label = data[callbackData].label;
-                configKey = data[callbackData].config_key;
-                callback = data[callbackData].callback;
-                data = data[callbackData].value as InlineItem[] || [];
+                label = currentItem.label;
+                configKey = currentItem.config_key;
+                callback = currentItem.callback;
+                data = currentItem.value || [];
                 pageIndex = 0;
                 ({ data, pageNum } = paging(data, pageIndex, pageLength));
                 callbackData = '';

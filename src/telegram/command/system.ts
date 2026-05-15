@@ -5,7 +5,7 @@ import type { HistoryItem, LLMChatRequestParams } from '../../agent/types';
 import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
-import type { CommandHandler, InlineItem, ScopeType } from './types';
+import type { CommandHandler, InlineChoice, InlineItem, ScopeType } from './types';
 import { isIP } from 'node:net';
 import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadImageGen, TTS_AGENTS } from '../../agent';
 import { resolveProviderApiBase } from '../../agent/api_base';
@@ -293,12 +293,49 @@ function describeAgentConfig(
     };
 }
 
-function getVisionModelChoices(context: AgentUserConfig): string[] {
-    const choices = [
+function parseProviderQualifiedModel(value: string): { provider: string | null; modelId: string } {
+    const separator = value.indexOf(':');
+    if (separator <= 0) {
+        return {
+            provider: null,
+            modelId: value,
+        };
+    }
+    return {
+        provider: value.slice(0, separator),
+        modelId: value.slice(separator + 1),
+    };
+}
+
+function getVisionModelChoices(context: AgentUserConfig): InlineChoice[] {
+    const values = Array.from(new Set([
         ...(context.OPENAI_MODELS || []).map((model: string) => `openai:${model}`),
         ...(context.OAILIKE_MODELS || []).map((model: string) => `oailike:${model}`),
-    ];
-    return Array.from(new Set(choices));
+    ]));
+    const modelIdCounts = new Map<string, number>();
+    values.forEach((value) => {
+        const { modelId } = parseProviderQualifiedModel(value);
+        modelIdCounts.set(modelId, (modelIdCounts.get(modelId) || 0) + 1);
+    });
+    return values.map((value) => {
+        const { provider, modelId } = parseProviderQualifiedModel(value);
+        const hasCollision = (modelIdCounts.get(modelId) || 0) > 1;
+        return {
+            label: hasCollision && provider ? `${modelId} (${provider})` : modelId,
+            value,
+        };
+    });
+}
+
+function formatVisionModelDisplayValue(value: string, choices: InlineChoice[]): string {
+    if (!value) {
+        return value;
+    }
+    const matched = choices.find(choice => choice.value === value);
+    if (matched) {
+        return matched.label;
+    }
+    return parseProviderQualifiedModel(value).modelId;
 }
 
 function resolveEffectiveVisionModel(context: AgentUserConfig): string {
@@ -1417,11 +1454,12 @@ export class InlineCommandHandler implements CommandHandler {
         return result;
     };
 
-    settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack, showSensitiveValues = false }: { key?: string; callBack: string | InlineItem; showSensitiveValues?: boolean }) => {
+    settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack, showSensitiveValues = false }: { key?: string; callBack: string | InlineChoice | InlineItem; showSensitiveValues?: boolean }) => {
+        const visionModelChoices = getVisionModelChoices(context);
         let settingMsg = 'Current configuration:\n\n';
         settingMsg += `${inlines.map(({ label, config_key }) => {
             const value = config_key === 'VISION_MODEL'
-                ? resolveEffectiveVisionModel(context)
+                ? formatVisionModelDisplayValue(resolveEffectiveVisionModel(context), visionModelChoices)
                 : context[config_key];
             return Object.hasOwn(context, config_key) ? `\`${label}: ${value || 'Null'}\`` : '';
         }).filter(Boolean).join('\n')}`;
@@ -1429,7 +1467,7 @@ export class InlineCommandHandler implements CommandHandler {
         if (key && typeof callBack === 'string') {
             const newKey = key === 'ENVS' ? callBack : key;
             configValue = newKey === 'VISION_MODEL'
-                ? resolveEffectiveVisionModel(context)
+                ? formatVisionModelDisplayValue(resolveEffectiveVisionModel(context), visionModelChoices)
                 : (context[newKey] || '');
             (typeof configValue !== 'string') && (configValue = JSON.stringify(configValue));
             if (!showSensitiveValues && isSensitiveEnvKey(newKey)) {

@@ -5,7 +5,8 @@ import type { UnionData } from '../utils/tg_utils';
 import type { MessageHandler } from './types';
 import { WorkerContext } from '../../config/context';
 import { ENV } from '../../config/env';
-import { log, tagMessageIds } from '../../log';
+import { log, tagMessageIds, writeDebugLog } from '../../log';
+import { formatDiagnosticFields, summarizeTelegramMessage } from '../../log/diagnostics';
 import { recordUserActivity } from '../../utils/stats';
 import { canAccessGroupChat, canUsePrivateChat, isPrivilegedUser } from '../access';
 import { createTelegramBotAPI } from '../api';
@@ -17,11 +18,12 @@ import { HandleChunkMessage, HandleMediaGroupMessage, substituteMessage } from '
 
 export class SaveLastMessage implements MessageHandler<WorkerContextBase> {
     handle = async (message: Telegram.Message, context: WorkerContextBase): Promise<Response | null> => {
-        if (!ENV.DEBUG_MODE) {
+        if (!ENV.SAVE_LAST_TELEGRAM_MESSAGE) {
             return null;
         }
         const lastMessageKey = `last_message:${context.SHARE_CONTEXT.chatHistoryKey}`;
         await ENV.REDIS.put(lastMessageKey, JSON.stringify(message));
+        log.info(`[SAVE LAST MESSAGE] key=${lastMessageKey}`);
         return null;
     };
 }
@@ -105,6 +107,21 @@ export class MessageFilter implements MessageHandler<WorkerContextBase> {
             return new Response('success', { status: 200 });
         }
         context.MIDDLE_CONTEXT.messageInfo = messageInfo;
+        log.info(`[MESSAGE FILTER] accepted ${formatDiagnosticFields({
+            originalType: messageInfo.original_type || '',
+            normalizedType: messageInfo.type,
+            fileId: messageInfo.id || '',
+            mimeType: messageInfo.mime_type || '',
+            fileName: messageInfo.file_name || '',
+        })}`);
+        writeDebugLog({
+            source: 'telegram',
+            event: 'message-filter-accepted',
+            data: {
+                message: summarizeTelegramMessage(message),
+                messageInfo,
+            },
+        });
         return null;
     };
 }
@@ -178,6 +195,7 @@ export class ReplyInlineHandler implements MessageHandler<WorkerContext> {
         const variable = inlineKeyboard.find(i => i.text.startsWith('✅'))?.text.split('✅')[1];
         if (variable) {
             message.text = `/set -${variable} ${message.text}`;
+            log.info(`[INLINE REPLY] transformed reply-to-settings variable=${variable}`);
         } else {
             return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
                 chat_id: message.chat.id,
@@ -203,6 +221,7 @@ export class MergeQuote implements MessageHandler<WorkerContext> {
         // as long as this is not a reply to the bot and there is reply text, or there is explicit quote text.
         if (ENV.EXTRA_MESSAGE_CONTEXT && ((!isReplyMe && replyText) || quoteText)) {
             message.text = `${getMessageText(message)}\n> ${getMergedQuoteText(message, context.SHARE_CONTEXT.botId)}`;
+            log.info(`[MERGE QUOTE] chatId=${message.chat.id} replyMerged=${Boolean(replyText)} quoteMerged=${Boolean(quoteText)}`);
         }
         return null;
     };

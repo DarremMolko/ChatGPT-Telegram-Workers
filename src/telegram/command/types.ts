@@ -31,6 +31,11 @@ export interface InlineItem {
     label: string;
     config_key: string;
     type?: 'radio' | 'checkbox';
-    value: (string | InlineItem)[];
+    value: (string | InlineChoice | InlineItem)[];
     callback?: (...args: any[]) => Promise<any[]>;
+}
+
+export interface InlineChoice {
+    label: string;
+    value: string;
 }

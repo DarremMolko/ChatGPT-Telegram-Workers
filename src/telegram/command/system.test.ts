@@ -369,7 +369,7 @@ describe('tTSCommandHandler', () => {
         expect(payload.reply_markup.inline_keyboard.flat().some((item: Telegram.InlineKeyboardButton) => item.callback_data === 'system:view:stats')).toBe(true);
     });
 
-    it('builds vision model settings from prefixed provider choices', async () => {
+    it('builds vision model settings with plain labels and provider-qualified values', async () => {
         const handler = new InlineCommandHandler();
         const context = createContext();
         context.USER_CONFIG.AI_CHAT_PROVIDER = 'oailike';
@@ -385,8 +385,27 @@ describe('tTSCommandHandler', () => {
         expect(visionInline).toBeDefined();
         expect(visionInline!.config_key).toBe('VISION_MODEL');
         expect(visionInline!.value).toEqual([
-            'openai:gpt-5.4',
-            'oailike:gemini-3-flash-preview',
+            { label: 'gpt-5.4', value: 'openai:gpt-5.4' },
+            { label: 'gemini-3-flash-preview', value: 'oailike:gemini-3-flash-preview' },
+        ]);
+    });
+
+    it('disambiguates duplicate vision model labels across providers', async () => {
+        const handler = new InlineCommandHandler();
+        const context = createContext();
+        context.USER_CONFIG.AI_CHAT_PROVIDER = 'oailike';
+        context.USER_CONFIG.OPENAI_MODELS = ['shared-model'];
+        context.USER_CONFIG.OAILIKE_MODELS = ['shared-model'];
+
+        const inlines = await handler.defaultInlines(context.USER_CONFIG, {
+            access: { userId: '456', isAdmin: true, isOwner: true },
+        } as any);
+        const visionInline = inlines.find((item: any) => item.label === 'Vision Model');
+
+        expect(visionInline).toBeDefined();
+        expect(visionInline!.value).toEqual([
+            { label: 'shared-model (openai)', value: 'openai:shared-model' },
+            { label: 'shared-model (oailike)', value: 'oailike:shared-model' },
         ]);
     });
 

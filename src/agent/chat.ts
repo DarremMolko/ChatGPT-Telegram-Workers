@@ -2,12 +2,14 @@ import type { ModelMessage } from 'ai';
 import type { WorkerContext } from '../config/context';
 import type { ChatAgent, ChatStreamTextHandler, HistoryItem, HistoryModifier, LLMChatParams, LLMChatRequestParams, ResponseMessage } from './types';
 import { ENV } from '../config/env';
-import { log } from '../log/logger';
+import { log, writeDebugLog } from '../log';
+import { formatDiagnosticFields, summarizeHistory, summarizeModelMessages, summarizeUserConfig } from '../log/diagnostics';
 import { formatLocalDateTime } from '../utils/others/time';
 
 export async function loadHistory(key: string, length: number): Promise<HistoryItem[]> {
     // Load history records.
     let history = [];
+    let loadedCount = 0;
     try {
         history = JSON.parse(await ENV.REDIS.get(key));
     } catch (e) {
@@ -16,6 +18,7 @@ export async function loadHistory(key: string, length: number): Promise<HistoryI
     if (!history || !Array.isArray(history)) {
         history = [];
     }
+    loadedCount = history.length;
 
     const trimHistory = (list: HistoryItem[], maxLength: number) => {
         // Trim history when it exceeds the limit. Values below 0 disable trimming.
@@ -30,12 +33,32 @@ export async function loadHistory(key: string, length: number): Promise<HistoryI
         history = trimHistory(history, length);
     }
 
+    log.info(`[HISTORY LOAD] ${formatDiagnosticFields({
+        key,
+        requestedLength: length,
+        loadedCount,
+        finalCount: history.length,
+        autoTrim: ENV.AUTO_TRIM_HISTORY,
+    })}`);
+    writeDebugLog({
+        source: 'llm',
+        event: 'history-load',
+        data: {
+            key,
+            requestedLength: length,
+            loadedCount,
+            finalCount: history.length,
+            summary: summarizeHistory(history),
+        },
+    });
+
     return history;
 }
 
 export async function requestCompletionsFromLLM(params: LLMChatRequestParams | null, context: WorkerContext, agent: ChatAgent, modifier: HistoryModifier | null, onStream: ChatStreamTextHandler | null, abortSignal?: AbortSignal): Promise<{ messages: ResponseMessage[]; content: string }> {
     let history = context.MIDDLE_CONTEXT.history;
     const historyDisable = ENV.STORE_HISTORY_LENGTH <= 0;
+    const originalHistoryCount = history.length;
     if (modifier) {
         const modifierData = modifier(history, params);
         history = modifierData.history;
@@ -73,8 +96,48 @@ export async function requestCompletionsFromLLM(params: LLMChatRequestParams | n
         cache: [],
         abortSignal,
     };
+    log.info(`[LLM REQUEST] ${formatDiagnosticFields({
+        agent: agent.name,
+        scopeKey: context.SHARE_CONTEXT.chatHistoryKey,
+        historyLoaded: originalHistoryCount,
+        historyAfterModifier: history.length,
+        historyTrimmed: trimmedHistory.length,
+        messageCount: messages.length,
+        storeHistoryDisabled: historyDisable,
+        stream: Boolean(onStream),
+    })}`);
+    writeDebugLog({
+        source: 'llm',
+        event: 'request-chat-completions',
+        data: {
+            agent: agent.name,
+            scopeKey: context.SHARE_CONTEXT.chatHistoryKey,
+            llmParams: {
+                systemPresent: Boolean(llmParams.system),
+                messages: summarizeModelMessages(messages),
+                cacheKeys: llmParams.cache,
+                abortSignal: Boolean(abortSignal),
+            },
+            userConfig: summarizeUserConfig(context.USER_CONFIG),
+        },
+    });
     const answer = await agent.request(llmParams, context.USER_CONFIG, onStream);
     const { messages: raw_messages } = answer;
+    log.info(`[LLM RESPONSE] ${formatDiagnosticFields({
+        agent: agent.name,
+        responseMessages: raw_messages.length,
+        contentLength: answer.content.length,
+        lastRole: raw_messages.at(-1)?.role || '',
+    })}`);
+    writeDebugLog({
+        source: 'llm',
+        event: 'request-chat-response',
+        data: {
+            agent: agent.name,
+            responseMessages: summarizeModelMessages(raw_messages as unknown as ModelMessage[]),
+            contentLength: answer.content.length,
+        },
+    });
 
     if (!historyDisable && raw_messages.at(-1)?.role === 'assistant') {
         // only push valid chat history
@@ -112,7 +175,18 @@ export async function storeHistory(history: ModelMessage[], context: WorkerConte
         userMessage.content = userMessage.content.map((c: any) => c.type === 'text' ? c.text : `[${c.type}]`).join('\n');
     }
     await ENV.REDIS.put(historyKey, JSON.stringify(history)).catch(console.error);
-    log.info(`[STORE HISTORY] DONE`);
+    log.info(`[STORE HISTORY] ${formatDiagnosticFields({
+        key: historyKey,
+        count: history.length,
+    })}`);
+    writeDebugLog({
+        source: 'llm',
+        event: 'history-store',
+        data: {
+            key: historyKey,
+            summary: summarizeHistory(history),
+        },
+    });
 }
 
 export function resolveSystemMessage(systemMessage: string | null): string | undefined {

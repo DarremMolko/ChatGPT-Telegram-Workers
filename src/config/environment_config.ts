@@ -106,9 +106,8 @@ export class EnvironmentConfig {
     // Log level
     LOG_LEVEL: LogLevelType = 'info';
     // Optional NDJSON file path for detailed runtime, reasoning, and tool-call traces.
-    // When empty and DEBUG_MODE=true, the default path is
-    // ./logs/chatgpt-telegram-workers.debug.ndjson
-    DEBUG_LOG_FILE = '';
+    // When empty, structured file logging is disabled.
+    LOG_TO_FILE = '';
     // Max string length written to the debug log before truncation.
     DEBUG_LOG_MAX_STRING_LENGTH = 8000;
 
@@ -120,8 +119,8 @@ export class EnvironmentConfig {
     STREAM_MODE = true;
     // Safe mode. Can be disabled for asynchronous delivery modes.
     SAFE_MODE = true;
-    // Debug mode
-    DEBUG_MODE = false;
+    // Persist the last raw Telegram message payload for debugging.
+    SAVE_LAST_TELEGRAM_MESSAGE = false;
     // Development mode
     DEV_MODE = false;
 

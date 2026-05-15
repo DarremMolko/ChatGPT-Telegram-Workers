@@ -3,6 +3,8 @@ import type { TelegramBotAPI } from '../../telegram/api';
 import { schedule } from 'node-cron';
 import worker from '../../';
 import { ENV } from '../../config/env';
+import { log } from '../../log';
+import { formatDiagnosticFields, summarizeUserConfig } from '../../log/diagnostics';
 import { createRouter } from '../../route/index';
 import { createTelegramBotAPI } from '../../telegram/api';
 import { resolveTelegramAllowedUpdates } from '../../telegram/api/options';
@@ -73,6 +75,12 @@ async function startPolling() {
     LOCAL_POLLING_STATE.reset();
     LOCAL_POLLING_STATE.configureDispatcher(POLLING_MAX_CONCURRENT_UPDATES);
     const dispatcher = new PollingDispatcher(POLLING_MAX_CONCURRENT_UPDATES, LOCAL_POLLING_STATE);
+    log.info(`[POLLING] start ${formatDiagnosticFields({
+        tokens: ENV.TELEGRAM_AVAILABLE_TOKENS.length,
+        allowedUpdates: allowedUpdates || [],
+        timeoutSeconds: POLLING_TIMEOUT_SECONDS,
+        maxConcurrentUpdates: POLLING_MAX_CONCURRENT_UPDATES,
+    })}`);
 
     for (const token of ENV.TELEGRAM_AVAILABLE_TOKENS) {
         offset[token] = 0;
@@ -83,7 +91,7 @@ async function startPolling() {
         LOCAL_POLLING_STATE.registerToken(token, username);
         await api.deleteWebhook();
         await registerTelegramCommands(api, username);
-        console.log(`@${username} existing webhook deleted, polling started.`);
+        log.info(`[POLLING] bot-ready username=@${username} tokenId=${token.split(':')[0] || ''}`);
     }
 
     const loopPromises = ENV.TELEGRAM_AVAILABLE_TOKENS.map(async (token) => {
@@ -128,6 +136,7 @@ async function startPolling() {
                     if (!dispatcher.enqueue(token, update.update_id, async () => {
                         await handleUpdate(token, update).catch(console.error);
                     })) {
+                        log.warn(`[POLLING] dispatcher-rejected tokenId=${token.split(':')[0] || ''} updateId=${update.update_id}`);
                         break;
                     }
                 }
@@ -178,6 +187,15 @@ async function main() {
         ...env,
         REDIS: redis,
     });
+    log.info(`[RUNTIME] local-start ${formatDiagnosticFields({
+        redis: label,
+        proxy: config.proxy || '',
+        serverEnabled: Boolean(config.server),
+        serverPort: config.server?.port ?? null,
+        serverHost: config.server?.hostname ?? '',
+        build: ENV.BUILD_VERSION,
+    })}`);
+    log.info(`[RUNTIME] default-config ${formatDiagnosticFields(summarizeUserConfig(ENV.USER_CONFIG))}`);
 
     try {
         if (env.EXPIRED_TIME > 0 && env.CRON_CHECK_TIME) {

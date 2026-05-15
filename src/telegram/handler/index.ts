@@ -2,7 +2,8 @@ import type * as Telegram from 'telegram-bot-api-types';
 import type { MessageHandler } from './types';
 import { WorkerContextBase } from '../../config/context';
 import { ENV } from '../../config/env';
-import { log } from '../../log/logger';
+import { log, writeDebugLog } from '../../log';
+import { formatDiagnosticFields, summarizeShareContext, summarizeTelegramMessage, summarizeTelegramUpdate } from '../../log/diagnostics';
 import { resolveMatchedCommand } from '../command';
 import { handleCallbackQuery, handleChosenInlineQuery, handleInlineQuery } from '../query';
 import { getPendingScopedExecutionCount, runScopedExecution, ScopeBusyError, ScopeSupersededError } from '../utils/active_request';
@@ -73,18 +74,49 @@ function isExecutionBypassCommand(message: Telegram.Message): boolean {
 }
 
 export async function handleUpdate(token: string, update: Telegram.Update): Promise<Response | null> {
-    log.debug(`handleUpdate`, update.message?.chat ?? `callback_query: ${JSON.stringify(update.callback_query?.from, null, 2)}`);
+    const summary = summarizeTelegramUpdate(update);
+    log.info(`[UPDATE] ${formatDiagnosticFields(summary)}`);
+    writeDebugLog({
+        source: 'telegram',
+        event: 'update-received',
+        data: summary,
+    });
     const messageHandler = loadMessage(update);
     return messageHandler ? messageHandler(token) : null;
 }
 
 async function handleMessage(token: string, message: Telegram.Message) {
     const context = new WorkerContextBase(token, message);
+    const messageSummary = summarizeTelegramMessage(message);
+    const shareSummary = summarizeShareContext(context.SHARE_CONTEXT);
+    log.info(`[MESSAGE] start ${formatDiagnosticFields({
+        ...messageSummary,
+        scopeKey: context.SHARE_CONTEXT.chatHistoryKey,
+        configKey: context.SHARE_CONTEXT.configStoreKey,
+    })}`);
+    writeDebugLog({
+        source: 'telegram',
+        event: 'message-context',
+        data: {
+            message: messageSummary,
+            shareContext: shareSummary,
+        },
+    });
     try {
         let response: Response | null = null;
         for (const handler of preHandlers) {
+            writeDebugLog({
+                source: 'telegram',
+                event: 'handler-start',
+                data: {
+                    stage: 'pre',
+                    handler: handler.constructor.name,
+                    message: messageSummary,
+                },
+            });
             const result = await handler.handle(message, context);
             if (result instanceof Response) {
+                log.info(`[MESSAGE] handled stage=pre handler=${handler.constructor.name} status=${result.status}`);
                 response = result;
                 break;
             }
@@ -93,8 +125,18 @@ async function handleMessage(token: string, message: Telegram.Message) {
         if (!(response instanceof Response)) {
             const runPostHandlers = async () => {
                 for (const handler of postHandlers) {
+                    writeDebugLog({
+                        source: 'telegram',
+                        event: 'handler-start',
+                        data: {
+                            stage: 'post',
+                            handler: handler.constructor.name,
+                            message: messageSummary,
+                        },
+                    });
                     const result = await handler.handle(message, context);
                     if (result instanceof Response) {
+                        log.info(`[MESSAGE] handled stage=post handler=${handler.constructor.name} status=${result.status}`);
                         return result;
                     }
                 }
@@ -106,7 +148,9 @@ async function handleMessage(token: string, message: Telegram.Message) {
             } else {
                 const scopeKey = context.SHARE_CONTEXT.chatHistoryKey;
                 const policy = ENV.CHAT_CONCURRENCY_POLICY;
-                if (policy === 'queue' && getPendingScopedExecutionCount(scopeKey) > 0) {
+                const pendingCount = getPendingScopedExecutionCount(scopeKey);
+                if (policy === 'queue' && pendingCount > 0) {
+                    log.info(`[CONCURRENCY] queued scope=${scopeKey} policy=${policy} pending=${pendingCount}`);
                     await MessageSender.from(token, message)
                         .sendPlainText('Another response is already running in this chat. Your message has been queued.', 'tip');
                 }
@@ -114,8 +158,10 @@ async function handleMessage(token: string, message: Telegram.Message) {
                     response = await runScopedExecution(scopeKey, policy, runPostHandlers);
                 } catch (error) {
                     if (error instanceof ScopeSupersededError) {
+                        log.info(`[CONCURRENCY] superseded scope=${scopeKey} policy=${policy}`);
                         response = null;
                     } else if (error instanceof ScopeBusyError) {
+                        log.warn(`[CONCURRENCY] busy scope=${scopeKey} policy=${policy}`);
                         response = await MessageSender.from(token, message)
                             .sendPlainText('Another response is already running in this chat. Please wait or send /stop.', 'tip');
                     } else {
@@ -128,9 +174,11 @@ async function handleMessage(token: string, message: Telegram.Message) {
         for (const handler of exitHanders) {
             const result = await handler.handle(message, context);
             if (result && result instanceof Response) {
+                log.info(`[MESSAGE] handled stage=exit handler=${handler.constructor.name} status=${result.status}`);
                 return result;
             }
         }
+        log.info(`[MESSAGE] done chatId=${message.chat.id} responseStatus=${response?.status ?? 'null'}`);
         return response;
     } catch (e) {
         return catchError(e as Error);
@@ -138,7 +186,12 @@ async function handleMessage(token: string, message: Telegram.Message) {
 }
 
 export function catchError(e: Error) {
-    console.error(e.message);
+    log.error(`[HANDLE ERROR] ${e.message}`, e.stack);
+    writeDebugLog({
+        source: 'telegram',
+        event: 'handler-error',
+        data: e,
+    });
     return new Response(JSON.stringify({
         message: e.message,
         stack: e.stack,
