@@ -556,6 +556,15 @@ Admin utility groups:
 - `settings`: `/set`, `/settings`, and settings callback operations
 - `inline`: Telegram inline-query access
 
+Inline-query behavior:
+
+- the bot only answers inline queries that end with `$`
+- example: `@YourBotUsername explain this stack trace$`
+- the trailing `$` is removed before the prompt is sent to the model
+- Telegram users then choose either `Stream Mode` or `Full Mode`
+- `INLINE_QUERY_SEND_INTERVAL` controls the update cadence for streamed inline replies
+- `INLINE_QUERY_SHOW_INFO` controls whether inline replies include the normal response info block
+
 ## `/set` Shortcuts
 
 Default shortcut mapping:

@@ -220,6 +220,27 @@ Access summary:
 | `/unblock [user_id]` | Remove a blocked user ID | Owner-only; also works by replying to a user's message |
 | `/blocklist` | Show the blocklist | Owner-only |
 
+## Inline Query Mode
+
+Telegram inline mode lets you use the bot from another chat by typing `@BotUsername ...` in the compose box instead of sending a normal bot message.
+
+This implementation has one extra submit rule:
+
+- the inline query must end with `$`
+- example: `@YourBotUsername summarize this diff$`
+- the trailing `$` is stripped before the prompt is sent to the model
+
+When an inline query ends with `$`, the bot offers two results:
+
+- `Stream Mode`: stream the answer into the inline message
+- `Full Mode`: wait for the full answer, then write it once
+
+Notes:
+
+- the bot must have Telegram inline mode enabled in BotFather
+- inline access is gated by the `inline` entry in `ADMIN_AVAILABLE_UTILITIES` for admins
+- inline `/set ...$` is supported and additionally requires the `settings` utility group
+
 ## Tooling
 
 Two tool layers remain:
