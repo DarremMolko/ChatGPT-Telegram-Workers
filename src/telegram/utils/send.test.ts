@@ -147,11 +147,11 @@ describe('messageSender.sendRichText', () => {
 
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
-            text: '┌──────┬─────┬────────┬──────────────────┐\n│ User │ Age │ City   │ Favorite Food    │\n├──────┼─────┼────────┼──────────────────┤\n│ Juan │ 30  │ Cucuta │ Arepas con queso │\n└──────┴─────┴────────┴──────────────────┘',
+            text: '┌──────┬─────┬────────┬────────────────┐\n│ User │ Age │ City   │ Favorite Food  │\n├──────┼─────┼────────┼────────────────┤\n│ Juan │  30 │ Cucuta │ Arepas con qu… │\n└──────┴─────┴────────┴────────────────┘',
             entities: [{
                 type: 'pre',
                 offset: 0,
-                length: 214,
+                length: 204,
                 language: 'text',
             }],
         }));
@@ -172,11 +172,11 @@ describe('messageSender.sendRichText', () => {
 
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
-            text: '┌─────────────┬────────────┬────────────┬────────────┐\n│ Field       │ Value      │ Notes      │ Extra      │\n├─────────────┼────────────┼────────────┼────────────┤\n│ foo_bar_baz │ alpha_beta │ note_value │ extra_data │\n└─────────────┴────────────┴────────────┴────────────┘',
+            text: '┌───────────┬────────────┬────────────┬────────────┐\n│ Field     │ Value      │ Notes      │ Extra      │\n├───────────┼────────────┼────────────┼────────────┤\n│ foo_bar_… │ alpha_beta │ note_value │ extra_data │\n└───────────┴────────────┴────────────┴────────────┘',
             entities: [{
                 type: 'pre',
                 offset: 0,
-                length: 274,
+                length: 264,
                 language: 'text',
             }],
         }));

@@ -15,12 +15,12 @@ describe('transformPipeTables', () => {
         expect(transformPipeTables(input)).toBe([
             'Users:',
             '```text',
-            '┌──────┬─────┬────────┬────────────────────┐',
-            '│ User │ Age │ City   │ Favorite Food      │',
-            '├──────┼─────┼────────┼────────────────────┤',
-            '│ Juan │ 30  │ Cucuta │ Arepas con queso   │',
-            '│ Ana  │ 25  │ Bogota │ Ajiaco santafereno │',
-            '└──────┴─────┴────────┴────────────────────┘',
+            '┌──────┬─────┬────────┬────────────────┐',
+            '│ User │ Age │ City   │ Favorite Food  │',
+            '├──────┼─────┼────────┼────────────────┤',
+            '│ Juan │  30 │ Cucuta │ Arepas con qu… │',
+            '│ Ana  │  25 │ Bogota │ Ajiaco santaf… │',
+            '└──────┴─────┴────────┴────────────────┘',
             '```',
             'Done.',
         ].join('\n'));
@@ -35,11 +35,11 @@ describe('transformPipeTables', () => {
 
         expect(transformPipeTables(input)).toBe([
             '```text',
-            '┌───────────────────────┬─────────────────────────────────────────────────────────────────┐',
-            '│ Aspecto               │ Desafio                                                         │',
-            '├───────────────────────┼─────────────────────────────────────────────────────────────────┤',
-            '│ Energias inaccesibles │ Para probar directamente con aceleradores (https://example.com) │',
-            '└───────────────────────┴─────────────────────────────────────────────────────────────────┘',
+            '┌────────────────┬────────────────┐',
+            '│ Aspecto        │ Desafio        │',
+            '├────────────────┼────────────────┤',
+            '│ Energias inac… │ Para probar d… │',
+            '└────────────────┴────────────────┘',
             '```',
         ].join('\n'));
     });
@@ -57,8 +57,8 @@ describe('transformPipeTables', () => {
             '┌─────┬───────┐',
             '│ Key │ Value │',
             '├─────┼───────┤',
-            '│ A   │ 1     │',
-            '│ B   │ 2     │',
+            '│ A   │     1 │',
+            '│ B   │     2 │',
             '└─────┴───────┘',
             '```',
         ].join('\n'));

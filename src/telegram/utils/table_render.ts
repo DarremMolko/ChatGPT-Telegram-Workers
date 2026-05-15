@@ -9,6 +9,17 @@ interface ParsedTable {
 
 type TableAlignment = 'left' | 'center' | 'right' | 'default';
 
+interface ColumnProfile {
+    kind: 'index' | 'numeric' | 'path' | 'title' | 'text';
+    alignment: TableAlignment;
+    minWidth: number;
+    maxWidth: number;
+}
+
+const MAX_TABLE_WIDTH = 52;
+const ELLIPSIS = '…';
+const ELLIPSIS_WIDTH = 1;
+
 // Telegram does not currently provide native rendering for pipe tables.
 // This transformer converts them into boxed monospace tables.
 export function transformPipeTables(text: string, { enabled = true }: { enabled?: boolean } = {}): string {
@@ -203,15 +214,21 @@ function isSeparatorCell(cell: string): boolean {
 function renderTable(table: ParsedTable): string {
     const header = table.header.map((cell, index) => sanitizeTableCell(cell) || `Column ${index + 1}`);
     const rows = table.rows.map(row => row.map(cell => sanitizeTableCell(cell)));
-    const widths = header.map((cell, index) => Math.max(
-        measureCellWidth(cell),
-        ...rows.map(row => measureCellWidth(row[index] || '')),
-    ));
+    const profiles = header.map((cell, index) => getColumnProfile(cell, rows.map(row => row[index] || ''), table.alignments[index]));
+    const widths = fitTableWidths(
+        header.map((cell, index) => Math.max(
+            measureCellWidth(cell),
+            ...rows.map(row => measureCellWidth(row[index] || '')),
+        )),
+        profiles,
+    );
+    const clippedHeader = header.map((cell, index) => truncateToWidth(cell, widths[index]));
+    const clippedRows = rows.map(row => row.map((cell, index) => truncateToWidth(cell, widths[index])));
     const lines = [
         renderBorder('┌', '┬', '┐', widths),
-        renderRow(header, widths, table.alignments),
+        renderRow(clippedHeader, widths, profiles.map(profile => profile.alignment)),
         renderBorder('├', '┼', '┤', widths),
-        ...rows.map(row => renderRow(row, widths, table.alignments)),
+        ...clippedRows.map(row => renderRow(row, widths, profiles.map(profile => profile.alignment))),
         renderBorder('└', '┴', '┘', widths),
     ];
     return `\`\`\`text\n${lines.join('\n')}\n\`\`\``;
@@ -260,7 +277,120 @@ function padCell(value: string, width: number, alignment: TableAlignment): strin
 }
 
 function measureCellWidth(text: string): number {
-    return Array.from(text).length;
+    let width = 0;
+    for (const char of Array.from(text)) {
+        width += getDisplayWidth(char);
+    }
+    return width;
+}
+
+function getDisplayWidth(char: string): number {
+    if (char === '') {
+        return 0;
+    }
+    if (/\p{Mark}/u.test(char) || char === '\uFE0F') {
+        return 0;
+    }
+    if (/\p{Extended_Pictographic}/u.test(char)) {
+        return 2;
+    }
+    const codePoint = char.codePointAt(0) || 0;
+    if (
+        codePoint >= 0x1100
+        && (
+            codePoint <= 0x115F
+            || codePoint === 0x2329
+            || codePoint === 0x232A
+            || (codePoint >= 0x2E80 && codePoint <= 0xA4CF && codePoint !== 0x303F)
+            || (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
+            || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
+            || (codePoint >= 0xFE10 && codePoint <= 0xFE19)
+            || (codePoint >= 0xFE30 && codePoint <= 0xFE6F)
+            || (codePoint >= 0xFF00 && codePoint <= 0xFF60)
+            || (codePoint >= 0xFFE0 && codePoint <= 0xFFE6)
+        )
+    ) {
+        return 2;
+    }
+    return 1;
+}
+
+function getColumnProfile(header: string, values: string[], alignment: TableAlignment): ColumnProfile {
+    const lowerHeader = header.toLowerCase();
+    const nonEmptyValues = values.filter(Boolean);
+    const numericMatches = nonEmptyValues.filter(value => isNumericLike(value)).length;
+    const mostlyNumeric = nonEmptyValues.length > 0 && numericMatches / nonEmptyValues.length >= 0.8;
+
+    if (lowerHeader === '#' || lowerHeader === 'n' || lowerHeader === 'no' || lowerHeader === 'id') {
+        return { kind: 'index', alignment: 'right', minWidth: 1, maxWidth: 3 };
+    }
+    if (alignment === 'right' || mostlyNumeric || /score|upvotes?|downvotes?|comments?|count|points?|age|rank|total/.test(lowerHeader)) {
+        return { kind: 'numeric', alignment: 'right', minWidth: 4, maxWidth: 8 };
+    }
+    if (/subreddit|forum|source/.test(lowerHeader) || nonEmptyValues.every(value => value.startsWith('r/'))) {
+        return { kind: 'path', alignment: 'left', minWidth: 8, maxWidth: 12 };
+    }
+    if (/title|titulo|headline|subject|name/.test(lowerHeader)) {
+        return { kind: 'title', alignment: 'left', minWidth: 12, maxWidth: 20 };
+    }
+    return { kind: 'text', alignment: alignment === 'center' ? 'center' : 'left', minWidth: 6, maxWidth: 14 };
+}
+
+function fitTableWidths(widths: number[], profiles: ColumnProfile[]): number[] {
+    const fitted = widths.map((width, index) => Math.min(width, profiles[index].maxWidth));
+    while (calculateTableWidth(fitted) > MAX_TABLE_WIDTH) {
+        const candidateIndex = pickShrinkColumn(fitted, profiles);
+        if (candidateIndex === -1) {
+            break;
+        }
+        fitted[candidateIndex]--;
+    }
+    return fitted;
+}
+
+function calculateTableWidth(widths: number[]): number {
+    return widths.reduce((sum, width) => sum + width, 0) + widths.length * 3 + 1;
+}
+
+function pickShrinkColumn(widths: number[], profiles: ColumnProfile[]): number {
+    let bestIndex = -1;
+    let bestScore = -1;
+    for (let index = 0; index < widths.length; index++) {
+        const spare = widths[index] - profiles[index].minWidth;
+        if (spare <= 0) {
+            continue;
+        }
+        const score = spare * 100 + widths[index];
+        if (score > bestScore) {
+            bestScore = score;
+            bestIndex = index;
+        }
+    }
+    return bestIndex;
+}
+
+function truncateToWidth(text: string, width: number): string {
+    if (measureCellWidth(text) <= width) {
+        return text;
+    }
+    if (width <= ELLIPSIS_WIDTH) {
+        return ELLIPSIS;
+    }
+    let output = '';
+    let currentWidth = 0;
+    for (const char of Array.from(text)) {
+        const charWidth = getDisplayWidth(char);
+        if (currentWidth + charWidth > width - ELLIPSIS_WIDTH) {
+            break;
+        }
+        output += char;
+        currentWidth += charWidth;
+    }
+    return `${output.trimEnd()}${ELLIPSIS}`;
+}
+
+function isNumericLike(value: string): boolean {
+    return /^[\d\s.,%+-]+$/.test(value.trim());
 }
 
 function collapseWhitespace(text: string): string {
