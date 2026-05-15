@@ -13,7 +13,7 @@ import { createTelegramBotAPI } from '../api';
 import { InlineCommandHandler } from '../command/system';
 import { catchError } from '../handler';
 import { EnvChecker, InitUserConfig } from '../handler/handlers';
-import { renderSingleMessage } from '../utils/rich_text';
+import { buildRenderedTextParams } from '../utils/send';
 import { chunkArray } from '../utils/tg_utils';
 import { CallbackQueryContext } from './context';
 
@@ -152,14 +152,10 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
     }
 
     private async sendCallBackMessage(api: TelegramBotAPI, message: Telegram.Message, text: string, inline_keyboard: Telegram.InlineKeyboardButton[][]) {
-        const rendered = renderSingleMessage('MarkdownV2', text, { quoteExpandable: true, addQuote: true });
         return api.editMessageText({
             chat_id: message.chat.id,
             message_id: message.message_id,
-            text: rendered.text,
-            ...(rendered.useEntities
-                ? { ...(rendered.entities ? { entities: rendered.entities } : {}) }
-                : { parse_mode: 'MarkdownV2' }),
+            ...buildRenderedTextParams('MarkdownV2', text, { quoteExpandable: true, addQuote: true }),
             reply_markup: { inline_keyboard },
         });
     }

@@ -9,6 +9,13 @@ import { createTelegramBotAPI } from '../api';
 import { renderMessageChunks, renderSingleMessage } from './rich_text';
 import { waitUntil } from './tg_utils';
 
+type RenderedTextParams = Pick<Telegram.SendMessageParams, 'text' | 'entities' | 'parse_mode'>;
+interface RenderedCaptionParams {
+    caption: string;
+    caption_entities?: Telegram.MessageEntity[];
+    parse_mode?: Telegram.ParseMode;
+}
+
 class MessageContext implements Record<string, any> {
     chat_id: number;
     message_id: number | null = null; // The currently sent message, used for follow-up edits.
@@ -75,10 +82,7 @@ export class MessageSender {
             const params: Telegram.EditMessageTextParams = {
                 chat_id: context.chat_id,
                 message_id: context.message_id,
-                text: message.text,
-                ...(message.useEntities
-                    ? { ...(message.entities ? { entities: message.entities } : {}) }
-                    : { parse_mode: context.parse_mode || undefined }),
+                ...buildRenderedTextPayload(message, context.parse_mode),
             };
             if (linkPreviewOptions) {
                 params.link_preview_options = linkPreviewOptions;
@@ -88,10 +92,7 @@ export class MessageSender {
             const params: Telegram.SendMessageParams = {
                 chat_id: context.chat_id,
                 message_thread_id: context.message_thread_id || undefined,
-                text: message.text,
-                ...(message.useEntities
-                    ? { ...(message.entities ? { entities: message.entities } : {}) }
-                    : { parse_mode: context.parse_mode || undefined }),
+                ...buildRenderedTextPayload(message, context.parse_mode),
             };
             if (replyParameters) {
                 params.reply_parameters = replyParameters;
@@ -191,20 +192,13 @@ export class MessageSender {
         if (!this.context) {
             throw new Error('Message context not set');
         }
-        const renderedCaption = caption ? renderSingleMessage(parse_mode || null, caption) : null;
+        const renderedCaption = caption ? buildRenderedCaptionParams(parse_mode, caption) : null;
         const replyParameters = buildReplyParameters(this.context);
         const params: Telegram.SendPhotoParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
             photo,
-            ...(renderedCaption
-                ? {
-                        caption: renderedCaption.text,
-                        ...(renderedCaption.useEntities
-                            ? { ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}) }
-                            : { parse_mode }),
-                    }
-                : {}),
+            ...(renderedCaption || {}),
         };
         if (replyParameters) {
             params.reply_parameters = replyParameters;
@@ -220,12 +214,9 @@ export class MessageSender {
             if (!item.caption || item.parse_mode !== 'MarkdownV2') {
                 return item;
             }
-            const renderedCaption = renderSingleMessage(item.parse_mode, item.caption);
             return {
                 ...item,
-                caption: renderedCaption.text,
-                ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}),
-                ...(renderedCaption.useEntities ? { parse_mode: undefined } : {}),
+                ...buildRenderedCaptionParams(item.parse_mode, item.caption),
             };
         });
         const params: Telegram.SendMediaGroupParams = {
@@ -252,20 +243,13 @@ export class MessageSender {
         if (!this.context) {
             throw new Error('Message context not set');
         }
-        const renderedCaption = caption ? renderSingleMessage(parse_mode || null, caption) : null;
+        const renderedCaption = caption ? buildRenderedCaptionParams(parse_mode, caption) : null;
         const replyParameters = buildReplyParameters(this.context);
         const params: Telegram.SendDocumentParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
             document,
-            ...(renderedCaption
-                ? {
-                        caption: renderedCaption.text,
-                        ...(renderedCaption.useEntities
-                            ? { ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}) }
-                            : { parse_mode }),
-                    }
-                : {}),
+            ...(renderedCaption || {}),
         };
         if (replyParameters) {
             params.reply_parameters = replyParameters;
@@ -280,20 +264,13 @@ export class MessageSender {
         if (!this.context.message_id) {
             throw new Error('Message id is null');
         }
-        const renderedCaption = media.caption ? renderSingleMessage(parse_mode || null, media.caption) : null;
+        const renderedCaption = media.caption ? buildRenderedCaptionParams(parse_mode, media.caption) : null;
         const params: Telegram.EditMessageMediaParams = {
             chat_id: this.context.chat_id,
             message_id: this.context.message_id,
             media: {
                 ...media,
-                ...(renderedCaption
-                    ? {
-                            caption: renderedCaption.text,
-                            ...(renderedCaption.useEntities
-                                ? { ...(renderedCaption.entities ? { caption_entities: renderedCaption.entities } : {}) }
-                                : { parse_mode }),
-                        }
-                    : { parse_mode }),
+                ...(renderedCaption || (parse_mode ? { parse_mode } : {})),
                 ...(file && { media: `attach://file` }),
             },
             ...(file && { file }),
@@ -340,6 +317,42 @@ function buildLinkPreviewOptions(disable_web_page_preview: boolean | null) {
     }
     return {
         is_disabled: true,
+    };
+}
+
+function buildRenderedTextPayload(
+    rendered: RenderedText,
+    parseMode?: Telegram.ParseMode | null,
+): RenderedTextParams {
+    return {
+        text: rendered.text,
+        ...(rendered.useEntities
+            ? (rendered.entities ? { entities: rendered.entities } : {})
+            : (parseMode ? { parse_mode: parseMode } : {})),
+    };
+}
+
+export function buildRenderedTextParams(
+    parseMode: Telegram.ParseMode | null | undefined,
+    text: string,
+    expandParams?: ExpandParams,
+): RenderedTextParams {
+    return buildRenderedTextPayload(
+        renderSingleMessage(parseMode || null, text, expandParams),
+        parseMode,
+    );
+}
+
+export function buildRenderedCaptionParams(
+    parseMode: Telegram.ParseMode | null | undefined,
+    caption: string,
+): RenderedCaptionParams {
+    const rendered = renderSingleMessage(parseMode || null, caption);
+    return {
+        caption: rendered.text,
+        ...(rendered.useEntities
+            ? (rendered.entities ? { caption_entities: rendered.entities } : {})
+            : (parseMode ? { parse_mode: parseMode } : {})),
     };
 }
 
@@ -426,13 +439,9 @@ export class ChosenInlineSender {
     }
 
     editMessageText(text: string, parse_mode?: Telegram.ParseMode, expandParams?: ExpandParams): Promise<Response> {
-        const rendered = renderSingleMessage(parse_mode || null, text, expandParams);
         return this.api.editMessageText({
             inline_message_id: this.context.inline_message_id,
-            text: rendered.text,
-            ...(rendered.useEntities
-                ? { ...(rendered.entities ? { entities: rendered.entities } : {}) }
-                : { parse_mode }),
+            ...buildRenderedTextParams(parse_mode, text, expandParams),
             link_preview_options: {
                 is_disabled: ENV.DISABLE_WEB_PREVIEW,
             },
