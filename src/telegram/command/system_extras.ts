@@ -73,11 +73,19 @@ export class STTCommandHandler implements CommandHandler {
     command = '/stt';
     scopes: Array<'all_private_chats' | 'all_chat_administrators'> = ['all_private_chats', 'all_chat_administrators'];
     needAuth = () => ['admin'];
-    handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
+            ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
+            : subcommand.trim();
+        const { flags, remainingText } = tokenizeSTTSubcommand(cleanedSubcommand);
         const messageInfo = context.MIDDLE_CONTEXT.messageInfo;
         if (!messageInfo?.id?.length || !['audio', 'voice'].includes(messageInfo.type)) {
             return sender.sendPlainText('Please send or reply to an audio or voice message');
         }
+        if (flags.prompt?.value === undefined && 'prompt' in flags) {
+            return sender.sendPlainText('Please provide a prompt after -p');
+        }
+        const prompt = flags.prompt?.value?.trim() || remainingText.trim() || undefined;
 
         await sender.sendPlainText(`Using agent ${context.USER_CONFIG.AI_ASR_PROVIDER} to transcribe audio...`);
         const [audio] = await getTelegramFile(messageInfo.id, context.SHARE_CONTEXT.botToken, 'blob') as Blob[];
@@ -85,7 +93,9 @@ export class STTCommandHandler implements CommandHandler {
             throw new Error('Audio file not found');
         }
 
-        const text = await stt(audio, context.USER_CONFIG);
+        const text = prompt
+            ? await stt(audio, context.USER_CONFIG, { prompt })
+            : await stt(audio, context.USER_CONFIG);
         return sender.sendRichText(mergeLogMessages(text, context.USER_CONFIG));
     };
 }
@@ -235,6 +245,20 @@ export class BlocklistCommandHandler implements CommandHandler {
 
 function tokenizeTTSSubcommand(subcommand: string): { flags: { flag: string; value: string | undefined }[]; remainingText: string } {
     return tokenizeKnownFlags(subcommand, new Set(['-v', '-i', '-instructions']));
+}
+
+function tokenizeSTTSubcommand(subcommand: string): {
+    flags: { prompt?: { value: string | undefined } };
+    remainingText: string;
+} {
+    const { flags, remainingText } = tokenizeKnownFlags(subcommand, new Set(['-p', '--prompt']));
+    const prompt = flags.find(flag => flag.flag === 'p' || flag.flag === 'prompt');
+    return {
+        flags: {
+            ...(prompt ? { prompt: { value: prompt.value } } : {}),
+        },
+        remainingText,
+    };
 }
 
 function splitCommandTokens(text: string): { value: string }[] {

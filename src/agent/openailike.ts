@@ -1,7 +1,7 @@
 import type { ImageModelV3 } from '@ai-sdk/provider';
 import type { UserModelMessage } from 'ai';
 import type { AgentUserConfig } from '../config/env';
-import type { ASRAgent, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSRequestOptions } from './types';
+import type { ASRAgent, ASRRequestOptions, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
 import { withRequestLogger } from '../log';
@@ -134,8 +134,8 @@ export class OpenAILikeASR extends OpenAILikeBase implements ASRAgent {
         return ctx.OAILIKE_STT_MODEL;
     };
 
-    request = withRequestLogger(this, async (audio: Blob, context: AgentUserConfig): Promise<string> => {
-        return requestOpenAIStyleTranscription(OAILIKE_AUDIO_PROVIDER, audio, context);
+    request = withRequestLogger(this, async (audio: Blob, context: AgentUserConfig, options?: ASRRequestOptions): Promise<string> => {
+        return requestOpenAIStyleTranscription(OAILIKE_AUDIO_PROVIDER, audio, context, options);
     });
 }
 

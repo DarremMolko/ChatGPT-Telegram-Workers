@@ -82,6 +82,15 @@ describe('buildOpenAIStyleTranscriptionFormData', () => {
         expect(formData.get('response_format')).toBe('json');
         expect((formData.get('file') as File).name).toBe('audio.ogg');
     });
+
+    it('includes an optional transcription prompt', () => {
+        const context = createContext();
+        const formData = buildOpenAIStyleTranscriptionFormData(openaiDescriptor, new Blob(['audio']), context, {
+            prompt: 'use spanish',
+        });
+
+        expect(formData.get('prompt')).toBe('use spanish');
+    });
 });
 
 describe('buildOpenAIStyleSpeechBody', () => {

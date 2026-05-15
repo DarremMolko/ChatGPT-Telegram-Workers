@@ -1,6 +1,6 @@
 import type { AgentUserConfig } from '../config/env';
 import type { AgentProvider } from './api_base';
-import type { TTSRequestOptions } from './types';
+import type { ASRRequestOptions, TTSRequestOptions } from './types';
 import { log } from '../log';
 import { buildProviderApiUrl } from './api_base';
 import { resolveTTSInstructions } from './tts';
@@ -24,10 +24,14 @@ export function createOpenAIStyleHeaders(apiKey: string, extraHeaders: Record<st
     };
 }
 
-export function buildOpenAIStyleTranscriptionFormData(descriptor: OpenAIStyleProviderDescriptor, audio: Blob, context: AgentUserConfig): FormData {
+export function buildOpenAIStyleTranscriptionFormData(descriptor: OpenAIStyleProviderDescriptor, audio: Blob, context: AgentUserConfig, options?: ASRRequestOptions): FormData {
     const formData = new FormData();
     formData.append('file', audio, descriptor.transcriptionFilename);
     formData.append('model', String(configValue(context, descriptor.provider, 'STT_MODEL') || ''));
+    const prompt = options?.prompt?.trim();
+    if (prompt) {
+        formData.append('prompt', prompt);
+    }
     const extraParams = (configValue(context, descriptor.provider, 'STT_EXTRA_PARAMS') || {}) as Record<string, string>;
     Object.entries(extraParams).forEach(([key, value]) => {
         formData.append(key, value);
@@ -54,14 +58,14 @@ function parseOpenAIStyleTranscriptionResponse(descriptor: OpenAIStyleProviderDe
     return String(text);
 }
 
-export async function requestOpenAIStyleTranscription(descriptor: OpenAIStyleProviderDescriptor, audio: Blob, context: AgentUserConfig): Promise<string> {
+export async function requestOpenAIStyleTranscription(descriptor: OpenAIStyleProviderDescriptor, audio: Blob, context: AgentUserConfig, options?: ASRRequestOptions): Promise<string> {
     const url = buildProviderApiUrl(descriptor.provider, context, '/audio/transcriptions');
     const resp = await fetch(url, {
         method: 'POST',
         headers: createOpenAIStyleHeaders(descriptor.apiKey(context), {
             Accept: 'application/json',
         }),
-        body: buildOpenAIStyleTranscriptionFormData(descriptor, audio, context),
+        body: buildOpenAIStyleTranscriptionFormData(descriptor, audio, context, options),
         redirect: 'follow',
     }).then(r => r.json());
 

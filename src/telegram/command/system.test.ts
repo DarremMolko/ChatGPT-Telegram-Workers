@@ -380,6 +380,27 @@ describe('tTSCommandHandler', () => {
         expect(sender.sendRichText).toHaveBeenCalledWith('Caption transcription');
     });
 
+    it('passes an optional prompt through to /stt', async () => {
+        getTelegramFileMock.mockResolvedValue([new Blob(['audio'])]);
+        sttMock.mockResolvedValue('Prompted transcription');
+        const handler = new STTCommandHandler();
+        const message = createMessage('/stt -p "use spanish"');
+        const sender = createSender();
+        const context = createContext();
+        context.MIDDLE_CONTEXT.messageInfo = {
+            type: 'voice',
+            id: ['voice-file-id'],
+        };
+
+        await handler.handle(message, '-p "use spanish"', context, sender);
+
+        expect(getTelegramFileMock).toHaveBeenCalledWith(['voice-file-id'], 'bot-token', 'blob');
+        expect(sttMock).toHaveBeenCalledWith(expect.any(Blob), context.USER_CONFIG, {
+            prompt: 'use spanish',
+        });
+        expect(sender.sendRichText).toHaveBeenCalledWith('Prompted transcription');
+    });
+
     it('rejects /stt without an audio or voice target', async () => {
         const handler = new STTCommandHandler();
         const message = createMessage('/stt');

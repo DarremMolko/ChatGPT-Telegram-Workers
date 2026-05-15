@@ -1,6 +1,6 @@
 import type { FilePart, ImagePart, UserModelMessage } from 'ai';
 import type * as Telegram from 'telegram-bot-api-types';
-import type { ImageResult, TTSRequestOptions } from '../../agent/types';
+import type { ASRRequestOptions, ImageResult, TTSRequestOptions } from '../../agent/types';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from './send';
 import { loadASRLLM, loadTTSLLM, TTS_AGENTS } from '../../agent';
@@ -45,7 +45,7 @@ export async function tts(text: string, config: AgentUserConfig, options?: TTSRe
     return agent.request(text, config, options);
 }
 
-export async function stt(audio: Blob, config: AgentUserConfig) {
+export async function stt(audio: Blob, config: AgentUserConfig, options?: ASRRequestOptions) {
     const agent = loadASRLLM(config);
     if (!agent) {
         throw new Error('ASR agent not found');
@@ -55,7 +55,7 @@ export async function stt(audio: Blob, config: AgentUserConfig) {
         audio = await convertAudio({ file: audio, target: 'blob' }) as Blob;
         log.info(`transform audio time: ${((Date.now() - start) / 1000).toFixed(2)}s`);
     }
-    return agent.request(audio, config);
+    return agent.request(audio, config, options);
 }
 
 export function mergeLogMessages(text: string, config: AgentUserConfig | undefined, { quoteInfo = false }: { quoteInfo?: boolean } = {}): string {
