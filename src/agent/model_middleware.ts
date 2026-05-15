@@ -58,13 +58,15 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     return {
         prepareStepPre: (middleware: any) => async ({ model, stepNumber, steps }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
             currentModel = model;
-            if (activeTools.length > 0) {
-                const targetModel = config.TOOL_MODEL;
+            const targetModel = config.TOOL_MODEL.trim();
+            const useToolModelOverride = activeTools.length > 0 && targetModel.length > 0;
+            if (useToolModelOverride) {
                 currentModel = wrapLanguageModel({
                     model: await createLlmModel(targetModel, config),
                     middleware,
                 });
             }
+            log.info(`[AIMiddleware] toolModelOverride=${useToolModelOverride} TOOL_MODEL=${targetModel || '(empty)'} requestedModel=${model.modelId} effectiveModel=${currentModel.modelId}`);
             record = getLogSingleton({ config });
             recordModelLog({ config, model: currentModel, record });
             writeDebugLog({
