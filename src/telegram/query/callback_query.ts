@@ -17,11 +17,30 @@ import { buildRenderedTextParams } from '../utils/send';
 import { chunkArray } from '../utils/tg_utils';
 import { CallbackQueryContext } from './context';
 
+function resolveEffectiveVisionModel(config: AgentUserConfig): string {
+    if (config.VISION_MODEL?.trim()) {
+        return config.VISION_MODEL.trim();
+    }
+    const provider = config.AI_CHAT_PROVIDER || 'openai';
+    return config[`${provider.toUpperCase()}_VISION_MODEL`] || '';
+}
+
+function describeVisionConfig(config: AgentUserConfig): string {
+    return [
+        `AI_CHAT_PROVIDER=${config.AI_CHAT_PROVIDER || ''}`,
+        `VISION_MODEL=${config.VISION_MODEL || ''}`,
+        `OPENAI_VISION_MODEL=${config.OPENAI_VISION_MODEL || ''}`,
+        `OAILIKE_VISION_MODEL=${config.OAILIKE_VISION_MODEL || ''}`,
+        `effectiveVisionModel=${resolveEffectiveVisionModel(config)}`,
+    ].join(' ');
+}
+
 class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext> {
     handle = async (query: Telegram.CallbackQuery, context: CallbackQueryContext): Promise<Response | null> => {
         const api = createTelegramBotAPI(context.SHARE_CONTEXT.botToken);
         const message = query.message as Telegram.Message;
         const keyboard = message.reply_markup?.inline_keyboard ?? [];
+        log.info(`[CALLBACK QUERY] data=${query.data || ''}`);
         const authorized = isAuthorized(query.from?.id ?? 0, keyboard);
         // Unauthorized user for this callback.
         if (!authorized) {
@@ -147,7 +166,10 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         if (!context.USER_CONFIG.DEFINE_KEYS.includes(configKey)) {
             context.USER_CONFIG.DEFINE_KEYS.push(configKey);
         }
-        log.info(`[CALLBACK QUERY] Update config: ${configKey} = ${context.USER_CONFIG[configKey]}`);
+        log.info(`[CALLBACK QUERY] Update config: ${configKey} old=${JSON.stringify(oldValue)} new=${JSON.stringify(context.USER_CONFIG[configKey])}`);
+        if (configKey === 'VISION_MODEL' || configKey.endsWith('_VISION_MODEL') || configKey === 'AI_CHAT_PROVIDER') {
+            log.info(`[VISION CONFIG] source=callback key=${configKey} ${describeVisionConfig(context.USER_CONFIG)}`);
+        }
         await ENV.REDIS.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(ConfigMerger.trim(context.USER_CONFIG))).catch(console.error);
         this.sendAlert(api, context.query_id, '✅ Data update successful', false);
     }

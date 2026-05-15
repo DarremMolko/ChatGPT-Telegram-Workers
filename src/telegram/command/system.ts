@@ -309,6 +309,16 @@ function resolveEffectiveVisionModel(context: AgentUserConfig): string {
     return context[`${provider.toUpperCase()}_VISION_MODEL`] || `Agent ${provider} not found`;
 }
 
+function describeVisionConfig(context: AgentUserConfig): string {
+    return [
+        `AI_CHAT_PROVIDER=${context.AI_CHAT_PROVIDER || ''}`,
+        `VISION_MODEL=${context.VISION_MODEL || ''}`,
+        `OPENAI_VISION_MODEL=${context.OPENAI_VISION_MODEL || ''}`,
+        `OAILIKE_VISION_MODEL=${context.OAILIKE_VISION_MODEL || ''}`,
+        `effectiveVisionModel=${resolveEffectiveVisionModel(context)}`,
+    ].join(' ');
+}
+
 function isSensitiveEnvKey(key: string): boolean {
     return isSensitiveRuntimeConfigKey(key);
 }
@@ -757,6 +767,7 @@ export class VisionCommandHandler implements CommandHandler {
             ],
         };
 
+        log.info(`[VISION COMMAND] urls=${urls.length} promptLength=${promptFlag.length} ${describeVisionConfig(context.USER_CONFIG)}`);
         await initializeCommandHistory(context);
         return chatWithLLM(message, params, context, null) as unknown as Response;
     };
@@ -1213,6 +1224,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             return sender.sendPlainText(`Key ${key} not found`);
         }
 
+        const oldValue = context.USER_CONFIG[key];
         // If the value is empty, fall back to the global default.
         ConfigMerger.merge(context.USER_CONFIG, { [key]: mappedValue || ENV.USER_CONFIG[key] });
         if (!context.USER_CONFIG.DEFINE_KEYS.includes(key) && mappedValue) {
@@ -1220,7 +1232,10 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
         } else if (!mappedValue) {
             context.USER_CONFIG.DEFINE_KEYS = context.USER_CONFIG.DEFINE_KEYS.filter(k => k !== key);
         }
-        log.info(`/set ${key} ${(JSON.stringify(mappedValue) || value || '').substring(0, 100)}...`);
+        log.info(`/set ${key} old=${JSON.stringify(oldValue)} new=${JSON.stringify(context.USER_CONFIG[key])} raw=${(JSON.stringify(mappedValue) || value || '').substring(0, 100)}...`);
+        if (key === 'VISION_MODEL' || key.endsWith('_VISION_MODEL') || key === 'AI_CHAT_PROVIDER') {
+            log.info(`[VISION CONFIG] source=/set key=${key} ${describeVisionConfig(context.USER_CONFIG)}`);
+        }
         return key;
     }
 

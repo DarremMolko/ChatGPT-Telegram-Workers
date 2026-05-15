@@ -4,12 +4,12 @@ import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ASRRequestOptions, ChatAgent, ChatStreamTextHandler, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
-import { withRequestLogger } from '../log';
+import { log, withRequestLogger } from '../log';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
-import { resolveOpenAILikeChatModel } from './model_selector';
+import { messageUsesVisionModel, resolveOpenAILikeChatModel } from './model_selector';
 import { renderImage } from './openai';
 import { buildOpenAIImageSettings, isOpenAIImageModel, resolveImageEditModel } from './openai_image';
 import { createOpenAIStyleHeaders, requestOpenAIStyleSpeech, requestOpenAIStyleTranscription } from './openai_style';
@@ -45,7 +45,9 @@ export class OpenAILike extends OpenAILikeBase implements ChatAgent {
     };
 
     readonly request = async (params: LLMChatParams, context: AgentUserConfig, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> => {
-        const modelId = this.model(context, params.messages.at(-1) as UserModelMessage);
+        const lastMessage = params.messages.at(-1) as UserModelMessage;
+        const modelId = this.model(context, lastMessage);
+        log.info(`[oailike.request] usesVisionModel=${messageUsesVisionModel(lastMessage)} resolvedModel=${modelId} chatModel=${context.OAILIKE_CHAT_MODEL} VISION_MODEL=${context.VISION_MODEL || ''} OAILIKE_VISION_MODEL=${context.OAILIKE_VISION_MODEL}`);
         const model = await createLlmModel(modelId, context);
         return requestChatCompletionsV2(await warpLLMParams({
             model,

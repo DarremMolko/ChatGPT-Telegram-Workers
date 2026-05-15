@@ -4,13 +4,13 @@ import type { AgentUserConfig } from '../config/env';
 import type { ASRAgent, ASRRequestOptions, ChatAgent, ChatStreamTextHandler, GeneratedImage, ImageAgent, ImageResult, LLMChatParams, LLMChatRequestParams, ResponseMessage, TTSAgent, TTSRequestOptions } from './types';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
-import { withRequestLogger } from '../log';
+import { log, withRequestLogger } from '../log';
 import { base64StringToBlob } from '../utils';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
-import { resolveOpenAIChatModel } from './model_selector';
+import { messageUsesVisionModel, resolveOpenAIChatModel } from './model_selector';
 import { buildOpenAIImageSettings, resolveImageEditModel } from './openai_image';
 import { createOpenAIStyleHeaders, requestOpenAIStyleSpeech, requestOpenAIStyleTranscription } from './openai_style';
 import { requestChatCompletionsV2 } from './request';
@@ -45,7 +45,9 @@ export class OpenAI extends OpenAIBase implements ChatAgent {
     };
 
     readonly request = async (params: LLMChatParams, context: AgentUserConfig, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> => {
-        const modelId = this.model(context, params.messages.at(-1) as UserModelMessage);
+        const lastMessage = params.messages.at(-1) as UserModelMessage;
+        const modelId = this.model(context, lastMessage);
+        log.info(`[openai.request] usesVisionModel=${messageUsesVisionModel(lastMessage)} resolvedModel=${modelId} chatModel=${context.OPENAI_CHAT_MODEL} VISION_MODEL=${context.VISION_MODEL || ''} OPENAI_VISION_MODEL=${context.OPENAI_VISION_MODEL}`);
         const model = await createLlmModel(modelId, context);
 
         return requestChatCompletionsV2(await warpLLMParams({
