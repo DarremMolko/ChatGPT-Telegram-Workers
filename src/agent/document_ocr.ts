@@ -1,5 +1,6 @@
 import { ENV } from '../config/env';
 import { log } from '../log';
+import { getDocumentExtension } from '../utils/document_input';
 
 type DocumentOcrProvider = 'mistral';
 
@@ -91,10 +92,6 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 
 function resolveDocumentOcrProvider(): DocumentOcrProvider | '' {
     return ENV.DOCUMENT_OCR_PROVIDER === 'mistral' ? 'mistral' : '';
-}
-
-function resolveExtension(fileName?: string): string {
-    return fileName?.split('.').pop()?.toLowerCase() || '';
 }
 
 function createTimeoutSignal(): AbortSignal | undefined {
@@ -202,7 +199,7 @@ export function supportsDocumentOcrInput(mimeType?: string, fileName?: string): 
     if (OCR_SUPPORTED_DOCUMENT_MIME_TYPES.has(normalizedMimeType)) {
         return true;
     }
-    return OCR_SUPPORTED_DOCUMENT_EXTENSIONS.has(resolveExtension(fileName));
+    return OCR_SUPPORTED_DOCUMENT_EXTENSIONS.has(getDocumentExtension(fileName));
 }
 
 export async function extractDocumentText(request: DocumentOcrRequest): Promise<string | null> {

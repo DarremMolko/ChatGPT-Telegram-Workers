@@ -10,6 +10,7 @@ export default {
             start: 'Show your chat ID and start a new conversation',
             img: 'Generate an image. Supports per-request flags such as `-n`, `-s`, and `-m`. Reply to an image with `/img ...` to edit it through the OpenAI-compatible image flow.',
             vision: 'Send one or more image URLs to the vision model. Use `/vision <url> -p "question"`.',
+            ocr: 'Ingest one or more document URLs through the document OCR/text path. Use `/ocr <url> [-p "question"]`.',
             version: 'Show the current build version',
             setenv: 'Set one stored user-config key. Format: `/setenv KEY=VALUE`',
             setenvs: 'Set multiple stored user-config keys at once. Format: `/setenvs{"KEY":"VALUE"}`',

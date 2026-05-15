@@ -71,6 +71,7 @@ vi.mock('./system', () => {
         InlineCommandHandler: DummyCommand,
         MapCommandHandler: DummyCommand,
         NewCommandHandler: DummyCommand,
+        OcrCommandHandler: DummyCommand,
         PromoteCommandHandler: DummyCommand,
         RedoCommandHandler: DummyCommand,
         SetCommandHandler: DummyCommand,

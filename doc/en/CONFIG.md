@@ -96,7 +96,7 @@ Important:
 | `TELEGRAM_AVAILABLE_TOKENS` | Comma-separated or array-form Telegram bot tokens. | `[]` |
 | `OWNER_ID` | User ID with full access to sensitive commands and runtime settings. | `''` |
 | `ADMIN_WHITE_LIST` | Static admin user IDs allowed to use private chats, commands, and non-sensitive runtime controls. | `[]` |
-| `ADMIN_AVAILABLE_UTILITIES` | Admin utility whitelist. Supported values: `chat`, `image`, `audio`, `settings`, `inline`. The owner always keeps full access. | all supported values |
+| `ADMIN_AVAILABLE_UTILITIES` | Admin utility whitelist. Supported values: `chat`, `image`, `audio`, `document`, `settings`, `inline`. The owner always keeps full access. | all supported values |
 | `REDIS_URL` | Required native Redis connection URL. Prefer `rediss://` for hosted Redis with TLS. | `''` |
 | `OPENAI_API_KEY` | OpenAI API key list. Required when any OpenAI capability is used. | `[]` |
 | `OAILIKE_API_KEY` | OpenAI-compatible API key. Required when `oailike` is used. | `null` |
@@ -182,6 +182,7 @@ This creates `/fast`.
 - reply-to-image editing works through the active OpenAI-compatible image flow, including `oailike`
 - `/img` accepts per-request overrides such as `-n 2`, `-s 1536x1024`, `-m gpt-image-2`, `-q high`, `-f webp`, `-c 80`, `-bg transparent`, `-mod low`, and `-if high`
 - `/vision` sends one or more external `http(s)` image URLs through the vision chat path and requires `-p "..."` for the question
+- `/ocr` fetches external `http(s)` document URLs through the bot, rejects local/private-network targets, and routes the content through local text extraction or configured document OCR
 
 Telegram document notes:
 
@@ -575,6 +576,7 @@ Admin utility groups:
 - `chat`: private-chat LLM use plus `/help`, `/start`, `/new`, `/redo`, `/stop`, `/cancel`, and `/version`
 - `image`: `/img` and `/vision`
 - `audio`: `/stt` and `/tts`
+- `document`: `/ocr`
 - `settings`: `/set`, `/settings`, and settings callback operations
 - `inline`: Telegram inline-query access
 

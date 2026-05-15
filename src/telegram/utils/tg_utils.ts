@@ -2,6 +2,7 @@ import type * as Telegram from 'telegram-bot-api-types';
 import { canUseDocumentOcr } from '../../agent/document_ocr';
 import { ENV } from '../../config/env';
 import { log } from '../../log';
+import { isTextLikeDocumentInput } from '../../utils/document_input';
 import { createTelegramBotAPI } from '../api';
 
 export function isTelegramChatTypeGroup(type: string): boolean {
@@ -9,44 +10,6 @@ export function isTelegramChatTypeGroup(type: string): boolean {
 }
 
 type MsgType = 'text' | 'photo' | 'voice' | 'image' | 'audio' | 'document' | 'sticker' | 'video' | 'animation' | 'unknown' | 'unsupported';
-const TEXT_LIKE_DOCUMENT_MIME_TYPES = new Set([
-    'application/json',
-    'application/ld+json',
-    'application/x-ndjson',
-    'application/ndjson',
-    'application/toml',
-    'application/yaml',
-    'application/x-yaml',
-    'application/xml',
-]);
-const TEXT_LIKE_DOCUMENT_EXTENSIONS = new Set([
-    'txt',
-    'text',
-    'md',
-    'markdown',
-    'csv',
-    'tsv',
-    'json',
-    'jsonl',
-    'ndjson',
-    'yaml',
-    'yml',
-    'toml',
-    'xml',
-    'ini',
-    'cfg',
-    'conf',
-    'env',
-    'log',
-    'sql',
-    'bib',
-    'fb2',
-    'ipynb',
-    'opml',
-    'tex',
-    '1',
-    'man',
-]);
 export interface UnionData {
     type: MsgType;
     original_type?: MsgType;
@@ -252,7 +215,7 @@ export function extractMessageInfo(message: Telegram.Message, currentBotId: numb
     return messageData;
 }
 
-function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType {
+export function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType {
     const mediaType = mimeType?.toLowerCase() || '';
     const directSupport = mediaType.match(/^(audio|image|text|video)\//)?.[1];
     if (directSupport) {
@@ -261,11 +224,7 @@ function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType
     if (mediaType === 'application/pdf') {
         return 'document';
     }
-    if (TEXT_LIKE_DOCUMENT_MIME_TYPES.has(mediaType)) {
-        return 'text';
-    }
-    const extension = fileName?.split('.').pop()?.toLowerCase() || '';
-    if (TEXT_LIKE_DOCUMENT_EXTENSIONS.has(extension)) {
+    if (isTextLikeDocumentInput(mediaType, fileName)) {
         return 'text';
     }
     if (canUseDocumentOcr(mediaType, fileName)) {

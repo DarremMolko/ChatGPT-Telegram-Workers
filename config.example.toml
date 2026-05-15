@@ -77,7 +77,7 @@ OPENAI_TTS_VOICE = "alloy"
 # Optional static bootstrap admins. The owner can add more runtime admins later with /promote.
 # ADMIN_WHITE_LIST = "987654321"
 # Optional: restrict what admins can use. Supported values:
-# "chat", "image", "audio", "settings", "inline"
+# "chat", "image", "audio", "document", "settings", "inline"
 # ADMIN_AVAILABLE_UTILITIES = ["chat", "settings"]
 #
 # Optional: OCR supported documents to text through Mistral before sending them to the chat model.

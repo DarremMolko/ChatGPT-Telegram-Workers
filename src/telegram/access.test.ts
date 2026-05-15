@@ -17,7 +17,7 @@ const { redisMock, runtimeAdminStore } = vi.hoisted(() => {
 
 vi.mock('../config/env', () => ({
     ENV: {
-        ADMIN_AVAILABLE_UTILITIES: ['chat', 'image', 'audio', 'settings', 'inline'],
+        ADMIN_AVAILABLE_UTILITIES: ['chat', 'image', 'audio', 'document', 'settings', 'inline'],
         ADMIN_WHITE_LIST: ['2'],
         CHAT_GROUP_WHITE_LIST: ['100'],
         OWNER_ID: '1',
@@ -48,7 +48,7 @@ const {
 
 describe('telegram access', () => {
     beforeEach(() => {
-        ENV.ADMIN_AVAILABLE_UTILITIES = ['chat', 'image', 'audio', 'settings', 'inline'];
+        ENV.ADMIN_AVAILABLE_UTILITIES = ['chat', 'image', 'audio', 'document', 'settings', 'inline'];
         ENV.OWNER_ID = '1';
         ENV.ADMIN_WHITE_LIST = ['2'];
         ENV.CHAT_GROUP_WHITE_LIST = ['100'];
@@ -105,12 +105,13 @@ describe('telegram access', () => {
     });
 
     it('filters and enforces the configured admin utility list', async () => {
-        ENV.ADMIN_AVAILABLE_UTILITIES = ['chat', 'settings', 'invalid'];
+        ENV.ADMIN_AVAILABLE_UTILITIES = ['chat', 'document', 'settings', 'invalid'];
         await addRuntimeAdmin('3', '999:token');
 
-        expect(getAdminAvailableUtilities()).toEqual(['chat', 'settings']);
+        expect(getAdminAvailableUtilities()).toEqual(['chat', 'document', 'settings']);
         await expect(canUseAdminUtility(1, 'inline', '999:token')).resolves.toBe(true);
         await expect(canUseAdminUtility(3, 'chat', '999:token')).resolves.toBe(true);
+        await expect(canUseAdminUtility(3, 'document', '999:token')).resolves.toBe(true);
         await expect(canUseAdminUtility(3, 'image', '999:token')).resolves.toBe(false);
         await expect(canUseInlineQuery(3, '999:token')).resolves.toBe(false);
         await expect(canManageRuntimeConfig(3, 'OPENAI_CHAT_MODEL', '999:token')).resolves.toBe(true);

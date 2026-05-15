@@ -1,11 +1,14 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { chatWithLLMMock, getStatsMock, customInfoMock, getTelegramFileMock, loadHistoryMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sendMessageMock, sttMock, ttsMock } = vi.hoisted(() => {
+const { canUseDocumentOcrMock, chatWithLLMMock, getStatsMock, customInfoMock, extractDocumentTextMock, fetchMock, getTelegramFileMock, loadHistoryMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sendMessageMock, sttMock, supportsDocumentOcrInputMock, ttsMock } = vi.hoisted(() => {
     const store = new Map<string, string>();
     return {
+        canUseDocumentOcrMock: vi.fn(),
         chatWithLLMMock: vi.fn(),
         customInfoMock: vi.fn(),
+        extractDocumentTextMock: vi.fn(),
+        fetchMock: vi.fn(),
         getTelegramFileMock: vi.fn(),
         getStatsMock: vi.fn(),
         loadHistoryMock: vi.fn(),
@@ -23,6 +26,7 @@ const { chatWithLLMMock, getStatsMock, customInfoMock, getTelegramFileMock, load
         sendImagesMock: vi.fn(),
         sendMessageMock: vi.fn(async () => new Response('ok', { status: 200 })),
         sttMock: vi.fn(),
+        supportsDocumentOcrInputMock: vi.fn(),
         ttsMock: vi.fn(),
     };
 });
@@ -34,6 +38,12 @@ vi.mock('../../agent', () => ({
     TTS_AGENTS: [],
     customInfo: customInfoMock,
     loadImageGen: loadImageGenMock,
+}));
+
+vi.mock('../../agent/document_ocr', () => ({
+    canUseDocumentOcr: canUseDocumentOcrMock,
+    extractDocumentText: extractDocumentTextMock,
+    supportsDocumentOcrInput: supportsDocumentOcrInputMock,
 }));
 
 vi.mock('../../agent/api_base', () => ({
@@ -147,6 +157,8 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     };
 });
 
+vi.stubGlobal('fetch', fetchMock);
+
 const { customInfo } = await import('../../agent');
 const { getStats } = await import('../../utils/stats');
 const {
@@ -163,6 +175,7 @@ const {
     InlineCommandHandler,
     MapCommandHandler,
     NewCommandHandler,
+    OcrCommandHandler,
     PromoteCommandHandler,
     RedoCommandHandler,
     SetCommandHandler,
@@ -272,6 +285,7 @@ function createSender() {
 
 describe('tTSCommandHandler', () => {
     beforeEach(() => {
+        canUseDocumentOcrMock.mockReset();
         getTelegramFileMock.mockReset();
         loadImageGenMock.mockReset();
         loadHistoryMock.mockReset();
@@ -282,11 +296,16 @@ describe('tTSCommandHandler', () => {
         sendActionMock.mockReset();
         sendImagesMock.mockReset();
         sendMessageMock.mockReset();
+        supportsDocumentOcrInputMock.mockReset();
         sttMock.mockReset();
         ttsMock.mockReset();
         chatWithLLMMock.mockReset();
         getStatsMock.mockReset();
         customInfoMock.mockReset();
+        extractDocumentTextMock.mockReset();
+        fetchMock.mockReset();
+        canUseDocumentOcrMock.mockReturnValue(true);
+        supportsDocumentOcrInputMock.mockReturnValue(true);
     });
 
     it('renders /system as a callback-keyboard panel', async () => {
@@ -732,6 +751,161 @@ describe('tTSCommandHandler', () => {
         expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide the prompt with -p');
     });
 
+    it('ingests a document URL through OCR and sends the extracted text to the chat pipeline', async () => {
+        loadHistoryMock.mockResolvedValue([]);
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: {
+                get: vi.fn(() => 'application/pdf'),
+            },
+            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        });
+        extractDocumentTextMock.mockResolvedValue('Detected OCR text');
+        chatWithLLMMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr https://example.com/paper.pdf -p "summarize this"');
+        const sender = createSender();
+        const context = createContext();
+
+        const response = await handler.handle(message, 'https://example.com/paper.pdf -p "summarize this"', context, sender);
+
+        expect(response.ok).toBe(true);
+        expect(loadHistoryMock).toHaveBeenCalledWith('history:123:999', 5);
+        expect(extractDocumentTextMock).toHaveBeenCalledWith({
+            data: new Uint8Array([1, 2, 3]),
+            mimeType: 'application/pdf',
+            fileName: 'paper.pdf',
+        });
+        expect(chatWithLLMMock).toHaveBeenCalledWith(message, {
+            role: 'user',
+            content: 'summarize this\n\nDocument 1:\nFilename: paper.pdf\nMIME type: application/pdf\nDocument contents:\nDetected OCR text',
+        }, context, null);
+    });
+
+    it('uses a default summarize prompt for /ocr when -p is omitted', async () => {
+        loadHistoryMock.mockResolvedValue([]);
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: {
+                get: vi.fn(() => 'application/pdf'),
+            },
+            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        });
+        extractDocumentTextMock.mockResolvedValue('Detected OCR text');
+        chatWithLLMMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr https://example.com/paper.pdf');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/paper.pdf', context, sender);
+
+        expect(chatWithLLMMock).toHaveBeenCalledWith(message, {
+            role: 'user',
+            content: 'Please summarize this document.\n\nDocument 1:\nFilename: paper.pdf\nMIME type: application/pdf\nDocument contents:\nDetected OCR text',
+        }, context, null);
+    });
+
+    it('ingests text-like document URLs without requiring OCR extraction', async () => {
+        loadHistoryMock.mockResolvedValue([]);
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: {
+                get: vi.fn(() => 'text/plain'),
+            },
+            text: async () => 'raw text from file',
+        });
+        chatWithLLMMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr https://example.com/note.txt');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/note.txt', context, sender);
+
+        expect(extractDocumentTextMock).not.toHaveBeenCalled();
+        expect(chatWithLLMMock).toHaveBeenCalledWith(message, {
+            role: 'user',
+            content: 'Please summarize this document.\n\nDocument 1:\nFilename: note.txt\nMIME type: text/plain\nDocument contents:\nraw text from file',
+        }, context, null);
+    });
+
+    it('rejects /ocr without document URLs', async () => {
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr summarize this');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'summarize this', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide at least one document URL');
+    });
+
+    it('rejects /ocr when inline prompt text is provided instead of -p', async () => {
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr https://example.com/paper.pdf summarize this');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/paper.pdf summarize this', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide the prompt with -p');
+    });
+
+    it('rejects /ocr when -p is missing a value', async () => {
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr https://example.com/paper.pdf -p');
+        const sender = createSender();
+        const context = createContext();
+
+        await handler.handle(message, 'https://example.com/paper.pdf -p', context, sender);
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+        expect(sender.sendPlainText).toHaveBeenCalledWith('Please provide a prompt after -p');
+    });
+
+    it('rejects local or private-network document URLs for /ocr', async () => {
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr http://127.0.0.1/private.pdf');
+        const sender = createSender();
+        const context = createContext();
+
+        await expect(handler.handle(message, 'http://127.0.0.1/private.pdf', context, sender)).rejects.toThrow('Private-network document URLs are not allowed');
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects /ocr binary documents when OCR is disabled', async () => {
+        loadHistoryMock.mockResolvedValue([]);
+        canUseDocumentOcrMock.mockReturnValue(false);
+        fetchMock.mockResolvedValue({
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: {
+                get: vi.fn(() => 'application/pdf'),
+            },
+            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        });
+        const handler = new OcrCommandHandler();
+        const message = createMessage('/ocr https://example.com/paper.pdf');
+        const sender = createSender();
+        const context = createContext();
+
+        await expect(handler.handle(message, 'https://example.com/paper.pdf', context, sender)).rejects.toThrow('Document OCR is not configured for this file type. Set DOCUMENT_OCR_PROVIDER to enable /ocr for binary documents.');
+
+        expect(chatWithLLMMock).not.toHaveBeenCalled();
+    });
+
     it('promotes a replied user into the runtime admin list', async () => {
         const handler = new PromoteCommandHandler();
         const message = createMessage('/promote', 'Hello from reply');
@@ -840,6 +1014,7 @@ describe('command access matrix', () => {
             { handler: new EchoCommandHandler(), utility: 'chat' },
             { handler: new ImgCommandHandler(), utility: 'image' },
             { handler: new VisionCommandHandler(), utility: 'image' },
+            { handler: new OcrCommandHandler(), utility: 'document' },
             { handler: new STTCommandHandler(), utility: 'audio' },
             { handler: new TTSCommandHandler(), utility: 'audio' },
             { handler: new SetCommandHandler(), utility: 'settings' },

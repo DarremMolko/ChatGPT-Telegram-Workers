@@ -6,14 +6,17 @@ import type { WorkerContext } from '../../config/context';
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from '../utils/send';
 import type { CommandHandler, InlineItem, ScopeType } from './types';
+import { isIP } from 'node:net';
 import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadImageGen, TTS_AGENTS } from '../../agent';
 import { resolveProviderApiBase } from '../../agent/api_base';
 import { loadHistory } from '../../agent/chat';
+import { canUseDocumentOcr, extractDocumentText, supportsDocumentOcrInput } from '../../agent/document_ocr';
 import { updateModels } from '../../agent/models';
 import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log';
 import { updateMcp } from '../../mcp';
+import { isTextLikeDocumentInput } from '../../utils/document_input';
 import { formatLocalDateTime } from '../../utils/others/time';
 import { getStats } from '../../utils/stats';
 import { canManageRuntimeConfigForAccess, canViewSensitiveConfigForAccess, isOwner, isSensitiveRuntimeConfigKey, resolveRuntimeConfigAccessLevel, resolveUserAccess } from '../access';
@@ -478,6 +481,99 @@ function parseVisionUrlSubcommand(subcommand: string): { urls: string[]; remaini
     };
 }
 
+function normalizeContentType(value: string | null): string {
+    return `${value || ''}`.split(';')[0].trim().toLowerCase();
+}
+
+function inferFileNameFromUrl(value: string): string {
+    try {
+        const pathname = new URL(value).pathname;
+        const candidate = pathname.split('/').pop() || '';
+        return decodeURIComponent(candidate) || 'document';
+    } catch {
+        return 'document';
+    }
+}
+
+function isPrivateIpv4(hostname: string): boolean {
+    const octets = hostname.split('.').map(part => Number.parseInt(part, 10));
+    if (octets.length !== 4 || octets.some(octet => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+        return false;
+    }
+    return octets[0] === 10
+        || octets[0] === 127
+        || octets[0] === 0
+        || (octets[0] === 169 && octets[1] === 254)
+        || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+        || (octets[0] === 192 && octets[1] === 168);
+}
+
+function isPrivateIpv6(hostname: string): boolean {
+    const normalized = hostname.toLowerCase();
+    return normalized === '::1'
+        || normalized.startsWith('fc')
+        || normalized.startsWith('fd')
+        || normalized.startsWith('fe80:');
+}
+
+function validateExternalDocumentUrl(value: string): void {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '');
+    const normalizedHost = hostname.replace(/^\[|\]$/g, '');
+    const ipVersion = isIP(normalizedHost);
+
+    if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local')) {
+        throw new Error('Local document URLs are not allowed');
+    }
+    if ((ipVersion === 4 && isPrivateIpv4(normalizedHost)) || (ipVersion === 6 && isPrivateIpv6(normalizedHost))) {
+        throw new Error('Private-network document URLs are not allowed');
+    }
+}
+
+async function fetchExternalDocumentInput(url: string): Promise<{ fileName: string; mimeType: string; text?: string; data?: Uint8Array }> {
+    validateExternalDocumentUrl(url);
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to download document: ${response.status} ${response.statusText}`);
+    }
+    const mimeType = normalizeContentType(response.headers.get('content-type')) || 'application/octet-stream';
+    const fileName = inferFileNameFromUrl(url);
+
+    if (isTextLikeDocumentInput(mimeType, fileName)) {
+        return {
+            fileName,
+            mimeType,
+            text: await response.text(),
+        };
+    }
+
+    if (!supportsDocumentOcrInput(mimeType, fileName)) {
+        throw new Error(`Unsupported document type for /ocr: ${mimeType || fileName || 'unknown'}`);
+    }
+
+    return {
+        fileName,
+        mimeType,
+        data: new Uint8Array(await response.arrayBuffer()),
+    };
+}
+
+function buildOcrDocumentPrompt(documents: { fileName: string; mimeType: string; text: string }[], prompt: string): string {
+    const sections = documents.map((document, index) => [
+        `Document ${index + 1}:`,
+        `Filename: ${document.fileName}`,
+        document.mimeType ? `MIME type: ${document.mimeType}` : '',
+        'Document contents:',
+        document.text.trim(),
+    ].filter(Boolean).join('\n'));
+
+    return [prompt.trim(), ...sections].filter(Boolean).join('\n\n');
+}
+
+function buildDefaultOcrPrompt(count: number): string {
+    return count === 1 ? 'Please summarize this document.' : 'Please summarize these documents.';
+}
+
 async function initializeCommandHistory(context: WorkerContext): Promise<void> {
     if (ENV.STORE_HISTORY_LENGTH > 0 && context.SHARE_CONTEXT.chatHistoryKey) {
         context.MIDDLE_CONTEXT.history = await loadHistory(context.SHARE_CONTEXT.chatHistoryKey, ENV.STORE_HISTORY_LENGTH);
@@ -643,6 +739,71 @@ export class VisionCommandHandler implements CommandHandler {
                     image: new URL(url),
                 })),
             ],
+        };
+
+        await initializeCommandHistory(context);
+        return chatWithLLM(message, params, context, null) as unknown as Response;
+    };
+}
+
+export class OcrCommandHandler implements CommandHandler {
+    command = '/ocr';
+    scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
+    adminUtility = 'document' as const;
+    handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
+        const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
+            ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
+            : subcommand.trim();
+        const { flags, remainingText } = tokenizeVisionSubcommand(cleanedSubcommand);
+        let promptFlag: string | undefined;
+        for (const { flag, value } of flags) {
+            if (flag === 'p' || flag === 'prompt') {
+                if (value === undefined) {
+                    return sender.sendPlainText('Please provide a prompt after -p');
+                }
+                promptFlag = value;
+            }
+        }
+
+        const { urls, remainingText: inlinePrompt } = parseVisionUrlSubcommand(remainingText);
+        if (urls.length === 0) {
+            return sender.sendPlainText('Please provide at least one document URL');
+        }
+        if (inlinePrompt) {
+            return sender.sendPlainText('Please provide the prompt with -p');
+        }
+
+        const extractedDocuments = await Promise.all(urls.map(async (url) => {
+            const input = await fetchExternalDocumentInput(url);
+            if (typeof input.text === 'string') {
+                return {
+                    fileName: input.fileName,
+                    mimeType: input.mimeType,
+                    text: input.text,
+                };
+            }
+            if (!canUseDocumentOcr(input.mimeType, input.fileName)) {
+                throw new Error('Document OCR is not configured for this file type. Set DOCUMENT_OCR_PROVIDER to enable /ocr for binary documents.');
+            }
+            const extractedText = await extractDocumentText({
+                data: input.data || new Uint8Array(),
+                mimeType: input.mimeType,
+                fileName: input.fileName,
+            });
+            if (!extractedText?.trim()) {
+                throw new Error(`Failed to extract document text from ${input.fileName}`);
+            }
+            return {
+                fileName: input.fileName,
+                mimeType: input.mimeType,
+                text: extractedText.trim(),
+            };
+        }));
+
+        const params: LLMChatRequestParams = {
+            role: 'user',
+            content: buildOcrDocumentPrompt(extractedDocuments, promptFlag || buildDefaultOcrPrompt(extractedDocuments.length)),
         };
 
         await initializeCommandHistory(context);

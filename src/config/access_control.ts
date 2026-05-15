@@ -2,6 +2,7 @@ export const ADMIN_UTILITY_TYPES = [
     'chat',
     'image',
     'audio',
+    'document',
     'settings',
     'inline',
 ] as const;

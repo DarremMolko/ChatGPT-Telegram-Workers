@@ -199,13 +199,14 @@ The cron expression follows the local process timezone. In Docker, that means th
 
 Access summary:
 
-- `ADMIN_AVAILABLE_UTILITIES` controls admin-only utility groups: `chat`, `image`, `audio`, `settings`, and `inline`.
+- `ADMIN_AVAILABLE_UTILITIES` controls admin-only utility groups: `chat`, `image`, `audio`, `document`, `settings`, and `inline`.
 - `chat` covers private-chat LLM use plus `/help`, `/start`, `/new`, `/redo`, `/stop`, `/cancel`, and `/version`.
 - `image` covers `/img` and `/vision`.
 - `audio` covers `/stt` and `/tts`.
+- `document` covers `/ocr`.
 - `settings` covers `/set`, `/settings`, and settings callback updates.
 - `inline` covers Telegram inline-query usage.
-- Admins and the owner can use `/help`, `/start`, `/new`, `/redo`, `/stop`, `/img`, `/vision`, `/stt`, `/tts`, `/set`, `/settings`, and `/version`.
+- Admins and the owner can use `/help`, `/start`, `/new`, `/redo`, `/stop`, `/img`, `/vision`, `/ocr`, `/stt`, `/tts`, `/set`, `/settings`, and `/version`.
 - Only the owner can use `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, `/map`, `/system`, `/history`, `/promote`, `/demote`, `/block`, `/unblock`, and `/blocklist`.
 
 | Command | Purpose | Notes |
@@ -217,6 +218,7 @@ Access summary:
 | `/stop` | Stop the active response in the current chat scope | Cancels the current streamed reply |
 | `/img [-n count] [-s size] [-m model] <prompt>` | Generate an image | Also supports `-q`, `-f`, `-c`, `-bg`, `-mod`, and `-if`; reply to an image to edit it through the active OpenAI-compatible image provider |
 | `/vision <image_url> -p "question"` | Send image URLs to the vision model | You can include multiple `http(s)` image URLs, but the prompt must be supplied with `-p` |
+| `/ocr <document_url> [-p "question"]` | Ingest document URLs through the OCR/text path | Accepts one or more `http(s)` document URLs, rejects local/private-network targets, and defaults to a summarize prompt when `-p` is omitted |
 | `/stt` | Transcribe an audio or voice message | Use it as the audio caption or reply to an audio message |
 | `/tts [-v voice] [-i instructions] <text>` | Generate speech from text | Also works when you reply to a text message; `-i` sends TTS instructions on compatible models |
 | `/set ...` | Apply stored runtime config changes | Supports inline message continuation when followed by normal chat text |
