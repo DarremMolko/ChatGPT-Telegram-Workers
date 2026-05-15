@@ -71,6 +71,18 @@ export class RedisStore implements RedisStorage {
         }
         return this.redis.del(key);
     }
+
+    async close(): Promise<void> {
+        if (this.connectPromise) {
+            await this.connectPromise.catch(() => {});
+        }
+        if (!this.redis.isOpen) {
+            return;
+        }
+        await this.redis.quit().catch(async () => {
+            await this.redis.disconnect();
+        });
+    }
 }
 
 export function createRedisStorage(

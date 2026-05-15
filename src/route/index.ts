@@ -1,17 +1,19 @@
+import { LOCAL_POLLING_STATE } from '../adapter/local/polling_runtime';
 import { ENV } from '../config/env';
 import { commandsDocument } from '../telegram/command';
 import { Router } from '../utils/router';
 import { renderHTML } from './utils';
 
 function healthAction(): Response {
+    const snapshot = LOCAL_POLLING_STATE.getHealthSnapshot();
     return new Response(JSON.stringify({
-        ok: true,
+        ...snapshot,
         build: {
             sha: ENV.BUILD_VERSION,
             timestamp: ENV.BUILD_TIMESTAMP,
         },
     }), {
-        status: 200,
+        status: snapshot.ok ? 200 : 503,
         headers: {
             'Content-Type': 'application/json',
         },

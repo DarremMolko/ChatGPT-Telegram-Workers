@@ -2,6 +2,7 @@ export interface RedisStorage {
     get: (key: string | string[]) => Promise<string | any>;
     put: (key: string, value: string, info?: { expirationTtl?: number; expiration?: number; condition?: 'NX' | 'XX' }) => Promise<any>;
     delete: (key: string | string[]) => Promise<any>;
+    close?: () => Promise<void>;
 }
 
 export interface CommandConfig {
