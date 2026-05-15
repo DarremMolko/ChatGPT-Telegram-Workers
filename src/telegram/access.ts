@@ -1,3 +1,5 @@
+import type { AdminUtility } from '../config/access_control';
+import { ADMIN_UTILITY_TYPES } from '../config/access_control';
 import { ENV } from '../config/env';
 
 export type CommandAccessLevel = 'admin' | 'owner';
@@ -42,6 +44,8 @@ const OWNER_ONLY_RUNTIME_CONFIG_SUFFIXES = [
     'TOKEN',
     'URL',
 ];
+
+const DEFAULT_ADMIN_AVAILABLE_UTILITIES = [...ADMIN_UTILITY_TYPES];
 
 function normalizeId(id: number | string | null | undefined): string {
     if (id === null || id === undefined) {
@@ -146,6 +150,30 @@ export async function isPrivilegedUser(userId?: number | string | null, botIdOrT
     return (await resolveUserAccess(userId, botIdOrToken)).isAdmin;
 }
 
+export function getAdminAvailableUtilities(): AdminUtility[] {
+    const configured = Array.isArray(ENV.ADMIN_AVAILABLE_UTILITIES) ? ENV.ADMIN_AVAILABLE_UTILITIES : DEFAULT_ADMIN_AVAILABLE_UTILITIES;
+    return configured.filter((utility): utility is AdminUtility => ADMIN_UTILITY_TYPES.includes(utility as AdminUtility));
+}
+
+export function isAdminUtilityEnabled(utility: AdminUtility): boolean {
+    return getAdminAvailableUtilities().includes(utility);
+}
+
+export function canUseAdminUtilityForAccess(access: Pick<UserAccessState, 'isOwner' | 'isAdmin'>, utility: AdminUtility): boolean {
+    if (access.isOwner) {
+        return true;
+    }
+    return access.isAdmin && isAdminUtilityEnabled(utility);
+}
+
+export async function canUseAdminUtility(userId: number | string | null | undefined, utility: AdminUtility, botIdOrToken?: number | string | null): Promise<boolean> {
+    return canUseAdminUtilityForAccess(await resolveUserAccess(userId, botIdOrToken), utility);
+}
+
+export function describeAdminUtilityDisabled(utility: AdminUtility): string {
+    return `Permission denied, admin utility ${utility} is disabled`;
+}
+
 export function canUsePrivateChatForAccess(access: UserAccessState): boolean {
     return access.isAdmin;
 }
@@ -163,7 +191,7 @@ export async function canUseCommands(userId?: number | string | null, botIdOrTok
 }
 
 export function canUseInlineQueryForAccess(access: UserAccessState): boolean {
-    return access.isAdmin;
+    return canUseAdminUtilityForAccess(access, 'inline');
 }
 
 export async function canUseInlineQuery(userId?: number | string | null, botIdOrToken?: number | string | null): Promise<boolean> {
@@ -205,7 +233,7 @@ export function canManageRuntimeConfigForAccess(access: Pick<UserAccessState, 'i
     if (access.isOwner) {
         return true;
     }
-    return access.isAdmin && !isSensitiveRuntimeConfigKey(key);
+    return canUseAdminUtilityForAccess(access, 'settings') && !isSensitiveRuntimeConfigKey(key);
 }
 
 export async function canManageRuntimeConfig(userId: number | string | null | undefined, key: string, botIdOrToken?: number | string | null): Promise<boolean> {

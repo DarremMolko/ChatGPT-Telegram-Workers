@@ -831,24 +831,25 @@ describe('tTSCommandHandler', () => {
 describe('command access matrix', () => {
     it('declares explicit auth for admin-access commands', () => {
         const handlers = [
-            new StartCommandHandler(),
-            new HelpCommandHandler(),
-            new NewCommandHandler(),
-            new RedoCommandHandler(),
-            new StopCommandHandler(),
-            new CancelCommandHandler(),
-            new EchoCommandHandler(),
-            new ImgCommandHandler(),
-            new VisionCommandHandler(),
-            new STTCommandHandler(),
-            new TTSCommandHandler(),
-            new SetCommandHandler(),
-            new InlineCommandHandler(),
-            new VersionCommandHandler(),
+            { handler: new StartCommandHandler(), utility: 'chat' },
+            { handler: new HelpCommandHandler(), utility: 'chat' },
+            { handler: new NewCommandHandler(), utility: 'chat' },
+            { handler: new RedoCommandHandler(), utility: 'chat' },
+            { handler: new StopCommandHandler(), utility: 'chat' },
+            { handler: new CancelCommandHandler(), utility: 'chat' },
+            { handler: new EchoCommandHandler(), utility: 'chat' },
+            { handler: new ImgCommandHandler(), utility: 'image' },
+            { handler: new VisionCommandHandler(), utility: 'image' },
+            { handler: new STTCommandHandler(), utility: 'audio' },
+            { handler: new TTSCommandHandler(), utility: 'audio' },
+            { handler: new SetCommandHandler(), utility: 'settings' },
+            { handler: new InlineCommandHandler(), utility: 'settings' },
+            { handler: new VersionCommandHandler(), utility: 'chat' },
         ];
 
-        for (const handler of handlers) {
+        for (const { handler, utility } of handlers) {
             expect(handler.needAuth?.('private'), `expected ${handler.command} to require admin access`).toEqual(['admin']);
+            expect(handler.adminUtility, `expected ${handler.command} to declare an admin utility`).toBe(utility);
         }
     });
 

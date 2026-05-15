@@ -1,4 +1,5 @@
 import type { LogLevelType } from './types';
+import { ADMIN_UTILITY_TYPES } from './access_control';
 
 export class EnvironmentConfig {
     // Chat Complete API Timeout, scale: seconds
@@ -29,6 +30,8 @@ export class EnvironmentConfig {
     OWNER_ID = '';
     // Additional runtime admins. They can chat in private and use non-sensitive runtime controls.
     ADMIN_WHITE_LIST: string[] = [];
+    // Utility categories available to admins. The owner always keeps full access.
+    ADMIN_AVAILABLE_UTILITIES: string[] = [...ADMIN_UTILITY_TYPES];
 
     // -- Group chat settings --
     //

@@ -5,7 +5,7 @@ import type { UnionData } from '../utils/tg_utils';
 import type { CommandHandler } from './types';
 import { ENV } from '../../config/env';
 import { log } from '../../log/logger';
-import { describeCommandAccess, hasCommandAccess, resolveCommandAccess } from '../access';
+import { canUseAdminUtilityForAccess, describeAdminUtilityDisabled, describeCommandAccess, resolveCommandAccess, resolveUserAccess } from '../access';
 import { MessageSender } from '../utils/send';
 import { sendCommandError } from './error';
 import {
@@ -170,8 +170,17 @@ export function commandsDocument(): { description: string; command: string }[] {
 export async function authChecker(command: CommandHandler, message: Telegram.Message, _context: WorkerContext) {
     const userId = message.from?.id ?? message.chat?.id;
     const accessLevel = resolveCommandAccess(command.needAuth?.(message.chat?.type ?? 'private'));
-    if (await hasCommandAccess(userId, accessLevel, _context.SHARE_CONTEXT.botId)) {
-        return;
+    const access = await resolveUserAccess(userId, _context.SHARE_CONTEXT.botId);
+    if (accessLevel === 'owner') {
+        if (access.isOwner) {
+            return;
+        }
+        throw new Error(`Permission denied, need ${describeCommandAccess(accessLevel)}`);
     }
-    throw new Error(`Permission denied, need ${describeCommandAccess(accessLevel)}`);
+    if (!access.isAdmin) {
+        throw new Error(`Permission denied, need ${describeCommandAccess(accessLevel)}`);
+    }
+    if (command.adminUtility && !canUseAdminUtilityForAccess(access, command.adminUtility)) {
+        throw new Error(describeAdminUtilityDisabled(command.adminUtility));
+    }
 }

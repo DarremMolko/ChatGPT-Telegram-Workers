@@ -6,7 +6,7 @@ import type { ChosenInlineQueryHandler, InlineQueryHandler } from './types';
 import { loadChatLLM } from '../../agent';
 import { resolveSystemMessage } from '../../agent/chat';
 import { log } from '../../log/logger';
-import { canUseCommands, canUseInlineQuery } from '../access';
+import { canUseAdminUtilityForAccess, canUseInlineQuery, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { SetCommandHandler } from '../command/system';
 import { catchError } from '../handler';
@@ -58,6 +58,11 @@ export class AnswerChatInlineQuery implements AnswerInlineQueryType {
         const message = { text: question } as unknown as Telegram.Message;
         substituteMessage(message, context.USER_CONFIG.MESSAGE_REPLACER);
         if (message.text?.startsWith('/set ')) {
+            const access = await resolveUserAccess(chosenInline.from.id, context.botToken);
+            if (!canUseAdminUtilityForAccess(access, 'settings')) {
+                await sender.sendPlainText(describeAdminUtilityDisabled('settings'), 'tip');
+                return '';
+            }
             const resp = await new SetCommandHandler().handle(message, message.text.substring(5).trim(), context as unknown as WorkerContext, sender);
             if (resp instanceof Response) {
                 return '';
@@ -166,7 +171,7 @@ export class HandlerInlineQuery implements InlineQueryHandler<InlineQueryContext
 
 export class AnswerInlineQuery implements ChosenInlineQueryHandler<ChosenInlineWorkerContext> {
     handle = async (chosenInline: Telegram.ChosenInlineResult, context: ChosenInlineWorkerContext): Promise<Response | null> => {
-        if (!await canUseCommands(chosenInline.from.id, context.botToken)) {
+        if (!await canUseInlineQuery(chosenInline.from.id, context.botToken)) {
             return new Response('Not authorized', { status: 403 });
         }
         const answer = new AnswerChatInlineQuery();

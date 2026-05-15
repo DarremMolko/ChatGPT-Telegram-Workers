@@ -2,6 +2,7 @@ import type { CommandConfig, MCPTransport, RedisStorage } from './types';
 import { execSync } from 'node:child_process';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
+import { ADMIN_UTILITY_TYPES } from './access_control';
 import { AgentShareConfig } from './agent_share_config';
 import { DefineKeys } from './define_keys';
 import { EnvironmentConfig } from './environment_config';
@@ -33,6 +34,7 @@ const SUPPORTED_IMAGE_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_CHAT_CONCURRENCY_POLICIES = new Set(['queue', 'cancel_previous', 'drop_if_busy', 'parallel']);
+const SUPPORTED_ADMIN_UTILITIES = new Set<string>(ADMIN_UTILITY_TYPES);
 
 function resolveRuntimeBuildInfo(): { sha: string; timestamp: number } {
     const envSha = process.env.BUILD_VERSION?.trim();
@@ -147,6 +149,9 @@ class Environment extends EnvironmentConfig {
     private normalizeConfig() {
         this.OWNER_ID = `${this.OWNER_ID || ''}`.trim();
         this.ADMIN_WHITE_LIST = Array.from(new Set(this.ADMIN_WHITE_LIST.map((id: string) => `${id}`.trim()).filter(Boolean)));
+        this.ADMIN_AVAILABLE_UTILITIES = Array.from(new Set(
+            this.ADMIN_AVAILABLE_UTILITIES.map((utility: string) => `${utility}`.trim()).filter(Boolean),
+        )).filter((utility: string) => SUPPORTED_ADMIN_UTILITIES.has(utility));
         this.TELEGRAM_ALLOWED_UPDATES = Array.from(new Set(this.TELEGRAM_ALLOWED_UPDATES.map((type: string) => `${type}`.trim()).filter(Boolean)));
         if (!SUPPORTED_CHAT_CONCURRENCY_POLICIES.has(this.CHAT_CONCURRENCY_POLICY)) {
             this.CHAT_CONCURRENCY_POLICY = 'queue';

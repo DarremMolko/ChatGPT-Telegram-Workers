@@ -63,6 +63,7 @@ Important:
 
 - `OWNER_ID` has full access to sensitive commands and runtime settings
 - `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add extra runtime admins with `/promote`
+- `ADMIN_AVAILABLE_UTILITIES` can restrict which utility groups admins are allowed to use, while the owner keeps full access
 - admins use `/set` and `/settings` for non-sensitive per-chat controls, while `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` remain owner-only
 - deployment-only settings still come from process env or optional `config.toml`
 - not every environment key is editable at runtime
@@ -94,6 +95,7 @@ Important:
 | `TELEGRAM_AVAILABLE_TOKENS` | Comma-separated or array-form Telegram bot tokens. | `[]` |
 | `OWNER_ID` | User ID with full access to sensitive commands and runtime settings. | `''` |
 | `ADMIN_WHITE_LIST` | Static admin user IDs allowed to use private chats, commands, and non-sensitive runtime controls. | `[]` |
+| `ADMIN_AVAILABLE_UTILITIES` | Admin utility whitelist. Supported values: `chat`, `image`, `audio`, `settings`, `inline`. The owner always keeps full access. | all supported values |
 | `REDIS_URL` | Required native Redis connection URL. Prefer `rediss://` for hosted Redis with TLS. | `''` |
 | `OPENAI_API_KEY` | OpenAI API key list. Required when any OpenAI capability is used. | `[]` |
 | `OAILIKE_API_KEY` | OpenAI-compatible API key. Required when `oailike` is used. | `null` |
@@ -545,6 +547,14 @@ Two environment keys shape that UI:
 | `CALLBACK_MENU` | Restrict which top-level setting groups appear in `/settings`. | `[]` |
 
 Admins can browse the full stored user-config key list they are allowed to manage through the `Envs` picker. The owner still sees sensitive values and controls. Use `/set` and `/settings` for the admin-safe surface; keep `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` for owner-operated raw config changes.
+
+Admin utility groups:
+
+- `chat`: private-chat LLM use plus `/help`, `/start`, `/new`, `/redo`, `/stop`, `/cancel`, and `/version`
+- `image`: `/img` and `/vision`
+- `audio`: `/stt` and `/tts`
+- `settings`: `/set`, `/settings`, and settings callback operations
+- `inline`: Telegram inline-query access
 
 ## `/set` Shortcuts
 

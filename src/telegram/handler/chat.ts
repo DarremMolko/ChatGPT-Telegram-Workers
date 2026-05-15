@@ -12,6 +12,7 @@ import { ENV } from '../../config/env';
 import { clearLog, getLog, log } from '../../log';
 import { isUserCancelledSignal } from '../../utils/abort';
 import { formatErrorAsMarkdown } from '../../utils/error';
+import { canUseAdminUtilityForAccess, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
 import { fileUrlToBase64Message, mergeLogMessages, sendImages, stt, tts } from '../utils/media';
@@ -122,6 +123,12 @@ export async function chatWithLLM(
 export class ChatHandler implements MessageHandler<WorkerContext> {
     handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
         const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
+        if (message.chat.type === 'private') {
+            const access = await resolveUserAccess(message.from?.id ?? message.chat.id, context.SHARE_CONTEXT.botId);
+            if (!canUseAdminUtilityForAccess(access, 'chat')) {
+                return sender.sendPlainText(describeAdminUtilityDisabled('chat'), 'tip');
+            }
+        }
         const streamSender = await messageInitialize(sender, context, message);
         try {
             log.info(`message type: ${context.MIDDLE_CONTEXT.messageInfo.type}`);

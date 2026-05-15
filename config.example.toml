@@ -76,6 +76,9 @@ OPENAI_TTS_VOICE = "alloy"
 # -----------------------------------------------------------------------------
 # Optional static bootstrap admins. The owner can add more runtime admins later with /promote.
 # ADMIN_WHITE_LIST = "987654321"
+# Optional: restrict what admins can use. Supported values:
+# "chat", "image", "audio", "settings", "inline"
+# ADMIN_AVAILABLE_UTILITIES = ["chat", "settings"]
 
 # -----------------------------------------------------------------------------
 # 6. Common Optional Runtime Tweaks

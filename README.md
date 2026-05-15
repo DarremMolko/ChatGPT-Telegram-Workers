@@ -42,7 +42,7 @@ There are two configuration layers:
    - Modified through `/set`, `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/settings`
    - Covers provider choice, model choice, MCP selection, tool model, temperatures, output modes, and similar chat-level behavior
 
-`OWNER_ID` has full control over sensitive commands and runtime settings. `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add or remove extra runtime admins with `/promote` and `/demote`. Admins can use commands, inline queries, and non-sensitive per-chat runtime controls such as `/set` and `/settings`. Raw stored-config commands such as `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` remain owner-only. Users outside both lists can only chat with the bot in allowlisted groups and cannot use commands or private chats.
+`OWNER_ID` has full control over sensitive commands and runtime settings. `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add or remove extra runtime admins with `/promote` and `/demote`. `ADMIN_AVAILABLE_UTILITIES` optionally narrows which utility categories admins can use, while the owner keeps full access. Admins can use commands, inline queries, and non-sensitive per-chat runtime controls such as `/set` and `/settings` when those utility groups are enabled. Raw stored-config commands such as `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` remain owner-only. Users outside both lists can only chat with the bot in allowlisted groups and cannot use commands or private chats.
 
 ## Quick Start
 
@@ -184,6 +184,12 @@ The cron expression follows the local process timezone. In Docker, that means th
 
 Access summary:
 
+- `ADMIN_AVAILABLE_UTILITIES` controls admin-only utility groups: `chat`, `image`, `audio`, `settings`, and `inline`.
+- `chat` covers private-chat LLM use plus `/help`, `/start`, `/new`, `/redo`, `/stop`, `/cancel`, and `/version`.
+- `image` covers `/img` and `/vision`.
+- `audio` covers `/stt` and `/tts`.
+- `settings` covers `/set`, `/settings`, and settings callback updates.
+- `inline` covers Telegram inline-query usage.
 - Admins and the owner can use `/help`, `/start`, `/new`, `/redo`, `/stop`, `/img`, `/vision`, `/stt`, `/tts`, `/set`, `/settings`, and `/version`.
 - Only the owner can use `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, `/map`, `/system`, `/history`, `/promote`, `/demote`, `/block`, `/unblock`, and `/blocklist`.
 

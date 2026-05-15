@@ -26,6 +26,7 @@ export class TTSCommandHandler implements CommandHandler {
     command = '/tts';
     scopes: Array<'all_private_chats' | 'all_chat_administrators'> = ['all_private_chats', 'all_chat_administrators'];
     needAuth = () => ['admin'];
+    adminUtility = 'audio' as const;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
             ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
@@ -73,6 +74,7 @@ export class STTCommandHandler implements CommandHandler {
     command = '/stt';
     scopes: Array<'all_private_chats' | 'all_chat_administrators'> = ['all_private_chats', 'all_chat_administrators'];
     needAuth = () => ['admin'];
+    adminUtility = 'audio' as const;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
             ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)

@@ -8,7 +8,7 @@ import { WorkerContextBase } from '../../config/context';
 import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log/logger';
-import { canManageRuntimeConfigForAccess, canUseCommandsForAccess, canViewSensitiveConfigForAccess, resolveUserAccess } from '../access';
+import { canManageRuntimeConfigForAccess, canUseAdminUtilityForAccess, canViewSensitiveConfigForAccess, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
 import { buildSystemInlineKeyboard, InlineCommandHandler, parseSystemPanelCallback, renderSystemPanel } from '../command/system';
 import { catchError } from '../handler';
@@ -29,8 +29,8 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
             return this.sendAlert(api, context.query_id, `⚠️ This is not your operation`, true);
         }
         const access = await resolveUserAccess(query.from?.id, context.SHARE_CONTEXT.botId);
-        if (!canUseCommandsForAccess(access)) {
-            return this.sendAlert(api, context.query_id, '⚠️ You are not allowed to use settings', true);
+        if (!canUseAdminUtilityForAccess(access, 'settings')) {
+            return this.sendAlert(api, context.query_id, `⚠️ ${describeAdminUtilityDisabled('settings')}`, true);
         }
         // Unsupported callback query type.
         if (!query.data || !(query.message as Telegram.Message)?.reply_markup) {

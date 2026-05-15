@@ -26,9 +26,14 @@ vi.mock('../../log/logger', () => ({
 }));
 
 vi.mock('../access', () => ({
+    canUseAdminUtilityForAccess: vi.fn(() => true),
     describeCommandAccess: vi.fn(() => 'admin'),
-    hasCommandAccess: vi.fn(async () => true),
     resolveCommandAccess: vi.fn(value => value),
+    resolveUserAccess: vi.fn(async () => ({
+        isAdmin: true,
+        isOwner: false,
+        userId: '456',
+    })),
 }));
 
 vi.mock('../utils/send', () => ({
