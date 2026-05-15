@@ -10,7 +10,7 @@ import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log/logger';
 import { canManageRuntimeConfigForAccess, canUseCommandsForAccess, canViewSensitiveConfigForAccess, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
-import { buildSystemInlineKeyboard, getSettingsToggleSelectionLabel, InlineCommandHandler, isSettingsToggleKey, parseSystemPanelCallback, renderSystemPanel, resolveSettingsToggleMutation } from '../command/system';
+import { buildSystemInlineKeyboard, InlineCommandHandler, parseSystemPanelCallback, renderSystemPanel } from '../command/system';
 import { catchError } from '../handler';
 import { EnvChecker, InitUserConfig } from '../handler/handlers';
 import { buildRenderedTextParams } from '../utils/send';
@@ -122,28 +122,6 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         }
         const oldValue = context.USER_CONFIG[configKey];
         const newValue = dataList[newCallBack];
-        if (isSettingsToggleKey(configKey)) {
-            const mutation = resolveSettingsToggleMutation(configKey, newValue);
-            if (!mutation) {
-                throw new Error(`Unsupported toggle value for ${configKey}`);
-            }
-            const wasDefined = context.USER_CONFIG.DEFINE_KEYS.includes(configKey);
-            if (oldValue === mutation.value && wasDefined === mutation.isDefined) {
-                return;
-            }
-            context.USER_CONFIG[configKey] = mutation.value;
-            if (mutation.isDefined) {
-                if (!context.USER_CONFIG.DEFINE_KEYS.includes(configKey)) {
-                    context.USER_CONFIG.DEFINE_KEYS.push(configKey);
-                }
-            } else {
-                context.USER_CONFIG.DEFINE_KEYS = context.USER_CONFIG.DEFINE_KEYS.filter(key => key !== configKey);
-            }
-            log.info(`[CALLBACK QUERY] Update toggle config: ${configKey} = ${context.USER_CONFIG[configKey]} (defined=${mutation.isDefined})`);
-            await ENV.REDIS.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(ConfigMerger.trim(context.USER_CONFIG))).catch(console.error);
-            this.sendAlert(api, context.query_id, '✅ Data update successful', false);
-            return;
-        }
         const type = Array.isArray(oldValue) ? 'array' : typeof oldValue;
         switch (type) {
             case 'string':
@@ -192,9 +170,6 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
 
     private constructInlineList({ path, data, label, key, config, callbackData, pageIndex, pageNum, col, callback }: { path: number[]; data: (string | InlineItem)[]; label?: string; key?: string; config: AgentUserConfig; callbackData: number | string; pageIndex: number; pageNum: number; col: number; callback?: (...args: any[]) => Promise<string[]> }): Telegram.InlineKeyboardButton[][] {
         const isSelected = (item: string | InlineItem, index: number) => {
-            if (key && isSettingsToggleKey(key) && typeof item === 'string') {
-                return getSettingsToggleSelectionLabel(config, key) === item ? '✅' : '';
-            }
             // Single-select
             if ((key && callbackData === index && !Array.isArray(config[key]))
                 || (key && config[key] === item)

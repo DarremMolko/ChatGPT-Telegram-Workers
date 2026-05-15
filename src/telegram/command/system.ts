@@ -66,57 +66,6 @@ const SYSTEM_PANEL_LABELS: Record<SystemPanelSection, string> = {
     share_context: 'Share Ctx',
 };
 
-export const SETTINGS_TOGGLE_OPTIONS = ['On', 'Off', 'Default'] as const;
-export const SETTINGS_TOGGLE_LABELS = {
-    DISABLE_WEB_PREVIEW: 'Disable Web Preview',
-    ENABLE_SEARCH_SOURCE: 'Enable Search Source',
-    EXPANDABLE_BANNER: 'Expandable Banner',
-    EXPANDABLE_THINKING: 'Expandable Thinking',
-    GROUP_INCLUDE_USERNAME: 'Group Include Username',
-    QUOTE_EXPANDABLE: 'Quote Expandable',
-    SEND_IMAGE_AS_FILE: 'Send Image As File',
-    SHOW_THINKING_TEXT: 'Show Thinking Text',
-    STREAM_MODE: 'Stream Mode',
-} as const;
-
-export type SettingsToggleKey = keyof typeof SETTINGS_TOGGLE_LABELS;
-
-const SETTINGS_TOGGLE_KEY_SET = new Set<string>(Object.keys(SETTINGS_TOGGLE_LABELS));
-
-export function isSettingsToggleKey(key: string): key is SettingsToggleKey {
-    return SETTINGS_TOGGLE_KEY_SET.has(key);
-}
-
-export function getSettingsToggleSelectionLabel(config: AgentUserConfig, key: SettingsToggleKey): typeof SETTINGS_TOGGLE_OPTIONS[number] {
-    if (!config.DEFINE_KEYS.includes(key)) {
-        return 'Default';
-    }
-    return config[key] === true ? 'On' : 'Off';
-}
-
-export function resolveSettingsToggleMutation(configKey: SettingsToggleKey, selection: string): { value: boolean; isDefined: boolean } | null {
-    if (selection === 'On') {
-        return { value: true, isDefined: true };
-    }
-    if (selection === 'Off') {
-        return { value: false, isDefined: true };
-    }
-    if (selection === 'Default') {
-        return { value: Boolean(ENV.USER_CONFIG[configKey]), isDefined: false };
-    }
-    return null;
-}
-
-function formatSettingsValue(value: unknown): string {
-    if (value === undefined || value === null || value === '') {
-        return 'Null';
-    }
-    if (typeof value === 'string') {
-        return value;
-    }
-    return JSON.stringify(value);
-}
-
 function isSystemPanelSection(value: string): value is SystemPanelSection {
     return value in SYSTEM_PANEL_LABELS;
 }
@@ -1141,16 +1090,7 @@ export class InlineCommandHandler implements CommandHandler {
         const envs = (showSensitiveValues
             ? Object.keys(context)
             : (ENV.ENVS_VARIABLES.length === 0 ? Object.keys(context) : ENV.ENVS_VARIABLES)
-                    .filter(key => canManageRuntimeConfigForAccess(access, key)))
-            .filter(key => !isSettingsToggleKey(key));
-        const toggles: InlineItem[] = (Object.entries(SETTINGS_TOGGLE_LABELS) as Array<[SettingsToggleKey, string]>)
-            .filter(([key]) => Object.hasOwn(context, key) && canManageRuntimeConfigForAccess(access, key))
-            .map(([key, label]) => ({
-                label,
-                config_key: key,
-                type: 'radio' as const,
-                value: [...SETTINGS_TOGGLE_OPTIONS],
-            }));
+                    .filter(key => canManageRuntimeConfigForAccess(access, key)));
         const inlines: InlineItem[] = [
             {
                 label: 'Chat Agent',
@@ -1201,12 +1141,6 @@ export class InlineCommandHandler implements CommandHandler {
                 value: envs,
             },
             {
-                label: 'Toggles',
-                config_key: '',
-                type: 'radio',
-                value: toggles,
-            },
-            {
                 label: 'Text Handler',
                 config_key: '',
                 type: 'radio',
@@ -1251,10 +1185,8 @@ export class InlineCommandHandler implements CommandHandler {
             if (inline.config_key === 'ENVS') {
                 return inline.value.length > 0;
             }
-            if (inline.config_key === '') {
-                return inline.value.length > 0;
-            }
-            return canManageRuntimeConfigForAccess(access, inline.config_key);
+            return inline.config_key === ''
+                || canManageRuntimeConfigForAccess(access, inline.config_key);
         });
         const result = (ENV.CALLBACK_MENU.length === 0 ? filteredInlines.sort((a, b) => a.label.localeCompare(b.label)) : ENV.CALLBACK_MENU.map(key => filteredInlines.find(inline => inline.config_key.endsWith(key))).filter(Boolean) as InlineItem[]);
         return result;
@@ -1263,12 +1195,13 @@ export class InlineCommandHandler implements CommandHandler {
     settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack, showSensitiveValues = false }: { key?: string; callBack: string | InlineItem; showSensitiveValues?: boolean }) => {
         let settingMsg = 'Current configuration:\n\n';
         settingMsg += `${inlines.map(({ label, config_key }) => {
-            return Object.hasOwn(context, config_key) ? `\`${label}: ${formatSettingsValue(context[config_key])}\`` : '';
+            return Object.hasOwn(context, config_key) ? `\`${label}: ${context[config_key] || 'Null'}\`` : '';
         }).filter(Boolean).join('\n')}`;
         let configValue = '';
         if (key && typeof callBack === 'string') {
             const newKey = key === 'ENVS' ? callBack : key;
-            configValue = formatSettingsValue(context[newKey]);
+            configValue = context[newKey] || '';
+            (typeof configValue !== 'string') && (configValue = JSON.stringify(configValue));
             if (!showSensitiveValues && isSensitiveEnvKey(newKey)) {
                 configValue = `${configValue.slice(0, 5)}********${configValue.slice(-2)}`;
             } else if (!showSensitiveValues && (newKey.endsWith('URL') || newKey.endsWith('BASE'))) {
@@ -1278,7 +1211,7 @@ export class InlineCommandHandler implements CommandHandler {
 
         if (key === 'ENVS' && typeof callBack === 'string') {
             settingMsg += `\n\nSelected variable: \`${callBack || 'None'}\``
-                + `\n\nCurrent value: \`${configValue || 'None'}\``
+                + `\n\nCurrent value: \`${configValue ?? 'None'}\``
                 + `\n\n**Tip: Select a variable and reply to this message with the new value.**\n`;
         } else if (key) {
             settingMsg += `\n\nSelected setting: \`${key}\`\nCurrent value: \`${configValue}\``;
