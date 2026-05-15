@@ -13,7 +13,9 @@ vi.mock('../../config/env', () => ({
         DEV_MODE: false,
         I18N: {
             command: {
-                help: {},
+                help: {
+                    start: 'Start a conversation',
+                },
             },
         },
     },
@@ -51,6 +53,12 @@ vi.mock('./system', () => {
         handle = vi.fn(async () => null);
     }
 
+    class StartCommandHandler {
+        command = '/start';
+        scopes = ['all_private_chats'];
+        handle = vi.fn(async () => null);
+    }
+
     class TTSCommandHandler {
         command = '/tts';
         relaxAuth = true;
@@ -77,7 +85,7 @@ vi.mock('./system', () => {
         SetCommandHandler: DummyCommand,
         SetEnvCommandHandler: DummyCommand,
         SetEnvsCommandHandler: DummyCommand,
-        StartCommandHandler: DummyCommand,
+        StartCommandHandler,
         StopCommandHandler: DummyCommand,
         STTCommandHandler: DummyCommand,
         SystemCommandHandler: DummyCommand,
@@ -88,7 +96,8 @@ vi.mock('./system', () => {
     };
 });
 
-const { handleCommandMessage } = await import('./index');
+const { ENV } = await import('../../config/env');
+const { commandsBindScope, handleCommandMessage } = await import('./index');
 
 function createMessage(text: string): Telegram.Message {
     return {
@@ -118,6 +127,7 @@ function createContext() {
 
 describe('handleCommandMessage', () => {
     beforeEach(() => {
+        (ENV as any).CUSTOM_COMMAND = {};
         sendPlainTextMock.mockClear();
         sendRichTextMock.mockClear();
         ttsHandleMock.mockReset();
@@ -132,5 +142,28 @@ describe('handleCommandMessage', () => {
         expect(ttsHandleMock).toHaveBeenCalledTimes(1);
         expect(sendRichTextMock).toHaveBeenCalledWith('```\nError\nvoice invalid\n```', undefined, 'tip');
         await expect((response as Response).text()).resolves.toBe('```\nError\nvoice invalid\n```');
+    });
+
+    it('publishes Telegram command names without a leading slash', () => {
+        (ENV as any).CUSTOM_COMMAND = {
+            '/hello': {
+                description: 'Say hello',
+                scope: ['all_private_chats'],
+                value: '/start',
+            },
+        };
+
+        const result = commandsBindScope();
+
+        expect(result.all_private_chats.commands).toEqual(expect.arrayContaining([
+            {
+                command: 'start',
+                description: 'Start a conversation',
+            },
+            {
+                command: 'hello',
+                description: 'Say hello',
+            },
+        ]));
     });
 });

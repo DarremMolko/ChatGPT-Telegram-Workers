@@ -6,6 +6,7 @@ import { ENV } from '../../config/env';
 import { createRouter } from '../../route/index';
 import { createTelegramBotAPI } from '../../telegram/api';
 import { resolveTelegramAllowedUpdates } from '../../telegram/api/options';
+import { commandsBindScope } from '../../telegram/command';
 import { handleUpdate } from '../../telegram/handler';
 import { createRedisStorage } from '../../utils/cache/redis_store';
 import { applyProxy, loadLocalEnv, resolveLocalConfig } from './env';
@@ -42,6 +43,24 @@ async function stopServer(server: Server | undefined): Promise<void> {
     });
 }
 
+async function registerTelegramCommands(api: TelegramBotAPI, username: string): Promise<void> {
+    const scopedCommands = Object.values(commandsBindScope());
+    for (const params of scopedCommands) {
+        if ((params.commands || []).length === 0) {
+            continue;
+        }
+        const scopeType = params.scope?.type || 'default';
+        try {
+            const result = await api.requestJSON('setMyCommands', params) as { ok?: boolean };
+            if (!result?.ok) {
+                console.warn(`[COMMANDS] Failed to register commands for @${username} scope ${scopeType}.`);
+            }
+        } catch (error) {
+            console.warn(`[COMMANDS] Failed to register commands for @${username} scope ${scopeType}:`, error);
+        }
+    }
+}
+
 async function startPolling() {
     const clients: Record<string, TelegramBotAPI> = {};
     const offset: Record<string, number> = {};
@@ -63,6 +82,7 @@ async function startPolling() {
         const username = name.result.username || token.split(':')[0] || 'unknown_bot';
         LOCAL_POLLING_STATE.registerToken(token, username);
         await api.deleteWebhook();
+        await registerTelegramCommands(api, username);
         console.log(`@${username} existing webhook deleted, polling started.`);
     }
 

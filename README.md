@@ -138,6 +138,7 @@ npm run start:local
 ```
 
 The local runtime always uses Telegram polling. On startup it clears any previously configured webhook for each bot token, then begins `getUpdates`.
+It also registers the scoped bot command list with Telegram automatically, so the in-app command menu stays aligned with the commands defined in code.
 
 Set `LOCAL_PORT` or `PORT` if you want the optional local HTTP server with:
 

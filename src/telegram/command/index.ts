@@ -67,6 +67,10 @@ const SYSTEM_COMMANDS: CommandHandler[] = [
     new BlocklistCommandHandler(),
 ];
 
+function toTelegramCommandName(command: string): string {
+    return command.trim().replace(/^\//, '');
+}
+
 async function handleSystemCommand(message: Telegram.Message, raw: string, command: CommandHandler, context: WorkerContext): Promise<Response | UnionData | ImageResult | null> {
     const sender = MessageSender.from(context.SHARE_CONTEXT.botToken, message);
     try {
@@ -129,7 +133,7 @@ export function commandsBindScope(): Record<string, Telegram.SetMyCommandsParams
                     scopeCommandMap[scope] = [];
                 }
                 scopeCommandMap[scope].push({
-                    command: cmd.command,
+                    command: toTelegramCommandName(cmd.command),
                     description: ENV.I18N.command.help[cmd.command.substring(1)] || '',
                 });
             }
@@ -142,7 +146,7 @@ export function commandsBindScope(): Record<string, Telegram.SetMyCommandsParams
                     scopeCommandMap[scope] = [];
                 }
                 scopeCommandMap[scope].push({
-                    command: cmd,
+                    command: toTelegramCommandName(cmd),
                     description: config.description || '',
                 });
             }
