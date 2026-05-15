@@ -10,6 +10,18 @@ let mcpInitialized = false;
 let mcpPromise: Promise<void> | null = null;
 const mcpClients: any[] = [];
 
+function formatMcpToolSummary(): string[] {
+    return Object.entries(mcpTools).map(([serverName, tools]) => {
+        const toolList = Object.entries(tools).map(([toolName, tool]) => {
+            const description = typeof tool?.description === 'string' && tool.description.trim()
+                ? ` - ${tool.description.trim()}`
+                : '';
+            return `${toolName}${description}`;
+        });
+        return `${serverName}: ${toolList.join(' | ')}`;
+    });
+}
+
 export async function initializeMcp() {
     if (isCfWorker) {
         log.info('MCP is not supported in worker / browser');
@@ -58,7 +70,9 @@ export async function initializeMcp() {
 
         await Promise.all(toolPromises);
         mcpInitialized = true;
-        log.debug('MCP:', JSON.stringify(Object.entries(mcpTools).map(([name, tools]) => ({ [name]: Object.entries(tools).map(([tname, t]) => ({ name: tname, description: t.description })) })), null, 1));
+        for (const line of formatMcpToolSummary()) {
+            log.debug(`MCP ${line}`);
+        }
     }
     log.info('initialize mcp done');
     log.info(`mcpTools: ${Object.keys(mcpTools)}`);
