@@ -11,6 +11,7 @@ import { loadHistory, requestCompletionsFromLLM } from '../../agent/chat';
 import { ENV } from '../../config/env';
 import { clearLog, getLog, log } from '../../log';
 import { isUserCancelledSignal } from '../../utils/abort';
+import { formatErrorAsMarkdown } from '../../utils/error';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
 import { fileUrlToBase64Message, mergeLogMessages, sendImages, stt, tts } from '../utils/media';
@@ -101,14 +102,18 @@ export async function chatWithLLM(
         if ((e as Error).name === 'AbortError' || isUserCancelledSignal(activeRequest?.signal)) {
             errMsg += 'Chat with LLM timeout';
         } else {
-            errMsg += (e as Error).message;
-            if (e instanceof APICallError && e.responseBody && errMsg === '') {
-                log.error(`error detail: ${e.responseBody}`);
-                errMsg += `\n\n${e.responseBody}`;
-            }
+            errMsg += formatErrorAsMarkdown(e, {
+                redactions: [context.SHARE_CONTEXT.botToken],
+                maxLength: 2048,
+            });
         }
-        errMsg = errMsg.trim().replace(context.SHARE_CONTEXT.botToken, '[REDACTED]').substring(0, 2048);
-        return streamSender.end!(`\`\`\`Error\n${errMsg}\n\`\`\``, false, 'error');
+        if ((e as Error).name === 'AbortError' || isUserCancelledSignal(activeRequest?.signal)) {
+            errMsg = formatErrorAsMarkdown(errMsg, {
+                redactions: [context.SHARE_CONTEXT.botToken],
+                maxLength: 2048,
+            });
+        }
+        return streamSender.end!(errMsg, false, 'error');
     } finally {
         activeRequest?.done();
     }
@@ -134,8 +139,10 @@ export class ChatHandler implements MessageHandler<WorkerContext> {
             if ((e as Error).message.includes('524')) {
                 return sender.sendRichText(`\`\`\`Error\nMaybe occur 524 error, see logs for more details.\n\`\`\``, undefined, 'tip');
             }
-            const errMsg = (e as Error).message.replaceAll(context.SHARE_CONTEXT.botToken, '[REDACTED]').substring(0, 2048);
-            return sender.sendRichText(`\`\`\`Error\n${errMsg}\n\`\`\``, undefined, 'tip');
+            return sender.sendRichText(formatErrorAsMarkdown(e, {
+                redactions: [context.SHARE_CONTEXT.botToken],
+                maxLength: 2048,
+            }), undefined, 'tip');
         }
     };
 

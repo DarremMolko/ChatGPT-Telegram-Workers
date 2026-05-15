@@ -1,8 +1,9 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sendPlainTextMock, ttsHandleMock } = vi.hoisted(() => ({
+const { sendPlainTextMock, sendRichTextMock, ttsHandleMock } = vi.hoisted(() => ({
     sendPlainTextMock: vi.fn(async (message: string) => new Response(message, { status: 200 })),
+    sendRichTextMock: vi.fn(async (message: string) => new Response(message, { status: 200 })),
     ttsHandleMock: vi.fn(),
 }));
 
@@ -34,6 +35,7 @@ vi.mock('../utils/send', () => ({
     MessageSender: {
         from: vi.fn(() => ({
             sendPlainText: sendPlainTextMock,
+            sendRichText: sendRichTextMock,
         })),
     },
 }));
@@ -111,6 +113,7 @@ function createContext() {
 describe('handleCommandMessage', () => {
     beforeEach(() => {
         sendPlainTextMock.mockClear();
+        sendRichTextMock.mockClear();
         ttsHandleMock.mockReset();
     });
 
@@ -121,7 +124,7 @@ describe('handleCommandMessage', () => {
 
         expect(response).toBeInstanceOf(Response);
         expect(ttsHandleMock).toHaveBeenCalledTimes(1);
-        expect(sendPlainTextMock).toHaveBeenCalledWith('Error\nvoice invalid');
-        await expect((response as Response).text()).resolves.toBe('Error\nvoice invalid');
+        expect(sendRichTextMock).toHaveBeenCalledWith('```\nError\nvoice invalid\n```', undefined, 'tip');
+        await expect((response as Response).text()).resolves.toBe('```\nError\nvoice invalid\n```');
     });
 });
