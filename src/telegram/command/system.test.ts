@@ -47,7 +47,10 @@ vi.mock('../../agent/document_ocr', () => ({
 }));
 
 vi.mock('../../agent/api_base', () => ({
-    resolveProviderApiBase: vi.fn(),
+    resolveProviderApiBase: vi.fn(() => ({
+        llmMode: 'chat',
+        rootURL: 'https://example.com/v1',
+    })),
 }));
 
 vi.mock('../../agent/chat', () => ({
@@ -56,6 +59,7 @@ vi.mock('../../agent/chat', () => ({
 
 vi.mock('../../agent/models', () => ({
     updateModels: vi.fn(),
+    updateVisionModels: vi.fn(),
 }));
 
 vi.mock('../../config/env', () => ({
@@ -63,8 +67,10 @@ vi.mock('../../config/env', () => ({
         ADMIN_WHITE_LIST: ['2'],
         BUILD_TIMESTAMP: 1710000000,
         BUILD_VERSION: 'deadbeef',
+        CALLBACK_MENU: [],
         CUSTOM_COMMAND: {},
         DEV_MODE: false,
+        ENVS_VARIABLES: [],
         EXTRA_MESSAGE_CONTEXT: true,
         GROUP_CHAT_BOT_SHARE_MODE: false,
         I18N: {
@@ -72,6 +78,7 @@ vi.mock('../../config/env', () => ({
                 help: {},
             },
         },
+        MCP_CONFIG: {},
         OWNER_ID: '1',
         REDIS: redisMock,
         STORE_HISTORY_LENGTH: 5,
@@ -254,12 +261,17 @@ function createContext() {
             chatHistoryKey: 'history:123:999',
         },
         USER_CONFIG: {
+            AI_CHAT_PROVIDER: 'openai',
+            AI_IMAGE_PROVIDER: 'openai',
             AI_ASR_PROVIDER: 'openai',
             AI_TTS_PROVIDER: 'openai',
             AUDIO_CONTAINS_TEXT: true,
             BLOCKLIST: [],
             DEFINE_KEYS: [],
+            OPENAI_IMAGE_MODEL: 'gpt-image-2',
+            OPENAI_VISION_MODEL: 'gpt-5.4-mini',
             OPENAI_TTS_VOICE: 'alloy',
+            VISION_MODEL: '',
         },
     } as any;
 }
@@ -355,6 +367,27 @@ describe('tTSCommandHandler', () => {
         expect(payload).toBeDefined();
         expect(payload.text).toContain('Selected view: `Summary`');
         expect(payload.reply_markup.inline_keyboard.flat().some((item: Telegram.InlineKeyboardButton) => item.callback_data === 'system:view:stats')).toBe(true);
+    });
+
+    it('builds vision model settings from prefixed provider choices', async () => {
+        const handler = new InlineCommandHandler();
+        const context = createContext();
+        context.USER_CONFIG.AI_CHAT_PROVIDER = 'oailike';
+        context.USER_CONFIG.OPENAI_MODELS = ['gpt-5.4'];
+        context.USER_CONFIG.OAILIKE_MODELS = ['gemini-3-flash-preview'];
+        context.USER_CONFIG.OAILIKE_VISION_MODEL = 'gemini-local-default';
+
+        const inlines = await handler.defaultInlines(context.USER_CONFIG, {
+            access: { userId: '456', isAdmin: true, isOwner: true },
+        } as any);
+        const visionInline = inlines.find((item: any) => item.label === 'Vision Model');
+
+        expect(visionInline).toBeDefined();
+        expect(visionInline!.config_key).toBe('VISION_MODEL');
+        expect(visionInline!.value).toEqual([
+            'openai:gpt-5.4',
+            'oailike:gemini-3-flash-preview',
+        ]);
     });
 
     it('uses the replied message text when the command only has flags plus merged quote context', async () => {

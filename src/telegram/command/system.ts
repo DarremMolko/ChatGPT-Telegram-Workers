@@ -11,7 +11,7 @@ import { ASR_AGENTS, CHAT_AGENTS, customInfo, IMAGE_AGENTS, loadImageGen, TTS_AG
 import { resolveProviderApiBase } from '../../agent/api_base';
 import { loadHistory } from '../../agent/chat';
 import { canUseDocumentOcr, extractDocumentText, supportsDocumentOcrInput } from '../../agent/document_ocr';
-import { updateModels } from '../../agent/models';
+import { updateModels, updateVisionModels } from '../../agent/models';
 import { ENV } from '../../config/env';
 import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log';
@@ -121,7 +121,7 @@ async function collectSystemPanelSnapshot(context: Pick<WorkerContext, 'USER_CON
         [asrAgent.modelKey]: asrAgent.model,
         AI_TTS_PROVIDER: ttsAgent.provider,
         [ttsAgent.modelKey]: ttsAgent.model,
-        VISION_MODEL: context.USER_CONFIG[`${chatAgent.provider.toUpperCase()}_VISION_MODEL`] || `Agent ${chatAgent.provider} not found`,
+        VISION_MODEL: resolveEffectiveVisionModel(context.USER_CONFIG),
         PROVIDER_ENABLED: {
             chat: chatAgent.enabled,
             image: imageAgent.enabled,
@@ -291,6 +291,22 @@ function describeAgentConfig(
         model,
         enabled,
     };
+}
+
+function getVisionModelChoices(context: AgentUserConfig): string[] {
+    const choices = [
+        ...(context.OPENAI_MODELS || []).map((model: string) => `openai:${model}`),
+        ...(context.OAILIKE_MODELS || []).map((model: string) => `oailike:${model}`),
+    ];
+    return Array.from(new Set(choices));
+}
+
+function resolveEffectiveVisionModel(context: AgentUserConfig): string {
+    if (context.VISION_MODEL?.trim()) {
+        return context.VISION_MODEL.trim();
+    }
+    const provider = context.AI_CHAT_PROVIDER || 'openai';
+    return context[`${provider.toUpperCase()}_VISION_MODEL`] || `Agent ${provider} not found`;
 }
 
 function isSensitiveEnvKey(key: string): boolean {
@@ -1170,7 +1186,6 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
                 mappedValue = value && (context.USER_CONFIG.PROMPT[value] || value);
                 break;
             case 'CHAT_MODEL':
-            case 'VISION_MODEL':
                 key = context.USER_CONFIG.AI_CHAT_PROVIDER
                     ? `${context.USER_CONFIG.AI_CHAT_PROVIDER.toUpperCase()}_${key}`
                     : key;
@@ -1266,6 +1281,9 @@ export class InlineCommandHandler implements CommandHandler {
         const access = options.access ?? { userId: '', isOwner: false, isAdmin: false };
         const showSensitiveValues = canViewSensitiveConfigForAccess(access);
         const configKeyHandler = (type: string) => {
+            if (type === 'Vision') {
+                return 'VISION_MODEL';
+            }
             if (type === 'Tool') {
                 return 'TOOL_MODEL';
             }
@@ -1308,7 +1326,7 @@ export class InlineCommandHandler implements CommandHandler {
                 value: Object.keys(ENV.MCP_CONFIG),
                 callback: updateMcp,
             },
-            ...['Chat', 'Image', 'Vision', 'Tool'].map((type) => {
+            ...['Chat', 'Image', 'Tool'].map((type) => {
                 const config_key = configKeyHandler(type);
                 const modelProvider = context[`AI_${type.toUpperCase()}_PROVIDER`] || context.AI_CHAT_PROVIDER;
                 return {
@@ -1319,6 +1337,13 @@ export class InlineCommandHandler implements CommandHandler {
                     callback: updateModels,
                 };
             }),
+            {
+                label: 'Vision Model',
+                config_key: 'VISION_MODEL',
+                type: 'radio' as const,
+                value: getVisionModelChoices(context),
+                callback: updateVisionModels,
+            },
             {
                 label: 'Envs',
                 config_key: 'ENVS',
@@ -1380,12 +1405,17 @@ export class InlineCommandHandler implements CommandHandler {
     settingsMessage = (context: AgentUserConfig, inlines: InlineItem[], { key, callBack, showSensitiveValues = false }: { key?: string; callBack: string | InlineItem; showSensitiveValues?: boolean }) => {
         let settingMsg = 'Current configuration:\n\n';
         settingMsg += `${inlines.map(({ label, config_key }) => {
-            return Object.hasOwn(context, config_key) ? `\`${label}: ${context[config_key] || 'Null'}\`` : '';
+            const value = config_key === 'VISION_MODEL'
+                ? resolveEffectiveVisionModel(context)
+                : context[config_key];
+            return Object.hasOwn(context, config_key) ? `\`${label}: ${value || 'Null'}\`` : '';
         }).filter(Boolean).join('\n')}`;
         let configValue = '';
         if (key && typeof callBack === 'string') {
             const newKey = key === 'ENVS' ? callBack : key;
-            configValue = context[newKey] || '';
+            configValue = newKey === 'VISION_MODEL'
+                ? resolveEffectiveVisionModel(context)
+                : (context[newKey] || '');
             (typeof configValue !== 'string') && (configValue = JSON.stringify(configValue));
             if (!showSensitiveValues && isSensitiveEnvKey(newKey)) {
                 configValue = `${configValue.slice(0, 5)}********${configValue.slice(-2)}`;

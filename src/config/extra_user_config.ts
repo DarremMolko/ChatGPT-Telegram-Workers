@@ -10,6 +10,9 @@ export class ExtraUserConfig {
     // Max serialized tool-args length in the info footer. Set to -1 to show full args.
     SHOW_TOOL_ARGS_MAX_LENGTH = 80;
     USE_MCP: string[] = [];
+    // Optional vision-model override. Accepts plain model IDs or provider-prefixed values such as `oailike:gemini-3-flash-preview`.
+    // Keep empty to use the active chat provider's provider-specific *_VISION_MODEL setting.
+    VISION_MODEL = '';
     // if starts with '{agent}:' prefix, the specified agent corresponds to the chat model,
     // otherwise use the current agent and the specified model.
     // Keep empty to use the current agent chat model as function call model.

@@ -45,3 +45,39 @@ export async function updateModels(context: CallbackQueryContext, modelKey: stri
     await ENV.REDIS.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(context.USER_CONFIG)).catch(console.error);
     return models;
 }
+
+export async function updateVisionModels(context: CallbackQueryContext): Promise<string[]> {
+    const configuredAgents = [
+        { name: 'OPENAI', hasKey: context.USER_CONFIG.OPENAI_API_KEY.length > 0 },
+        { name: 'OAILIKE', hasKey: !!context.USER_CONFIG.OAILIKE_API_KEY },
+    ].filter(agent => agent.hasKey);
+
+    if (configuredAgents.length === 0) {
+        throw new Error('No chat providers are configured for vision model lookup');
+    }
+
+    const results = await Promise.allSettled(configuredAgents.map(agent => getModels(context.USER_CONFIG, agent.name)));
+    const prefixedModels: string[] = [];
+    const errors: string[] = [];
+
+    results.forEach((result, index) => {
+        const agent = configuredAgents[index];
+        if (result.status === 'fulfilled') {
+            const targetModelKey = `${agent.name}_MODELS`;
+            context.USER_CONFIG[targetModelKey] = result.value;
+            if (!context.USER_CONFIG.DEFINE_KEYS.includes(targetModelKey)) {
+                context.USER_CONFIG.DEFINE_KEYS.push(targetModelKey);
+            }
+            prefixedModels.push(...result.value.map((model: string) => `${agent.name.toLowerCase()}:${model}`));
+            return;
+        }
+        errors.push(`${agent.name.toLowerCase()}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+    });
+
+    if (prefixedModels.length === 0) {
+        throw new Error(errors.join('; ') || 'No models found');
+    }
+
+    await ENV.REDIS.put(context.SHARE_CONTEXT.configStoreKey, JSON.stringify(context.USER_CONFIG)).catch(console.error);
+    return Array.from(new Set(prefixedModels));
+}
