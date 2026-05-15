@@ -2,15 +2,13 @@ import type { APIGuard, CommandConfig, MCPTransport, RedisStorage } from './type
 import { execSync } from 'node:child_process';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
-import {
-    AgentShareConfig,
-    DefineKeys,
-    EnvironmentConfig,
-    ExtraUserConfig,
-    OpenAIConfig,
-    OpenAILikeConfig,
-} from './config';
+import { AgentShareConfig } from './agent_share_config';
+import { DefineKeys } from './define_keys';
+import { EnvironmentConfig } from './environment_config';
+import { ExtraUserConfig } from './extra_user_config';
 import { ConfigMerger } from './merger';
+import { OpenAIConfig } from './openai_config';
+import { OpenAILikeConfig } from './openailike_config';
 
 export type AgentUserConfig = Record<string, any>
     & DefineKeys
