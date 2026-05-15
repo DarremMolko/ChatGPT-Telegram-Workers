@@ -147,17 +147,16 @@ describe('messageSender.sendRichText', () => {
 
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
-            text: '┌──────┬─────┬────────┬────────────────┐\n│ User │ Age │ City   │ Favorite Food  │\n├──────┼─────┼────────┼────────────────┤\n│ Juan │  30 │ Cucuta │ Arepas con qu… │\n└──────┴─────┴────────┴────────────────┘',
+            text: 'User: Juan\n• Age: 30\n• City: Cucuta\n• Favorite Food: Arepas con queso',
             entities: [{
-                type: 'pre',
+                type: 'bold',
                 offset: 0,
-                length: 204,
-                language: 'text',
+                length: 10,
             }],
         }));
     });
 
-    it('keeps snake_case cell values readable in boxed table rendering', async () => {
+    it('keeps snake_case cell values escaped in card rendering', async () => {
         const sender = MessageSender.from('token', createMessage('private'));
         sendMessage.mockResolvedValue(new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
             status: 200,
@@ -172,12 +171,11 @@ describe('messageSender.sendRichText', () => {
 
         expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
             chat_id: 123,
-            text: '┌───────────┬────────────┬────────────┬────────────┐\n│ Field     │ Value      │ Notes      │ Extra      │\n├───────────┼────────────┼────────────┼────────────┤\n│ foo_bar_… │ alpha_beta │ note_value │ extra_data │\n└───────────┴────────────┴────────────┴────────────┘',
+            text: 'Field: foo_bar_baz\n• Value: alpha_beta\n• Notes: note_value\n• Extra: extra_data',
             entities: [{
-                type: 'pre',
+                type: 'bold',
                 offset: 0,
-                length: 264,
-                language: 'text',
+                length: 18,
             }],
         }));
     });

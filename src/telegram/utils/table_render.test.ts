@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { transformPipeTables } from './table_render';
 
 describe('transformPipeTables', () => {
-    it('renders wide tables as boxed tables', () => {
+    it('renders wide tables as semantic cards', () => {
         const input = [
             'Users:',
             '| User | Age | City | Favorite Food |',
@@ -14,19 +14,20 @@ describe('transformPipeTables', () => {
 
         expect(transformPipeTables(input)).toBe([
             'Users:',
-            '```text',
-            '┌──────┬─────┬────────┬────────────────┐',
-            '│ User │ Age │ City   │ Favorite Food  │',
-            '├──────┼─────┼────────┼────────────────┤',
-            '│ Juan │  30 │ Cucuta │ Arepas con qu… │',
-            '│ Ana  │  25 │ Bogota │ Ajiaco santaf… │',
-            '└──────┴─────┴────────┴────────────────┘',
-            '```',
+            '**User: Juan**',
+            '- Age: 30',
+            '- City: Cucuta',
+            '- Favorite Food: Arepas con queso',
+            '',
+            '**User: Ana**',
+            '- Age: 25',
+            '- City: Bogota',
+            '- Favorite Food: Ajiaco santafereno',
             'Done.',
         ].join('\n'));
     });
 
-    it('flattens markdown inside table cells to plain text', () => {
+    it('flattens markdown inside card cells to plain text', () => {
         const input = [
             '| Aspecto | Desafio |',
             '| --- | --- |',
@@ -34,17 +35,12 @@ describe('transformPipeTables', () => {
         ].join('\n');
 
         expect(transformPipeTables(input)).toBe([
-            '```text',
-            '┌────────────────┬────────────────┐',
-            '│ Aspecto        │ Desafio        │',
-            '├────────────────┼────────────────┤',
-            '│ Energias inac… │ Para probar d… │',
-            '└────────────────┴────────────────┘',
-            '```',
+            '**Aspecto: Energias inaccesibles**',
+            '- Desafio: Para probar directamente con aceleradores (https://example.com)',
         ].join('\n'));
     });
 
-    it('renders small tables as boxed tables too', () => {
+    it('renders small tables as cards too', () => {
         const input = [
             '| Key | Value |',
             '| --- | --- |',
@@ -53,14 +49,11 @@ describe('transformPipeTables', () => {
         ].join('\n');
 
         expect(transformPipeTables(input)).toBe([
-            '```text',
-            '┌─────┬───────┐',
-            '│ Key │ Value │',
-            '├─────┼───────┤',
-            '│ A   │     1 │',
-            '│ B   │     2 │',
-            '└─────┴───────┘',
-            '```',
+            '**Key: A**',
+            '- Value: 1',
+            '',
+            '**Key: B**',
+            '- Value: 2',
         ].join('\n'));
     });
 
