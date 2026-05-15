@@ -42,7 +42,7 @@ There are two configuration layers:
    - Modified through `/set`, `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/settings`
    - Covers provider choice, model choice, MCP selection, tool model, temperatures, output modes, and similar chat-level behavior
 
-`OWNER_ID` has full control over sensitive commands and runtime settings. `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add or remove extra runtime admins with `/promote` and `/demote`. Admins can use commands and manage non-sensitive per-chat runtime settings. Users outside both lists can only chat with the bot in allowlisted groups and cannot use commands or private chats.
+`OWNER_ID` has full control over sensitive commands and runtime settings. `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add or remove extra runtime admins with `/promote` and `/demote`. Admins can use commands, inline queries, and non-sensitive per-chat runtime controls such as `/set` and `/settings`. Raw stored-config commands such as `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` remain owner-only. Users outside both lists can only chat with the bot in allowlisted groups and cannot use commands or private chats.
 
 ## Quick Start
 
@@ -182,6 +182,11 @@ The cron expression follows the local process timezone. In Docker, that means th
 
 ## Command Reference
 
+Access summary:
+
+- Admins and the owner can use `/help`, `/start`, `/new`, `/redo`, `/stop`, `/img`, `/vision`, `/stt`, `/tts`, `/set`, `/settings`, and `/version`.
+- Only the owner can use `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, `/map`, `/system`, `/history`, `/promote`, `/demote`, `/block`, `/unblock`, and `/blocklist`.
+
 | Command | Purpose | Notes |
 | --- | --- | --- |
 | `/help` | Show command help | Good first check after deployment |
@@ -194,12 +199,12 @@ The cron expression follows the local process timezone. In Docker, that means th
 | `/stt` | Transcribe an audio or voice message | Use it as the audio caption or reply to an audio message |
 | `/tts [-v voice] [-i instructions] <text>` | Generate speech from text | Also works when you reply to a text message; `-i` sends TTS instructions on compatible models |
 | `/set ...` | Apply stored runtime config changes | Supports inline message continuation when followed by normal chat text |
-| `/setenv KEY=VALUE` | Store one user-config key | Works on the stored user-config surface |
-| `/setenvs {...}` | Store multiple user-config keys | JSON input |
-| `/delenv KEY` | Delete one stored user-config key | Removes the override |
-| `/clearenv` | Clear all stored user-config overrides | Current chat scope only |
+| `/setenv KEY=VALUE` | Store one user-config key | Owner-only raw stored-config write |
+| `/setenvs {...}` | Store multiple user-config keys | Owner-only raw stored-config write; JSON input |
+| `/delenv KEY` | Delete one stored user-config key | Owner-only; removes the override |
+| `/clearenv` | Clear all stored user-config overrides | Owner-only; current chat scope only |
 | `/settings` | Open the inline settings UI | Best way to browse supported runtime-adjustable settings |
-| `/map` | Manage `/set` shortcut aliases | Edits `MAPPING_KEY` and `MAPPING_VALUE` |
+| `/map` | Manage `/set` shortcut aliases | Owner-only; edits `MAPPING_KEY` and `MAPPING_VALUE` |
 | `/system` | Show runtime, provider, and usage info | Good for debugging active models |
 | `/version` | Show build timestamp and git SHA | Useful in bug reports |
 | `/history [n]` | Export stored history as JSON | Owner-only |

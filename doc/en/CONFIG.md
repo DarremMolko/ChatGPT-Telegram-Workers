@@ -49,6 +49,8 @@ They are changed through:
 - `/clearenv`
 - `/settings`
 
+Admins use `/set` and `/settings` for non-sensitive per-chat runtime tuning. Raw stored-config commands such as `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` are owner-only.
+
 These settings define:
 
 - provider and model selection
@@ -61,6 +63,7 @@ Important:
 
 - `OWNER_ID` has full access to sensitive commands and runtime settings
 - `ADMIN_WHITE_LIST` is the static bootstrap admin list, and the owner can add extra runtime admins with `/promote`
+- admins use `/set` and `/settings` for non-sensitive per-chat controls, while `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` remain owner-only
 - deployment-only settings still come from process env or optional `config.toml`
 - not every environment key is editable at runtime
 
@@ -541,7 +544,7 @@ Two environment keys shape that UI:
 | `ENVS_VARIABLES` | If empty, show all non-sensitive stored user-config keys. Otherwise show only the listed keys. | `[]` |
 | `CALLBACK_MENU` | Restrict which top-level setting groups appear in `/settings`. | `[]` |
 
-Admins can browse the full stored user-config key list they are allowed to manage through the `Envs` picker. The owner still sees sensitive values and controls.
+Admins can browse the full stored user-config key list they are allowed to manage through the `Envs` picker. The owner still sees sensitive values and controls. Use `/set` and `/settings` for the admin-safe surface; keep `/setenv`, `/setenvs`, `/delenv`, `/clearenv`, and `/map` for owner-operated raw config changes.
 
 ## `/set` Shortcuts
 

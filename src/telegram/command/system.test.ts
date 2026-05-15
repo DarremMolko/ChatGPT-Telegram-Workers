@@ -149,7 +149,34 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
 
 const { customInfo } = await import('../../agent');
 const { getStats } = await import('../../utils/stats');
-const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, SystemCommandHandler, TTSCommandHandler, UnblockUserCommandHandler, VisionCommandHandler } = await import('./system');
+const {
+    BlockUserCommandHandler,
+    BlocklistCommandHandler,
+    CancelCommandHandler,
+    ClearEnvCommandHandler,
+    DelEnvCommandHandler,
+    DemoteCommandHandler,
+    EchoCommandHandler,
+    HelpCommandHandler,
+    HistoryCommandHandler,
+    ImgCommandHandler,
+    InlineCommandHandler,
+    MapCommandHandler,
+    NewCommandHandler,
+    PromoteCommandHandler,
+    RedoCommandHandler,
+    SetCommandHandler,
+    SetEnvCommandHandler,
+    SetEnvsCommandHandler,
+    StartCommandHandler,
+    STTCommandHandler,
+    StopCommandHandler,
+    SystemCommandHandler,
+    TTSCommandHandler,
+    UnblockUserCommandHandler,
+    VersionCommandHandler,
+    VisionCommandHandler,
+} = await import('./system');
 
 function createReplyMessage(
     text: string,
@@ -798,5 +825,51 @@ describe('tTSCommandHandler', () => {
             addQuote: true,
             quoteExpandable: true,
         });
+    });
+});
+
+describe('command access matrix', () => {
+    it('declares explicit auth for admin-access commands', () => {
+        const handlers = [
+            new StartCommandHandler(),
+            new HelpCommandHandler(),
+            new NewCommandHandler(),
+            new RedoCommandHandler(),
+            new StopCommandHandler(),
+            new CancelCommandHandler(),
+            new EchoCommandHandler(),
+            new ImgCommandHandler(),
+            new VisionCommandHandler(),
+            new STTCommandHandler(),
+            new TTSCommandHandler(),
+            new SetCommandHandler(),
+            new InlineCommandHandler(),
+            new VersionCommandHandler(),
+        ];
+
+        for (const handler of handlers) {
+            expect(handler.needAuth?.('private'), `expected ${handler.command} to require admin access`).toEqual(['admin']);
+        }
+    });
+
+    it('declares explicit auth for owner-only commands', () => {
+        const handlers = [
+            new SetEnvCommandHandler(),
+            new SetEnvsCommandHandler(),
+            new DelEnvCommandHandler(),
+            new ClearEnvCommandHandler(),
+            new MapCommandHandler(),
+            new SystemCommandHandler(),
+            new HistoryCommandHandler(),
+            new PromoteCommandHandler(),
+            new DemoteCommandHandler(),
+            new BlockUserCommandHandler(),
+            new UnblockUserCommandHandler(),
+            new BlocklistCommandHandler(),
+        ];
+
+        for (const handler of handlers) {
+            expect(handler.needAuth?.('private'), `expected ${handler.command} to require owner access`).toEqual(['owner']);
+        }
     });
 });

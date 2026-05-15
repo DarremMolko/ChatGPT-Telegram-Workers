@@ -489,6 +489,7 @@ async function initializeCommandHistory(context: WorkerContext): Promise<void> {
 export class ImgCommandHandler implements CommandHandler {
     command = '/img';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         if (subcommand === '') {
             return sender.sendPlainText(ENV.I18N.command.help.img);
@@ -602,6 +603,7 @@ export class ImgCommandHandler implements CommandHandler {
 export class VisionCommandHandler implements CommandHandler {
     command = '/vision';
     scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const cleanedSubcommand = ENV.EXTRA_MESSAGE_CONTEXT
             ? stripMergedQuoteFromCommandText(subcommand, message, context.SHARE_CONTEXT.botId)
@@ -649,6 +651,7 @@ export class VisionCommandHandler implements CommandHandler {
 export class HelpCommandHandler implements CommandHandler {
     command = '/help';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (_message: Telegram.Message, _subcommand: string, _context: WorkerContext, sender: MessageSender): Promise<Response> => {
         let helpMsg = `${ENV.I18N.command.help.summary}\n`;
         for (const [k, v] of Object.entries(ENV.I18N.command.help)) {
@@ -696,6 +699,7 @@ export class NewCommandHandler extends BaseNewCommandHandler implements CommandH
 
 export class StartCommandHandler extends BaseNewCommandHandler implements CommandHandler {
     command = '/start';
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, _subcommand: string, context: WorkerContext): Promise<Response> => {
         return BaseNewCommandHandler.handle(true, message, _subcommand, context);
     };
@@ -703,6 +707,7 @@ export class StartCommandHandler extends BaseNewCommandHandler implements Comman
 
 export class SetEnvCommandHandler extends RenewConfig {
     command = '/setenv';
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const kv = subcommand.indexOf('=');
         if (kv === -1) {
@@ -725,6 +730,7 @@ export class SetEnvCommandHandler extends RenewConfig {
 
 export class SetEnvsCommandHandler extends RenewConfig {
     command = '/setenvs';
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         try {
             const values = JSON.parse(subcommand);
@@ -747,6 +753,7 @@ export class SetEnvsCommandHandler extends RenewConfig {
 
 export class DelEnvCommandHandler extends RenewConfig {
     command = '/delenv';
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         try {
             context.USER_CONFIG[subcommand] = null;
@@ -761,6 +768,7 @@ export class DelEnvCommandHandler extends RenewConfig {
 
 export class ClearEnvCommandHandler extends RenewConfig {
     command = '/clearenv';
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         try {
             await ENV.REDIS.put(
@@ -817,6 +825,7 @@ export class SystemCommandHandler implements CommandHandler {
 export class RedoCommandHandler implements CommandHandler {
     command = '/redo';
     scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = async (message: Telegram.Message, subcommand: string, context: WorkerContext): Promise<Response> => {
         const mf = (history: HistoryItem[], message: UserModelMessage | null): any => {
             let nextMessage = message;
@@ -852,6 +861,7 @@ export class RedoCommandHandler implements CommandHandler {
 export class StopCommandHandler implements CommandHandler {
     command = '/stop';
     scopes: ScopeType[] = ['all_private_chats', 'all_group_chats', 'all_chat_administrators'];
+    needAuth = COMMAND_AUTH_CHECKER.admin;
 
     handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const scopeKey = context.SHARE_CONTEXT.chatHistoryKey;
@@ -869,10 +879,12 @@ export class StopCommandHandler implements CommandHandler {
 
 export class CancelCommandHandler extends StopCommandHandler {
     command = '/cancel';
+    needAuth = COMMAND_AUTH_CHECKER.admin;
 }
 
 export class EchoCommandHandler implements CommandHandler {
     command = '/echo';
+    needAuth = COMMAND_AUTH_CHECKER.admin;
     handle = (message: Telegram.Message, _subcommand: string, _context: WorkerContext, sender: MessageSender): Promise<Response> => {
         const msg = `\`\`\`\n${JSON.stringify({ message }, null, 2)}\n\`\`\``;
         return sender.sendRichText(msg, 'MarkdownV2');
@@ -1231,6 +1243,7 @@ export class InlineCommandHandler implements CommandHandler {
 
 export class MapCommandHandler extends RenewConfig {
     command = '/map';
+    needAuth = COMMAND_AUTH_CHECKER.owner;
     handle = async (_message: Telegram.Message, subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
         subcommand = subcommand.trim();
         let type = 'value';
