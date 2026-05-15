@@ -199,10 +199,10 @@ export async function fileUrlToBase64Message({
         {
             const fileText = await Promise.all(urls.map(url => fetch(url).then(r => r.text()))).then(t => t.join('\n'));
             const fileContext = [
-                'The user attached a text file.',
+                'The user attached a document.',
                 fileName ? `Filename: ${fileName}` : '',
                 mimeType ? `MIME type: ${mimeType}` : '',
-                'File contents:',
+                'Document contents:',
                 fileText,
             ].filter(Boolean).join('\n');
             params.content = [
@@ -235,10 +235,9 @@ export async function fileUrlToBase64Message({
                     });
                     if (extractedText?.trim()) {
                         const fileContext = [
-                            supportsNativePdf ? 'The user attached a PDF document.' : 'The user attached a document.',
+                            'The user attached a document.',
                             fileName ? `Filename: ${fileName}` : '',
-                            `OCR provider: ${ENV.DOCUMENT_OCR_PROVIDER}`,
-                            'Extracted text:',
+                            'Document contents:',
                             extractedText.trim(),
                         ].filter(Boolean).join('\n');
                         params.content = [

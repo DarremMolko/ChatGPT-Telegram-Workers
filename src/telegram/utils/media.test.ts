@@ -93,7 +93,8 @@ describe('fileUrlToBase64Message document OCR', () => {
                 text: expect.stringContaining('Detected OCR text'),
             },
         ]);
-        expect((params.content[0] as any).text).toContain('OCR provider: mistral');
+        expect((params.content[0] as any).text).toContain('Document contents:');
+        expect((params.content[0] as any).text).not.toContain('OCR provider:');
     });
 
     it('falls back to the native PDF file path when OCR fails', async () => {
@@ -158,6 +159,7 @@ describe('fileUrlToBase64Message document OCR', () => {
             },
         ]);
         expect((params.content[0] as any).text).toContain('The user attached a document.');
+        expect((params.content[0] as any).text).toContain('Document contents:');
     });
 
     it('throws when a non-PDF OCR document cannot be extracted', async () => {
