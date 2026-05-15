@@ -14,8 +14,9 @@ import { isUserCancelledSignal } from '../../utils/abort';
 import { createTelegramBotAPI } from '../api';
 import { registerActiveRequest } from '../utils/active_request';
 import { fileUrlToBase64Message, mergeLogMessages, sendImages, stt, tts } from '../utils/media';
-import { MessageSender, sendAction, sendDocument, sendTelegraph, TelegraphSender } from '../utils/send';
+import { MessageSender, sendAction } from '../utils/send';
 import { transformPipeTables } from '../utils/table_render';
+import { sendDocument, sendTelegraph, TelegraphSender } from '../utils/telegraph';
 import { getTelegramFile, isTelegramChatTypeGroup, waitUntil } from '../utils/tg_utils';
 
 /**
@@ -405,18 +406,16 @@ type WorkflowHandler = (
     handleKey: string,
 ) => Promise<Response | Blob | string>;
 
+const WORKFLOW_HANDLERS: Record<string, WorkflowHandler> = {
+    'text:image': handleTextToImage,
+    'audio:audio': handleAudio,
+    'audio:text': handleAudio,
+    'stt:text': handleAudio,
+    'stt:audio': handleAudio,
+};
+
 function workflowHandlers(type: string): WorkflowHandler {
-    switch (type) {
-        case 'text:image':
-            return handleTextToImage;
-        case 'audio:audio':
-        case 'audio:text':
-        case 'stt:text':
-        case 'stt:audio':
-            return handleAudio;
-        default:
-            return handleText;
-    }
+    return WORKFLOW_HANDLERS[type] ?? handleText;
 }
 
 async function workflow(

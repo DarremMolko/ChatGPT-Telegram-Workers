@@ -54,7 +54,8 @@ vi.mock('./tg_utils', () => ({
 }));
 
 const { ENV } = await import('../../config/env');
-const { MessageSender, TelegraphSender } = await import('./send');
+const { MessageSender } = await import('./send');
+const { TelegraphSender } = await import('./telegraph');
 
 function createMessage(chatType: Telegram.ChatType): Telegram.Message {
     return {

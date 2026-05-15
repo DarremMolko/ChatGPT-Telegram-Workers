@@ -1,13 +1,11 @@
 /* eslint-disable antfu/if-newline */
 import type * as Telegram from 'telegram-bot-api-types';
-import type { WorkerContext } from '../../config/context';
 import type { TelegramBotAPI } from '../api';
 import type { ExpandParams } from './render_shared';
 import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
-import { getLog, log, tagMessageIds } from '../../log';
+import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
-import { parseMarkdownDocument, renderMarkdownDocumentToTelegraph } from './markdown_core';
 import { renderMessageChunks, renderSingleMessage } from './rich_text';
 import { waitUntil } from './tg_utils';
 
@@ -67,25 +65,11 @@ export class MessageSender {
         return new MessageSender(token, new MessageContext(message));
     }
 
-    with(message: Telegram.Message): MessageSender {
-        this.context = new MessageContext(message);
-        return this;
-    }
-
-    update(context: MessageContext | Record<string, any>): MessageSender {
-        if (!this.context) {
-            this.context = context as any;
-            return this;
-        }
-        for (const key in context) {
-            (this.context as any)[key] = (context as any)[key];
-        }
-        return this;
-    }
-
     private async sendMessage(message: RenderedText, context: MessageContext, retryCount = 0): Promise<Response> {
         const maxRetries = 3;
         let resp: Response;
+        const replyParameters = buildReplyParameters(context);
+        const linkPreviewOptions = buildLinkPreviewOptions(context.disable_web_page_preview);
 
         if (context?.message_id) {
             const params: Telegram.EditMessageTextParams = {
@@ -96,10 +80,8 @@ export class MessageSender {
                     ? { ...(message.entities ? { entities: message.entities } : {}) }
                     : { parse_mode: context.parse_mode || undefined }),
             };
-            if (context.disable_web_page_preview) {
-                params.link_preview_options = {
-                    is_disabled: true,
-                };
+            if (linkPreviewOptions) {
+                params.link_preview_options = linkPreviewOptions;
             }
             resp = await this.api.editMessageText(params);
         } else {
@@ -111,17 +93,11 @@ export class MessageSender {
                     ? { ...(message.entities ? { entities: message.entities } : {}) }
                     : { parse_mode: context.parse_mode || undefined }),
             };
-            if (context.reply_to_message_id) {
-                params.reply_parameters = {
-                    message_id: context.reply_to_message_id,
-                    chat_id: context.chat_id,
-                    allow_sending_without_reply: context.allow_sending_without_reply || undefined,
-                };
+            if (replyParameters) {
+                params.reply_parameters = replyParameters;
             }
-            if (context.disable_web_page_preview) {
-                params.link_preview_options = {
-                    is_disabled: true,
-                };
+            if (linkPreviewOptions) {
+                params.link_preview_options = linkPreviewOptions;
             }
             resp = await this.api.sendMessage(params);
         }
@@ -216,6 +192,7 @@ export class MessageSender {
             throw new Error('Message context not set');
         }
         const renderedCaption = caption ? renderSingleMessage(parse_mode || null, caption) : null;
+        const replyParameters = buildReplyParameters(this.context);
         const params: Telegram.SendPhotoParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
@@ -229,12 +206,8 @@ export class MessageSender {
                     }
                 : {}),
         };
-        if (this.context.reply_to_message_id) {
-            params.reply_parameters = {
-                message_id: this.context.reply_to_message_id,
-                chat_id: this.context.chat_id,
-                allow_sending_without_reply: this.context.allow_sending_without_reply || undefined,
-            };
+        if (replyParameters) {
+            params.reply_parameters = replyParameters;
         }
         return checkIsNeedTagIds(this.context, this.api.sendPhoto(params), 'chat');
     }
@@ -260,12 +233,9 @@ export class MessageSender {
             message_thread_id: this.context.message_thread_id || undefined,
             media: renderedMedia,
         };
-        if (this.context.reply_to_message_id) {
-            params.reply_parameters = {
-                message_id: this.context.reply_to_message_id,
-                chat_id: this.context.chat_id,
-                allow_sending_without_reply: this.context.allow_sending_without_reply || undefined,
-            };
+        const replyParameters = buildReplyParameters(this.context);
+        if (replyParameters) {
+            params.reply_parameters = replyParameters;
         }
 
         if (files) {
@@ -283,6 +253,7 @@ export class MessageSender {
             throw new Error('Message context not set');
         }
         const renderedCaption = caption ? renderSingleMessage(parse_mode || null, caption) : null;
+        const replyParameters = buildReplyParameters(this.context);
         const params: Telegram.SendDocumentParams = {
             chat_id: this.context.chat_id,
             message_thread_id: this.context.message_thread_id || undefined,
@@ -296,12 +267,8 @@ export class MessageSender {
                     }
                 : {}),
         };
-        if (this.context.reply_to_message_id) {
-            params.reply_parameters = {
-                message_id: this.context.reply_to_message_id,
-                chat_id: this.context.chat_id,
-                allow_sending_without_reply: this.context.allow_sending_without_reply || undefined,
-            };
+        if (replyParameters) {
+            params.reply_parameters = replyParameters;
         }
         return checkIsNeedTagIds(this.context, this.api.sendDocument(params), 'chat');
     }
@@ -336,6 +303,7 @@ export class MessageSender {
     }
 
     sendVoice(voice: Blob, caption?: string | undefined): Promise<Response> {
+        const replyParameters = buildReplyParameters(this.context);
         const params: Telegram.SendVoiceParams = {
             chat_id: this.context.chat_id,
             voice,
@@ -348,212 +316,31 @@ export class MessageSender {
                 length: caption.length,
             }];
         }
-        if (this.context.reply_to_message_id) {
-            params.reply_parameters = {
-                message_id: this.context.reply_to_message_id,
-                chat_id: this.context.chat_id,
-                allow_sending_without_reply: this.context.allow_sending_without_reply || undefined,
-            };
+        if (replyParameters) {
+            params.reply_parameters = replyParameters;
         }
         return checkIsNeedTagIds(this.context, this.api.sendVoice(params), 'chat');
     }
 }
 
-interface Author {
-    short_name: string;
-    author_name: string;
-    author_url?: string;
-}
-
-interface CreateOrEditPageResponse {
-    ok: boolean;
-    result?: {
-        path: string;
-        url: string;
+function buildReplyParameters(context: MessageContext) {
+    if (!context.reply_to_message_id) {
+        return undefined;
+    }
+    return {
+        message_id: context.reply_to_message_id,
+        chat_id: context.chat_id,
+        allow_sending_without_reply: context.allow_sending_without_reply || undefined,
     };
-    error?: string;
-};
+}
 
-export class TelegraphSender {
-    readonly telegraphAccessTokenKey: string;
-    telegraphAccessToken?: string;
-    teleph_path?: string;
-    author: Author = {
-        short_name: 'Mewo',
-        author_name: 'A Cat',
-        author_url: ENV.TELEGRAPH_AUTHOR_URL,
+function buildLinkPreviewOptions(disable_web_page_preview: boolean | null) {
+    if (!disable_web_page_preview) {
+        return undefined;
+    }
+    return {
+        is_disabled: true,
     };
-
-    constructor(botName: string | null, telegraphAccessTokenKey: string) {
-        this.telegraphAccessTokenKey = telegraphAccessTokenKey;
-        if (botName) {
-            this.author = {
-                short_name: botName,
-                author_name: botName,
-                author_url: ENV.TELEGRAPH_AUTHOR_URL,
-            };
-        }
-    }
-
-    private async createAccount(): Promise<string> {
-        const { short_name, author_name } = this.author;
-        const url = `https://api.telegra.ph/createAccount?short_name=${short_name}&author_name=${author_name}`;
-        const resp = await fetch(url).then(r => r.json());
-        if (resp.ok) {
-            console.log('create telegraph account success:', resp.result.access_token);
-            return resp.result.access_token;
-        } else {
-            throw new Error('create telegraph account failed');
-        }
-    }
-
-    private async createOrEditPage(url: string, title: string, content: string, raw?: string): Promise<Response> {
-        const contentNode = renderMarkdownDocumentToTelegraph(parseMarkdownDocument(content));
-        if (raw) {
-            contentNode.push(...[
-                { tag: 'hr' },
-                {
-                    tag: 'blockquote',
-                    children: ['RAW DATA'],
-                },
-                {
-                    tag: 'pre',
-                    children: [
-                        {
-                            tag: 'code',
-                            attrs: { class: 'language-plaintext' },
-                            children: [raw.trim()],
-                        },
-                    ],
-                },
-            ]);
-        }
-        const body = {
-            access_token: this.telegraphAccessToken,
-            path: this.teleph_path ?? undefined,
-            title: title || 'Daily Q&A',
-            content: contentNode,
-            ...this.author,
-        };
-        const headers = { 'Content-Type': 'application/json' };
-        return fetch(url, {
-            method: 'post',
-            headers,
-            body: JSON.stringify(body),
-        });
-    }
-
-    private async ensureAccessToken() {
-        if (!this.telegraphAccessToken) {
-            this.telegraphAccessToken = await ENV.REDIS.get(this.telegraphAccessTokenKey);
-            if (!this.telegraphAccessToken) {
-                this.telegraphAccessToken = await this.createAccount();
-                await ENV.REDIS.put(this.telegraphAccessTokenKey, this.telegraphAccessToken).catch(console.error);
-            }
-        }
-    }
-
-    private async resetAccount() {
-        this.telegraphAccessToken = undefined;
-        this.teleph_path = undefined;
-        if (this.telegraphAccessTokenKey) {
-            await ENV.REDIS.delete(this.telegraphAccessTokenKey).catch(console.error);
-        }
-    }
-
-    async send(title: string, content: string, raw?: string, retried = false): Promise<Response> {
-        let endPoint = 'https://api.telegra.ph/editPage';
-        await this.ensureAccessToken();
-
-        if (!this.teleph_path) {
-            endPoint = 'https://api.telegra.ph/createPage';
-        }
-        const resp = await this.createOrEditPage(endPoint, title, content, raw);
-        if (resp.ok) {
-            const data = await resp.json() as CreateOrEditPageResponse;
-            if (!data.ok) {
-                if (data.error === 'ACCESS_TOKEN_INVALID' && !retried) {
-                    await this.resetAccount();
-                    return this.send(title, content, raw, true);
-                }
-                console.error('telegraph send error:', JSON.stringify(data));
-                throw new Error(JSON.stringify(data));
-            }
-            this.teleph_path = data.result?.path;
-        } else if (resp.status === 429) {
-            const retryAfter = Number.parseInt(resp.headers.get('Retry-After') || '');
-            log.error(`Send telegraph page failed, Status 429, need wait: ${retryAfter || 10}s`);
-            if (retryAfter) {
-                await waitUntil(Date.now() + retryAfter * 1000);
-            } else {
-                await waitUntil(Date.now() + 5_000);
-            }
-            return this.send(title, content, raw, retried);
-        } else if (!resp.ok) {
-            log.error('Send telegraph page failed:', resp.status);
-            throw new Error(await resp.text());
-        }
-        return resp;
-    }
-}
-
-interface TelegraphSendContext {
-    context: WorkerContext;
-    textSender: MessageSender | ChosenInlineSender;
-    telegraphSender: TelegraphSender;
-    hasSentTelegraphLink?: boolean;
-    isEnd?: boolean;
-    containRaw?: boolean;
-}
-
-interface TelegraphDocumentText {
-    question: string;
-    answer: string;
-    log: string;
-}
-
-export async function sendTelegraph(sendContext: TelegraphSendContext, question: string, text: string) {
-    log.info(`start send telegraph`);
-    const { context, textSender, telegraphSender, hasSentTelegraphLink, isEnd, containRaw } = sendContext;
-    let trimedQuestion = question;
-    if (question.length > 600) {
-        trimedQuestion = `${question.slice(0, 300)}...${question.slice(-300)}`;
-    }
-    const prefix = `#Question\n\`\`\`\n${trimedQuestion}\n\`\`\`\n---`;
-
-    const telegraph_prefix = `${prefix}\n#Answer\n🤖 **${getLog(context.USER_CONFIG, { onlyModel: true, isParagraph: true })}**\n`;
-    const debug_info = `${getLog(context.USER_CONFIG, { onlyModel: false, isParagraph: true })}`;
-    const telegraph_suffix = `\n---\n\`\`\`\n${debug_info}\n\`\`\``;
-    const textLength = (telegraph_prefix + text + telegraph_suffix).length;
-    try {
-        if (textLength >= 10917 * 6) {
-            throw new Error('Telegraph message too long');
-        }
-        const resp = await telegraphSender.send(
-            'Daily Q&A',
-            telegraph_prefix + text + telegraph_suffix,
-            containRaw ? text : undefined,
-        );
-
-        if (!hasSentTelegraphLink) {
-            const url = `https://telegra.ph/${telegraphSender.teleph_path}`;
-            const msg = `${containRaw ? 'Rendering failed, ' : ''}the answer was converted into an article.\n[🔗Click here to view it](${url})`.trim();
-            log.info(`send telegraph message: ${msg}`);
-            return textSender.sendRichText(msg);
-        }
-        return resp;
-    } catch {
-        if (isEnd) {
-            return sendDocument(textSender as MessageSender, { question, answer: text, log: debug_info });
-        }
-    }
-}
-
-export async function sendDocument(textSender: MessageSender, document: TelegraphDocumentText) {
-    const { question, answer, log: documentLog } = document;
-    const text = `🆀 ${question}\n🅻 ${documentLog}\n\n🅰${answer}\n`;
-    const file = new File([text], 'answer.md', { type: 'text/markdown' });
-    return textSender.sendDocument(file, '>`Answer is cooked, check the document`', 'MarkdownV2');
 }
 
 export function sendAction(botToken: string, chat_id: number, action: Telegram.ChatAction = 'typing') {
