@@ -6,7 +6,7 @@
     "author": "tbxark <tbxark@outlook.com>",
     "license": "MIT",
     "packageManager": "npm@10.8.2",
-    "repository": "git@github.com:TBXark/ChatGPT-Telegram-Workers.git",
+    "repository": "https://github.com/DarremMolko/ChatGPT-Telegram-Workers",
     "engines": {
         "node": "^20.19.0 || >=22.12.0"
     },
