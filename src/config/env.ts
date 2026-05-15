@@ -1,4 +1,4 @@
-import type { APIGuard, CommandConfig, MCPTransport, RedisStorage } from './types';
+import type { CommandConfig, MCPTransport, RedisStorage } from './types';
 import { execSync } from 'node:child_process';
 import loadI18n from '../i18n';
 import { initializeMcp } from '../mcp';
@@ -82,7 +82,6 @@ class Environment extends EnvironmentConfig {
     readonly CUSTOM_COMMAND: Record<string, CommandConfig> = {};
     readonly MCP_CONFIG: Record<string, MCPTransport> = {};
     REDIS: RedisStorage = null as any;
-    API_GUARD: APIGuard | null = null;
 
     constructor() {
         super();
@@ -92,8 +91,6 @@ class Environment extends EnvironmentConfig {
     merge(source: any) {
         // Global objects
         this.REDIS = source.REDIS;
-        this.API_GUARD = source.API_GUARD;
-
         // Bind custom commands
         this.mergeCommands(
             'CUSTOM_COMMAND_',
@@ -114,7 +111,6 @@ class Environment extends EnvironmentConfig {
             'USER_CONFIG',
             'CUSTOM_COMMAND',
             'REDIS',
-            'API_GUARD',
         ]);
 
         ConfigMerger.merge(this.USER_CONFIG, source);
@@ -152,8 +148,6 @@ class Environment extends EnvironmentConfig {
         this.OWNER_ID = `${this.OWNER_ID || ''}`.trim();
         this.ADMIN_WHITE_LIST = Array.from(new Set(this.ADMIN_WHITE_LIST.map((id: string) => `${id}`.trim()).filter(Boolean)));
         this.TELEGRAM_ALLOWED_UPDATES = Array.from(new Set(this.TELEGRAM_ALLOWED_UPDATES.map((type: string) => `${type}`.trim()).filter(Boolean)));
-        this.TELEGRAM_WEBHOOK_SECRET_TOKEN = `${this.TELEGRAM_WEBHOOK_SECRET_TOKEN || ''}`.trim();
-        this.LOCAL_INIT_SECRET = `${this.LOCAL_INIT_SECRET || ''}`.trim();
         if (!SUPPORTED_CHAT_CONCURRENCY_POLICIES.has(this.CHAT_CONCURRENCY_POLICY)) {
             this.CHAT_CONCURRENCY_POLICY = 'queue';
         }

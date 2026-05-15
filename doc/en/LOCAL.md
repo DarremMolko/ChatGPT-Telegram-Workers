@@ -2,70 +2,56 @@
 
 This repository only ships local and Docker deployment paths.
 
-Supported runtime choices:
+The local runtime now has one Telegram delivery model:
 
-- local webhook server
-- local long-polling process
+- long polling through `getUpdates`
+- optional local HTTP server for `/` and `/health`
 - Docker / Docker Compose
 
 ## Files And Precedence
 
-The local adapter is controlled through environment-style keys.
-
-You can provide those keys in either place:
+The local adapter reads environment-style keys from:
 
 - the real server environment
-- `config.toml` under `[vars]`
-
-Example starter file:
-
-- `config.example.toml`
+- optional `config.toml` values under `[vars]`
 
 At startup:
 
 1. if present, `config.toml` is parsed and keys under `[vars]` are loaded
 2. process environment variables override TOML values
-3. the local adapter mode is resolved from `LOCAL_*`, `PORT`, and `BASE_URL`
+3. polling starts for every token in `TELEGRAM_AVAILABLE_TOKENS`
+4. the optional local HTTP server starts only when `LOCAL_PORT` or `PORT` is set
 
 This means Docker `environment:` values or shell exports win over file values.
 
 ## Environment-Only Setup
 
-Minimal webhook setup:
+Minimal setup:
 
 ```bash
-export LOCAL_MODE=webhook
-export PORT=8787
-export LOCAL_INIT_SECRET=replace-with-a-random-secret
 export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
 export OWNER_ID=123456789
 export REDIS_URL=rediss://default:your-password@your-redis-host:6379
 export OPENAI_API_KEY=sk-...
 ```
 
-Minimal polling setup:
+Optional local health endpoint:
 
 ```bash
-export LOCAL_MODE=polling
-export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
-export OWNER_ID=123456789
-export REDIS_URL=rediss://default:your-password@your-redis-host:6379
-export OPENAI_API_KEY=sk-...
+export PORT=8787
+export LOCAL_HOSTNAME=0.0.0.0
 ```
 
 ### Local Adapter Environment Keys
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `LOCAL_MODE` | no | `webhook` or `polling`. If unset, webhook is inferred when server settings such as `PORT` are present, otherwise polling is used. |
-| `LOCAL_HOSTNAME` | no | Host to bind the local HTTP server to. Defaults to `0.0.0.0` in webhook mode. |
-| `LOCAL_PORT` | no | Port to listen on. `PORT` is also accepted and is useful on PaaS platforms. |
-| `LOCAL_BASE_URL` | no | Optional explicit base URL override for webhook URL generation. `BASE_URL` is also accepted. |
-| `LOCAL_INIT_SECRET` | no | Secret for authorizing `GET /init`. When empty, `/init` is disabled. Accept it with `?secret=...` or the `X-Init-Secret` header. |
+| `LOCAL_HOSTNAME` | no | Host to bind the optional local HTTP server to. Defaults to `0.0.0.0` when the server is enabled. |
+| `LOCAL_PORT` | no | Port to listen on for the optional local HTTP server. `PORT` is also accepted and is useful on PaaS platforms. |
 | `LOCAL_PROXY` | no | HTTP/HTTPS proxy for outbound requests. |
 | `TOML_PATH` | no | Optional path to `config.toml`. |
 
-For Render, Koyeb, and similar platforms, `PORT` plus `LOCAL_MODE=webhook` is usually enough. The app can derive the public host from forwarded request headers when you open `/init`.
+For Render, Koyeb, and similar platforms, the platform-provided `PORT` is enough to expose `/health` automatically.
 
 ## `config.toml`
 
@@ -83,22 +69,12 @@ OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
 ```
 
-Webhook example:
+Optional health endpoint example:
 
 ```toml
 [vars]
-LOCAL_MODE = "webhook"
 LOCAL_PORT = 8787
 LOCAL_HOSTNAME = "0.0.0.0"
-LOCAL_BASE_URL = "https://your-domain.example.com"
-LOCAL_INIT_SECRET = "replace-with-a-random-secret"
-```
-
-Polling example:
-
-```toml
-[vars]
-LOCAL_MODE = "polling"
 ```
 
 OpenAI-compatible example:
@@ -151,44 +127,25 @@ Start the local adapter:
 npm run start:local
 ```
 
-## Webhook Mode
+## Polling Behavior
 
-Use `webhook` mode when your process is reachable through a public URL.
-
-After the server starts:
-
-1. set `LOCAL_INIT_SECRET`
-2. open `/init` on the running server
-3. the bot will register Telegram webhooks for every token in `TELEGRAM_AVAILABLE_TOKENS`
-4. the bot will also push Telegram command menus for the supported chat scopes
-
-### Local HTTP Endpoints
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/` | Status page and setup hints |
-| `GET` | `/init` | Bind Telegram webhooks and command menus |
-| `POST` | `/telegram/:token/webhook` | Telegram webhook endpoint |
-| `POST` | `/telegram/:token/safehook` | Guarded webhook path when an API guard is present |
-
-Notes:
-
-- the public webhook URL is built from the incoming request host by default
-- `LOCAL_BASE_URL` or `BASE_URL` can still override that when needed
-- `/init` is disabled until `LOCAL_INIT_SECRET` is configured
-- `/init` must be re-run if you change domains or tokens
-- the local landing page is documentation only; it does not expose a `/telegram/:token/bot` route
-
-## Polling Mode
-
-Use `polling` mode when you do not want to expose a public webhook endpoint.
+The local runtime always uses polling.
 
 Behavior:
 
 - the process calls Telegram `getUpdates`
 - existing webhooks are removed automatically on startup
-- no `/init` step is required
-- this is often the easiest mode for private development or single-instance self-hosting
+- no manual setup route is required
+- this is the default for private development and single-instance self-hosting
+
+## Optional Local HTTP Endpoints
+
+Set `LOCAL_PORT` or `PORT` if you want the local process to expose:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | Small status page with build info and command list |
+| `GET` | `/health` | JSON health response for probes and uptime checks |
 
 ## Scheduled Cleanup
 
@@ -290,8 +247,19 @@ Run the container:
 ```bash
 docker run -d \
   --name chatgpt-telegram-workers \
+  -e TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token \
+  -e OWNER_ID=123456789 \
+  -e REDIS_URL=rediss://default:your-password@your-redis-host:6379 \
+  -e OPENAI_API_KEY=sk-... \
+  chatgpt-telegram-workers:latest
+```
+
+Optional health endpoint:
+
+```bash
+docker run -d \
+  --name chatgpt-telegram-workers \
   -p 8787:8787 \
-  -e LOCAL_MODE=webhook \
   -e PORT=8787 \
   -e TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token \
   -e OWNER_ID=123456789 \
@@ -313,7 +281,7 @@ The provided `docker-compose.yaml` uses normal environment variables by default.
 ## Operational Notes
 
 - Redis is the only supported backing store
-- webhook and polling modes both use the same Redis-backed history/config state
+- the local runtime always polls Telegram and can optionally expose `/` and `/health`
 - `OPENAI_API_BASE` and `OAILIKE_API_BASE` may point at `/v1`, `/v1/responses`, or `/v1/chat/completions`
 - `OWNER_ID` has full control over sensitive commands and settings, while `ADMIN_WHITE_LIST` seeds static admins and `/promote` or `/demote` manage extra runtime admins
 - generic MCP is the only remaining repo-level custom tool integration

@@ -51,27 +51,18 @@ OPENAI_TTS_VOICE = "alloy"
 # OAILIKE_API_BASE = "https://your-api.example.com/v1/chat/completions"
 
 # -----------------------------------------------------------------------------
-# 3. Local Adapter Delivery Mode
+# 3. Optional Local HTTP Server
 # -----------------------------------------------------------------------------
-# The local adapter is controlled through environment-style keys.
-# You can define them here under [vars] or set them in the real server environment.
+# The local runtime always uses Telegram polling.
+# Set LOCAL_PORT or PORT only if you want the optional local HTTP server with
+# GET / and GET /health.
 #
-# Webhook example:
-# LOCAL_MODE = "webhook"
 # LOCAL_PORT = 8787
 # LOCAL_HOSTNAME = "0.0.0.0"
-# LOCAL_BASE_URL = "https://your-domain.example.com"
-# LOCAL_INIT_SECRET = "replace-with-a-random-secret"
-# `/init` is disabled when this is empty.
-#
-# Polling example:
-# LOCAL_MODE = "polling"
-#
 # Optional outbound proxy:
 # LOCAL_PROXY = "http://127.0.0.1:7890"
 #
-# If LOCAL_MODE is omitted, webhook is inferred when PORT, LOCAL_PORT, or
-# LOCAL_BASE_URL is set. Otherwise the adapter falls back to polling.
+# If LOCAL_PORT and PORT are both omitted, no local HTTP server is started.
 
 # -----------------------------------------------------------------------------
 # 4. Recommended Telegram Delivery Controls
@@ -79,10 +70,6 @@ OPENAI_TTS_VOICE = "alloy"
 # These are not required, but they are useful in most real deployments.
 # Optional: restrict Telegram subscriptions to the update types this bot handles.
 # TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
-# Optional: verify inbound Telegram webhooks with a shared secret header.
-# TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
-# Optional: drop pending Telegram updates when binding a webhook or switching to polling.
-# TELEGRAM_DROP_PENDING_UPDATES = false
 
 # -----------------------------------------------------------------------------
 # 5. Optional Access Bootstrap

@@ -52,22 +52,3 @@ export function errorToString(e: Error | any): string {
         stack: e.stack,
     });
 }
-
-export function makeResponse200(resp: Response | null): Response {
-    if (resp === null) {
-        return new Response('NOT HANDLED', { status: 200 });
-    }
-    if (resp.status === 200) {
-        return resp;
-    } else {
-    // If we return 4xx/5xx, Telegram will retry this update and later updates may not arrive.
-    // Therefore, webhook errors are normalized to HTTP 200.
-        return new Response(resp.body, {
-            status: 200,
-            headers: {
-                'Original-Status': `${resp.status}`,
-                ...resp.headers,
-            },
-        });
-    }
-}

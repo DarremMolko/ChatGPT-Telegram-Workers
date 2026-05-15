@@ -100,15 +100,20 @@ Important:
 | Variable | Description | Default |
 | --- | --- | --- |
 | `TELEGRAM_API_DOMAIN` | Telegram API base URL. | `https://api.telegram.org` |
-| `TELEGRAM_ALLOWED_UPDATES` | Update types requested from Telegram for webhook and polling delivery. | `['message', 'inline_query', 'callback_query', 'chosen_inline_result']` |
-| `TELEGRAM_WEBHOOK_SECRET_TOKEN` | Optional shared secret required on inbound Telegram webhook requests. | `''` |
-| `TELEGRAM_DROP_PENDING_UPDATES` | Drop pending Telegram updates when binding webhooks or switching to polling. | `false` |
-| `LOCAL_INIT_SECRET` | Secret required to call the local `/init` route. When empty, `/init` is disabled. | `''` |
+| `TELEGRAM_ALLOWED_UPDATES` | Update types requested from Telegram polling. | `['message', 'inline_query', 'callback_query', 'chosen_inline_result']` |
 | `TELEGRAM_BOT_NAME` | Bot usernames aligned by position with `TELEGRAM_AVAILABLE_TOKENS`. Helpful when using multiple bots. | `[]` |
 | `CHAT_GROUP_WHITE_LIST` | Group IDs allowed to use the bot. | `[]` |
 | `GROUP_CHAT_BOT_ENABLE` | Master group-chat enable switch. | `true` |
 | `GROUP_CHAT_BOT_SHARE_MODE` | If `true`, a group shares one history/config scope. If `false`, each user in the group gets an individual scope. | `true` |
 | `GROUP_INCLUDE_USERNAME` | Prefix group messages with a user identifier before sending them to the LLM. | `false` |
+
+## Local Process HTTP Endpoint
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `LOCAL_HOSTNAME` | Bind host for the optional local HTTP server that exposes `/` and `/health`. | `0.0.0.0` when enabled |
+| `LOCAL_PORT` | Bind port for the optional local HTTP server. `PORT` is also accepted and is useful on PaaS platforms. | `8787` when enabled |
+| `LOCAL_PROXY` | HTTP/HTTPS proxy for outbound requests in the local adapter. | `''` |
 
 ### Custom Commands
 

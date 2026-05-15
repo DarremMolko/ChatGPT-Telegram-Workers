@@ -23,7 +23,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Tools | Generic MCP groups and OpenAI Responses built-in tools |
 | Persistence | Redis-backed chat history, stored user config, scheduled deletions, and transient Telegram state |
 | Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, `/stop`, per-chat blocklists, and history export |
-| Deployment | Local webhook mode, local polling mode, Docker, and Docker Compose |
+| Deployment | Local polling, optional local health endpoint, Docker, and Docker Compose |
 
 Telegram still does not natively render GitHub-style pipe tables. The current bot rewrites detected pipe tables into Telegram-friendly card text as a compatibility layer. Treat that behavior as a stopgap rather than a permanent rendering model, and revisit it if Telegram adds first-class table support. You can disable the rewrite with `TELEGRAM_RENDER_PIPE_TABLES=false`.
 
@@ -48,28 +48,20 @@ There are two configuration layers:
 
 Environment variables are now the primary configuration path. `config.toml` is an optional convenience file for defining the same keys under `[vars]`.
 
-### Minimal Environment-Only Webhook Example
+### Minimal Environment-Only Example
 
 ```bash
-export LOCAL_MODE=webhook
-export PORT=8787
-export LOCAL_INIT_SECRET=replace-with-a-random-secret
 export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
 export OWNER_ID=123456789
 export REDIS_URL=rediss://default:your-password@your-redis-host:6379
 export OPENAI_API_KEY=sk-...
-export OPENAI_CHAT_MODEL=gpt-5.4-mini
-export OPENAI_VISION_MODEL=gpt-5.4-mini
 ```
 
-### Minimal Environment-Only Polling Example
+### Optional Local Health Endpoint
 
 ```bash
-export LOCAL_MODE=polling
-export TELEGRAM_AVAILABLE_TOKENS=123456:telegram-bot-token
-export OWNER_ID=123456789
-export REDIS_URL=rediss://default:your-password@your-redis-host:6379
-export OPENAI_API_KEY=sk-...
+export PORT=8787
+export LOCAL_HOSTNAME=0.0.0.0
 ```
 
 ### Optional `config.toml` Setup
@@ -78,7 +70,7 @@ export OPENAI_API_KEY=sk-...
 cp config.example.toml config.toml
 ```
 
-Set `LOCAL_MODE` and any other values you need under `[vars]`.
+Set any values you need under `[vars]`. The bot always uses polling. Set `LOCAL_PORT` or `PORT` only if you want the optional local HTTP server and `/health` endpoint.
 
 ### Minimal OpenAI Example
 
@@ -87,11 +79,8 @@ Set `LOCAL_MODE` and any other values you need under `[vars]`.
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
-# Optional Telegram update filtering and webhook verification.
+# Optional Telegram update filtering for polling.
 # TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
-# TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
-# TELEGRAM_DROP_PENDING_UPDATES = false
-# LOCAL_INIT_SECRET = "replace-with-a-random-secret"
 OPENAI_API_KEY = "sk-..."
 OPENAI_CHAT_MODEL = "gpt-5.4-mini"
 OPENAI_VISION_MODEL = "gpt-5.4-mini"
@@ -104,11 +93,8 @@ OPENAI_VISION_MODEL = "gpt-5.4-mini"
 TELEGRAM_AVAILABLE_TOKENS = "123456:telegram-bot-token"
 OWNER_ID = "123456789"
 REDIS_URL = "rediss://default:your-password@your-redis-host:6379"
-# Optional Telegram update filtering and webhook verification.
+# Optional Telegram update filtering for polling.
 # TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
-# TELEGRAM_WEBHOOK_SECRET_TOKEN = "replace-with-a-random-secret"
-# TELEGRAM_DROP_PENDING_UPDATES = false
-# LOCAL_INIT_SECRET = "replace-with-a-random-secret"
 
 AI_CHAT_PROVIDER = "oailike"
 AI_IMAGE_PROVIDER = "oailike"
@@ -121,21 +107,12 @@ OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
 OAILIKE_VISION_MODEL = "gpt-5.4-mini"
 ```
 
-You can also put the local adapter mode in `config.toml`:
+You can also enable the optional local HTTP server in `config.toml`:
 
 ```toml
 [vars]
-LOCAL_MODE = "webhook"
 LOCAL_PORT = 8787
-LOCAL_BASE_URL = "https://your-domain.example.com"
-LOCAL_INIT_SECRET = "replace-with-a-random-secret"
-```
-
-Polling example:
-
-```toml
-[vars]
-LOCAL_MODE = "polling"
+LOCAL_HOSTNAME = "0.0.0.0"
 ```
 
 Start locally:
@@ -145,22 +122,18 @@ npm install
 npm run start:local
 ```
 
-If you use `webhook` mode:
+The local runtime always uses Telegram polling. On startup it clears any previously configured webhook for each bot token, then begins `getUpdates`.
 
-1. Expose the server publicly
-2. Set `LOCAL_INIT_SECRET`, then open `http://localhost:8787/init?secret=...` or your deployed `/init?secret=...`
-3. Let the bot bind Telegram webhooks and command menus automatically
+Set `LOCAL_PORT` or `PORT` if you want the optional local HTTP server with:
 
-For PaaS deployments such as Render and Koyeb, `LOCAL_MODE=webhook` plus normal platform env vars is usually enough. The app can derive the public host from forwarded request headers, so `LOCAL_BASE_URL` is optional unless you need to force an override.
+- `GET /` for a small status page
+- `GET /health` for a JSON health response
+
+For PaaS deployments such as Render and Koyeb, the platform-provided `PORT` is enough to expose the health endpoint automatically.
 
 To avoid overlapping replies in the same chat, the runtime now defaults to `CHAT_CONCURRENCY_POLICY=queue`. Other supported values are `cancel_previous`, `drop_if_busy`, and `parallel`.
 
 `queue` waits for the active reply to finish and notifies the user that their message was queued. `cancel_previous` cancels or supersedes older in-flight work so the newest message wins. `drop_if_busy` refuses new work while a reply is active and asks the user to wait or send `/stop`. `parallel` keeps the older overlapping behavior and does not try to serialize same-chat requests.
-
-If you use `polling` mode:
-
-- no `/init` step is needed
-- the process reads updates directly from Telegram
 
 ## Scheduled Cleanup Examples
 
@@ -293,7 +266,7 @@ src/
 ├── agent/        # OpenAI and OpenAI-compatible integrations
 ├── config/       # Environment config, stored user config, and context building
 ├── mcp/          # Generic MCP client integration
-├── route/        # HTTP entrypoints such as / and /init
+├── route/        # Optional local status and health HTTP endpoints
 ├── schedule/     # Scheduled cleanup tasks
 ├── telegram/     # Telegram command, handler, query, and send logic
 └── utils/        # Shared helpers

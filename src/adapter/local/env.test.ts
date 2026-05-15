@@ -40,63 +40,57 @@ REDIS_URL = "redis://file"
 });
 
 describe('resolveLocalConfig', () => {
-    it('builds webhook config from environment variables only', () => {
+    it('builds health server config from environment variables only', () => {
         const config = resolveLocalConfig({
-            LOCAL_MODE: 'webhook',
             LOCAL_HOSTNAME: '127.0.0.1',
             PORT: '9999',
-            LOCAL_BASE_URL: 'https://bot.example.com',
             LOCAL_PROXY: 'http://127.0.0.1:7890',
         });
         expect(config).toEqual({
-            mode: 'webhook',
             proxy: 'http://127.0.0.1:7890',
             server: {
                 hostname: '127.0.0.1',
                 port: 9999,
-                baseURL: 'https://bot.example.com',
             },
         });
     });
 
-    it('reads local adapter mode from config.toml vars', async () => {
+    it('reads health server config from config.toml vars', async () => {
         const filePath = await writeTempFile('config.toml', `
 [vars]
-LOCAL_MODE = "webhook"
 LOCAL_HOSTNAME = "0.0.0.0"
 LOCAL_PORT = 4321
-LOCAL_BASE_URL = "https://example.com"
 `);
         const env = await loadLocalEnv(filePath);
         const config = resolveLocalConfig(env);
 
-        expect(config.mode).toBe('webhook');
         expect(config.server?.port).toBe(4321);
         expect(config.server?.hostname).toBe('0.0.0.0');
-        expect(config.server?.baseURL).toBe('https://example.com');
     });
 
     it('lets real process env override config.toml vars', async () => {
         const filePath = await writeTempFile('config.toml', `
 [vars]
-LOCAL_MODE = "polling"
 LOCAL_PORT = 8787
 `);
-        vi.stubEnv('LOCAL_MODE', 'webhook');
         vi.stubEnv('PORT', '9999');
         const env = await loadLocalEnv(filePath);
         const config = resolveLocalConfig(env, process.env);
 
-        expect(config.mode).toBe('webhook');
         expect(config.server?.port).toBe(9999);
     });
 
-    it('infers webhook mode when only server env vars are present', () => {
+    it('creates a server config when only server env vars are present', () => {
         const config = resolveLocalConfig({
             PORT: '8787',
         });
 
-        expect(config.mode).toBe('webhook');
         expect(config.server?.port).toBe(8787);
+    });
+
+    it('omits the server when no server env vars are present', () => {
+        const config = resolveLocalConfig({});
+
+        expect(config.server).toBeUndefined();
     });
 });

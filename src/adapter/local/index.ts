@@ -21,10 +21,8 @@ async function runPolling() {
         const api = createTelegramBotAPI(token);
         clients[token] = api;
         const name = await api.getMeWithReturns();
-        await api.deleteWebhook({
-            ...(ENV.TELEGRAM_DROP_PENDING_UPDATES ? { drop_pending_updates: true } : {}),
-        });
-        console.log(`@${name.result.username} Webhook deleted, If you want to use webhook, please set it up again.`);
+        await api.deleteWebhook();
+        console.log(`@${name.result.username} existing webhook deleted, polling started.`);
     }
 
     ENV.TELEGRAM_AVAILABLE_TOKENS.forEach(async (token) => {
@@ -93,15 +91,12 @@ async function main() {
         console.log(e);
     }
 
-    if (config.mode === 'webhook' && config.server !== undefined) {
-        const router = createRouter();
+    if (config.server !== undefined) {
         startLocalServer(
             config.server.port || 8787,
             config.server.hostname || '0.0.0.0',
-            config.server.baseURL,
-            router,
+            createRouter(),
         );
-        return;
     }
 
     runPolling().catch(console.error);

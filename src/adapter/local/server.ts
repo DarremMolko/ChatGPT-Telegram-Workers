@@ -9,16 +9,15 @@ function readForwardedHeader(value: string | string[] | undefined): string | und
     return raw?.split(',')[0]?.trim() || undefined;
 }
 
-function resolveBaseURL(req: IncomingMessage, fallbackBaseURL: string): string {
-    const fallback = new URL(fallbackBaseURL);
-    const protocol = readForwardedHeader(req.headers['x-forwarded-proto']) || fallback.protocol.replace(/:$/, '');
+function resolveBaseURL(req: IncomingMessage): string {
+    const protocol = readForwardedHeader(req.headers['x-forwarded-proto']) || 'http';
     const host = readForwardedHeader(req.headers['x-forwarded-host'])
         || readForwardedHeader(req.headers.host)
-        || fallback.host;
+        || '127.0.0.1';
     return `${protocol}://${host}`;
 }
 
-function buildRequest(req: IncomingMessage, baseURL?: string): Request {
+function buildRequest(req: IncomingMessage): Request {
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
         if (Array.isArray(value)) {
@@ -37,8 +36,7 @@ function buildRequest(req: IncomingMessage, baseURL?: string): Request {
         init.body = Readable.toWeb(req) as unknown as BodyInit;
         (init as RequestInit & { duplex: 'half' }).duplex = 'half';
     }
-    const fallbackBaseURL = baseURL || 'http://127.0.0.1';
-    return new Request(new URL(req.url || '/', resolveBaseURL(req, fallbackBaseURL)), init);
+    return new Request(new URL(req.url || '/', resolveBaseURL(req)), init);
 }
 
 async function writeResponse(
@@ -64,12 +62,11 @@ async function writeResponse(
 export function startLocalServer(
     port: number,
     hostname: string,
-    baseURL: string | undefined,
     router: Router,
 ) {
     const server = createServer(async (req: IncomingMessage, res: ServerResponse<IncomingMessage>) => {
         try {
-            const request = buildRequest(req, baseURL);
+            const request = buildRequest(req);
             const response = await router.fetch(request as any);
             await writeResponse(response, res);
         } catch (error) {

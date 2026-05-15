@@ -11,14 +11,8 @@ export class EnvironmentConfig {
     TELEGRAM_API_DOMAIN = 'https://api.telegram.org';
     // Allowed Telegram tokens, separated by commas when configured.
     TELEGRAM_AVAILABLE_TOKENS: string[] = [];
-    // Update types to subscribe to in webhooks and polling. Keep this aligned with the update kinds handled by the app.
+    // Update types to subscribe to in polling.
     TELEGRAM_ALLOWED_UPDATES: string[] = ['message', 'inline_query', 'callback_query', 'chosen_inline_result'];
-    // Optional Telegram webhook secret token. When set, incoming webhooks must present the matching header.
-    TELEGRAM_WEBHOOK_SECRET_TOKEN = '';
-    // Whether to drop pending Telegram updates when binding webhooks or switching to polling.
-    TELEGRAM_DROP_PENDING_UPDATES = false;
-    // Secret required to use the local `/init` webhook bootstrap endpoint. When empty, `/init` is disabled.
-    LOCAL_INIT_SECRET = '';
     // Default message parse mode
     DEFAULT_PARSE_MODE = 'MarkdownV2';
     // Minimum interval for stream-mode message updates. Values <= 0 disable the limit. Unit: ms.
@@ -113,7 +107,7 @@ export class EnvironmentConfig {
     //
     // Use streaming mode
     STREAM_MODE = true;
-    // Safe mode. Can be disabled for async modes such as polling or async webhook handling.
+    // Safe mode. Can be disabled for asynchronous delivery modes.
     SAFE_MODE = true;
     // Debug mode
     DEBUG_MODE = false;

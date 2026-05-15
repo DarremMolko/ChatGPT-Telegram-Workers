@@ -4,10 +4,6 @@ export interface RedisStorage {
     delete: (key: string | string[]) => Promise<any>;
 }
 
-export interface APIGuard {
-    fetch: (request: Request) => Promise<Response>;
-}
-
 export interface CommandConfig {
     value: string;
     description?: string | null;
