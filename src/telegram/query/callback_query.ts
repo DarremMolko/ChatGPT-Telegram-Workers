@@ -10,7 +10,7 @@ import { ConfigMerger } from '../../config/merger';
 import { log } from '../../log/logger';
 import { canManageRuntimeConfigForAccess, canUseCommandsForAccess, canViewSensitiveConfigForAccess, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
-import { InlineCommandHandler } from '../command/system';
+import { buildSystemInlineKeyboard, InlineCommandHandler, parseSystemPanelCallback, renderSystemPanel } from '../command/system';
 import { catchError } from '../handler';
 import { EnvChecker, InitUserConfig } from '../handler/handlers';
 import { buildRenderedTextParams } from '../utils/send';
@@ -43,6 +43,14 @@ class HandlerCallbackQuery implements CallbackQueryHandler<CallbackQueryContext>
         // Close the inline keyboard.
         if (query.data === 'close') {
             return this.closeInlineKeyboard(api, message);
+        }
+        const systemAction = parseSystemPanelCallback(query.data);
+        if (systemAction) {
+            if (!access.isOwner) {
+                return this.sendAlert(api, context.query_id, '⚠️ You are not allowed to use system', true);
+            }
+            const text = await renderSystemPanel(context as unknown as WorkerContext, message, systemAction.section);
+            return this.sendCallBackMessage(api, message, text, buildSystemInlineKeyboard(query.from!.id, systemAction.section));
         }
 
         const [row = 5, col = 3] = ENV.CALLBACK_QUERY_RC.split('x').map(Number);

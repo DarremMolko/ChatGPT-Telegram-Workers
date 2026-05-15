@@ -45,6 +45,225 @@ export const COMMAND_AUTH_CHECKER = {
     },
 };
 
+export const SYSTEM_PANEL_PREFIX = 'system:';
+
+export type SystemPanelSection
+    = | 'summary'
+        | 'stats'
+        | 'agent'
+        | 'other'
+        | 'dev_config'
+        | 'chat_context'
+        | 'share_context';
+
+const SYSTEM_PANEL_LABELS: Record<SystemPanelSection, string> = {
+    summary: 'Summary',
+    stats: 'Usage',
+    agent: 'Agents',
+    other: 'Other',
+    dev_config: 'Dev Config',
+    chat_context: 'Chat Ctx',
+    share_context: 'Share Ctx',
+};
+
+function isSystemPanelSection(value: string): value is SystemPanelSection {
+    return value in SYSTEM_PANEL_LABELS;
+}
+
+function buildSystemDebugMessageContext(message: Telegram.Message) {
+    return {
+        chat_id: message.chat.id,
+        message_id: message.message_id ?? null,
+        reply_to_message_id: message.reply_to_message?.message_id ?? null,
+        message_thread_id: message.message_thread_id ?? null,
+        chatType: message.chat.type,
+        sentMessageIds: [],
+    };
+}
+
+function buildSectionCodeBlock(title: string, value: unknown): string {
+    return `*${title}*\n\`\`\`\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+}
+
+interface SystemPanelSnapshot {
+    stats: ReturnType<typeof getStats>;
+    agent: Record<string, unknown>;
+    otherInfo: unknown;
+    activeRequests: number;
+    build: {
+        sha: string;
+        timestamp: number;
+        formattedTime: string;
+    };
+    dev: null | {
+        userConfig: Record<string, unknown>;
+        chatContext: Record<string, unknown>;
+        shareContext: Record<string, unknown>;
+    };
+}
+
+async function collectSystemPanelSnapshot(context: Pick<WorkerContext, 'USER_CONFIG' | 'SHARE_CONTEXT'>, message: Telegram.Message): Promise<SystemPanelSnapshot> {
+    const stats = getStats(String(context.SHARE_CONTEXT.botId));
+    const chatAgent = describeAgentConfig(context.USER_CONFIG.AI_CHAT_PROVIDER, context as WorkerContext, CHAT_AGENTS);
+    const imageAgent = describeAgentConfig(context.USER_CONFIG.AI_IMAGE_PROVIDER, context as WorkerContext, IMAGE_AGENTS);
+    const asrAgent = describeAgentConfig(context.USER_CONFIG.AI_ASR_PROVIDER, context as WorkerContext, ASR_AGENTS);
+    const ttsAgent = describeAgentConfig(context.USER_CONFIG.AI_TTS_PROVIDER, context as WorkerContext, TTS_AGENTS);
+    const agent = {
+        AI_CHAT_PROVIDER: chatAgent.provider,
+        [chatAgent.modelKey]: chatAgent.model,
+        TOOL_MODEL: context.USER_CONFIG.TOOL_MODEL || 'same as chat model',
+        AI_IMAGE_PROVIDER: imageAgent.provider,
+        [imageAgent.modelKey]: imageAgent.model,
+        AI_ASR_PROVIDER: asrAgent.provider,
+        [asrAgent.modelKey]: asrAgent.model,
+        AI_TTS_PROVIDER: ttsAgent.provider,
+        [ttsAgent.modelKey]: ttsAgent.model,
+        VISION_MODEL: context.USER_CONFIG[`${chatAgent.provider.toUpperCase()}_VISION_MODEL`] || `Agent ${chatAgent.provider} not found`,
+        PROVIDER_ENABLED: {
+            chat: chatAgent.enabled,
+            image: imageAgent.enabled,
+            asr: asrAgent.enabled,
+            tts: ttsAgent.enabled,
+        },
+    };
+    const otherInfo = await customInfo(context.USER_CONFIG, { format: 'object' });
+    const build = {
+        sha: ENV.BUILD_VERSION,
+        timestamp: ENV.BUILD_TIMESTAMP,
+        formattedTime: formatLocalDateTime(new Date(ENV.BUILD_TIMESTAMP * 1000)),
+    };
+    const activeRequests = context.SHARE_CONTEXT.chatHistoryKey
+        ? getActiveRequestCount(context.SHARE_CONTEXT.chatHistoryKey)
+        : 0;
+
+    let dev: SystemPanelSnapshot['dev'] = null;
+    if (ENV.DEV_MODE) {
+        const shareContext = { ...context.SHARE_CONTEXT } as Record<string, unknown>;
+        shareContext.botToken = '******';
+
+        const userConfig = ConfigMerger.trim(structuredClone(context.USER_CONFIG)) as Record<string, unknown>;
+        if (Array.isArray(userConfig.OPENAI_API_KEY)) {
+            userConfig.OPENAI_API_KEY = ['******'];
+        }
+        if (typeof userConfig.OAILIKE_API_KEY === 'string' && userConfig.OAILIKE_API_KEY) {
+            userConfig.OAILIKE_API_KEY = '******';
+        }
+
+        dev = {
+            userConfig,
+            chatContext: buildSystemDebugMessageContext(message),
+            shareContext,
+        };
+    }
+
+    return {
+        stats,
+        agent,
+        otherInfo,
+        activeRequests,
+        build,
+        dev,
+    };
+}
+
+export async function renderSystemPanel(context: Pick<WorkerContext, 'USER_CONFIG' | 'SHARE_CONTEXT'>, message: Telegram.Message, section: SystemPanelSection = 'summary'): Promise<string> {
+    const snapshot = await collectSystemPanelSnapshot(context, message);
+    const title = SYSTEM_PANEL_LABELS[section];
+
+    if (section === 'stats') {
+        return `*System*\nSelected view: \`${title}\`\n\n`
+            + `*Usage Statistics*\n`
+            + `Total Users: \`${snapshot.stats.totalUsers}\`\n`
+            + `Total Groups: \`${snapshot.stats.totalGroups}\`\n`
+            + `Total Messages: \`${snapshot.stats.totalMessages}\`\n`
+            + `Today Messages: \`${snapshot.stats.todayMessages}\`\n`
+            + `Active Requests In This Chat: \`${snapshot.activeRequests}\`\n\n`
+            + `*Build*\n`
+            + `SHA: \`${snapshot.build.sha}\`\n`
+            + `Time: \`${snapshot.build.formattedTime}\``;
+    }
+
+    if (section === 'agent') {
+        return `*System*\nSelected view: \`${title}\`\n\n${buildSectionCodeBlock('Agent', snapshot.agent)}`;
+    }
+
+    if (section === 'other') {
+        return `*System*\nSelected view: \`${title}\`\n\n${buildSectionCodeBlock('Other', snapshot.otherInfo)}`;
+    }
+
+    if (section === 'dev_config') {
+        return `*System*\nSelected view: \`${title}\`\n\n${buildSectionCodeBlock('Dev User Config', snapshot.dev?.userConfig || {})}`;
+    }
+
+    if (section === 'chat_context') {
+        return `*System*\nSelected view: \`${title}\`\n\n${buildSectionCodeBlock('Chat Context', snapshot.dev?.chatContext || {})}`;
+    }
+
+    if (section === 'share_context') {
+        return `*System*\nSelected view: \`${title}\`\n\n${buildSectionCodeBlock('Share Context', snapshot.dev?.shareContext || {})}`;
+    }
+
+    return `*System*\nSelected view: \`${title}\`\n\n`
+        + `*Usage Statistics*\n`
+        + `Total Users: \`${snapshot.stats.totalUsers}\`\n`
+        + `Total Groups: \`${snapshot.stats.totalGroups}\`\n`
+        + `Total Messages: \`${snapshot.stats.totalMessages}\`\n`
+        + `Today Messages: \`${snapshot.stats.todayMessages}\`\n`
+        + `Active Requests In This Chat: \`${snapshot.activeRequests}\`\n\n`
+        + `*Agent Summary*\n`
+        + `Chat: \`${snapshot.agent.AI_CHAT_PROVIDER}\`\n`
+        + `Chat Model: \`${snapshot.agent[Object.keys(snapshot.agent).find(key => key.endsWith('CHAT_MODEL')) || 'TOOL_MODEL']}\`\n`
+        + `Tool Model: \`${snapshot.agent.TOOL_MODEL}\`\n`
+        + `Image: \`${snapshot.agent.AI_IMAGE_PROVIDER}\`\n`
+        + `ASR: \`${snapshot.agent.AI_ASR_PROVIDER}\`\n`
+        + `TTS: \`${snapshot.agent.AI_TTS_PROVIDER}\`\n\n`
+        + `*Build*\n`
+        + `SHA: \`${snapshot.build.sha}\`\n`
+        + `Time: \`${snapshot.build.formattedTime}\``;
+}
+
+export function buildSystemInlineKeyboard(userId: number, selected: SystemPanelSection = 'summary'): Telegram.InlineKeyboardButton[][] {
+    const sections = (Object.keys(SYSTEM_PANEL_LABELS) as SystemPanelSection[])
+        .filter(section => ENV.DEV_MODE || (
+            !section.startsWith('dev_')
+            && section !== 'chat_context'
+            && section !== 'share_context'
+        ));
+    const rows = chunkArray(sections.map(section => ({
+        text: `${section === selected ? '✅ ' : ''}${SYSTEM_PANEL_LABELS[section]}`,
+        callback_data: `${SYSTEM_PANEL_PREFIX}view:${section}`,
+    })), 3) as Telegram.InlineKeyboardButton[][];
+    rows.unshift([{
+        text: 'System',
+        callback_data: `${userId}.system`,
+    }]);
+    rows.push([
+        {
+            text: '🔄',
+            callback_data: `${SYSTEM_PANEL_PREFIX}refresh:${selected}`,
+        },
+        {
+            text: '❌',
+            callback_data: 'close',
+        },
+    ]);
+    return rows;
+}
+
+export function parseSystemPanelCallback(data: string): { action: 'view' | 'refresh'; section: SystemPanelSection } | null {
+    const [prefix, action, section] = data.split(':');
+    if (prefix !== SYSTEM_PANEL_PREFIX.slice(0, -1)) {
+        return null;
+    }
+    if ((action !== 'view' && action !== 'refresh') || !section || !isSystemPanelSection(section)) {
+        return null;
+    }
+    return {
+        action,
+        section,
+    };
+}
+
 function describeAgentConfig(
     providerName: string | undefined,
     context: WorkerContext,
@@ -575,49 +794,23 @@ export class SystemCommandHandler implements CommandHandler {
     command = '/system';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
     needAuth = COMMAND_AUTH_CHECKER.owner;
-    handle = async (_message: Telegram.Message, _subcommand: string, context: WorkerContext, sender: MessageSender): Promise<Response> => {
-        const stats = getStats(String(context.SHARE_CONTEXT.botId));
-        const chatAgent = describeAgentConfig(context.USER_CONFIG.AI_CHAT_PROVIDER, context, CHAT_AGENTS);
-        const imageAgent = describeAgentConfig(context.USER_CONFIG.AI_IMAGE_PROVIDER, context, IMAGE_AGENTS);
-        const asrAgent = describeAgentConfig(context.USER_CONFIG.AI_ASR_PROVIDER, context, ASR_AGENTS);
-        const ttsAgent = describeAgentConfig(context.USER_CONFIG.AI_TTS_PROVIDER, context, TTS_AGENTS);
-        const agent = {
-            AI_CHAT_PROVIDER: chatAgent.provider,
-            [chatAgent.modelKey]: chatAgent.model,
-            TOOL_MODEL: context.USER_CONFIG.TOOL_MODEL || 'same as chat model',
-            AI_IMAGE_PROVIDER: imageAgent.provider,
-            [imageAgent.modelKey]: imageAgent.model,
-            AI_ASR_PROVIDER: asrAgent.provider,
-            [asrAgent.modelKey]: asrAgent.model,
-            AI_TTS_PROVIDER: ttsAgent.provider,
-            [ttsAgent.modelKey]: ttsAgent.model,
-            VISION_MODEL: context.USER_CONFIG[`${chatAgent.provider.toUpperCase()}_VISION_MODEL`] || `Agent ${chatAgent.provider} not found`,
-            PROVIDER_ENABLED: {
-                chat: chatAgent.enabled,
-                image: imageAgent.enabled,
-                asr: asrAgent.enabled,
-                tts: ttsAgent.enabled,
+    handle = async (message: Telegram.Message, _subcommand: string, context: WorkerContext, _sender: MessageSender): Promise<Response> => {
+        const text = await renderSystemPanel(context, message, 'summary');
+        return createTelegramBotAPI(context.SHARE_CONTEXT.botToken).sendMessage({
+            chat_id: message.chat.id,
+            ...(message.chat.type === 'private'
+                ? {}
+                : {
+                        reply_parameters: {
+                            message_id: message.message_id,
+                            chat_id: message.chat.id,
+                        },
+                    }),
+            ...buildRenderedTextParams('MarkdownV2', text, { quoteExpandable: true, addQuote: true }),
+            reply_markup: {
+                inline_keyboard: buildSystemInlineKeyboard(message.from!.id, 'summary'),
             },
-        };
-        const otherInfo = await customInfo(context.USER_CONFIG, { format: 'object' });
-        let msg = `*Usage Statistics*\n`
-            + `Total Users: \`${stats.totalUsers}\`\n`
-            + `Total Groups: \`${stats.totalGroups}\`\n`
-            + `Total Messages: \`${stats.totalMessages}\`\n`
-            + `Today Messages: \`${stats.todayMessages}\`\n\n`
-            + `*Agent*\n\`\`\`\n${JSON.stringify(agent, null, 2)}\n\`\`\`\n\n`
-            + `*Other*\n\`\`\`\n${JSON.stringify(otherInfo, null, 2)}\n\`\`\``;
-        if (ENV.DEV_MODE) {
-            const shareCtx = { ...context.SHARE_CONTEXT };
-            shareCtx.botToken = '******';
-            context.USER_CONFIG.OPENAI_API_KEY = ['******'];
-            context.USER_CONFIG.OAILIKE_API_KEY = '******';
-            const config = ConfigMerger.trim(context.USER_CONFIG);
-            msg += `\n\n*Dev User Config*\n\`\`\`\n${JSON.stringify(config, null, 2)}\n\`\`\``;
-            msg += `\n\n*Chat Context*\n\`\`\`\n${JSON.stringify(sender.context || {}, null, 2)}\n\`\`\``;
-            msg += `\n\n*Share Context*\n\`\`\`\n${JSON.stringify(shareCtx, null, 2)}\n\`\`\``;
-        }
-        return sender.sendRichText(msg, 'MarkdownV2', 'tip');
+        });
     };
 }
 

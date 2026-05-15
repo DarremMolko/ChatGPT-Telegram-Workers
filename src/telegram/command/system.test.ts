@@ -1,11 +1,13 @@
 import type * as Telegram from 'telegram-bot-api-types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { chatWithLLMMock, getTelegramFileMock, loadHistoryMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sttMock, ttsMock } = vi.hoisted(() => {
+const { chatWithLLMMock, getStatsMock, customInfoMock, getTelegramFileMock, loadHistoryMock, loadImageGenMock, runtimeAdminStore, redisMock, sendActionMock, sendImagesMock, sendMessageMock, sttMock, ttsMock } = vi.hoisted(() => {
     const store = new Map<string, string>();
     return {
         chatWithLLMMock: vi.fn(),
+        customInfoMock: vi.fn(),
         getTelegramFileMock: vi.fn(),
+        getStatsMock: vi.fn(),
         loadHistoryMock: vi.fn(),
         loadImageGenMock: vi.fn(),
         runtimeAdminStore: store,
@@ -19,6 +21,7 @@ const { chatWithLLMMock, getTelegramFileMock, loadHistoryMock, loadImageGenMock,
         },
         sendActionMock: vi.fn(),
         sendImagesMock: vi.fn(),
+        sendMessageMock: vi.fn(async () => new Response('ok', { status: 200 })),
         sttMock: vi.fn(),
         ttsMock: vi.fn(),
     };
@@ -29,7 +32,7 @@ vi.mock('../../agent', () => ({
     CHAT_AGENTS: [],
     IMAGE_AGENTS: [],
     TTS_AGENTS: [],
-    customInfo: vi.fn(),
+    customInfo: customInfoMock,
     loadImageGen: loadImageGenMock,
 }));
 
@@ -48,6 +51,8 @@ vi.mock('../../agent/models', () => ({
 vi.mock('../../config/env', () => ({
     ENV: {
         ADMIN_WHITE_LIST: ['2'],
+        BUILD_TIMESTAMP: 1710000000,
+        BUILD_VERSION: 'deadbeef',
         CUSTOM_COMMAND: {},
         DEV_MODE: false,
         EXTRA_MESSAGE_CONTEXT: true,
@@ -88,7 +93,7 @@ vi.mock('../../utils/others/time', () => ({
 }));
 
 vi.mock('../../utils/stats', () => ({
-    getStats: vi.fn(),
+    getStats: getStatsMock,
 }));
 
 vi.mock('.', () => ({
@@ -96,7 +101,9 @@ vi.mock('.', () => ({
 }));
 
 vi.mock('../api', () => ({
-    createTelegramBotAPI: vi.fn(() => ({})),
+    createTelegramBotAPI: vi.fn(() => ({
+        sendMessage: sendMessageMock,
+    })),
 }));
 
 vi.mock('../handler/chat', () => ({
@@ -112,10 +119,14 @@ vi.mock('../utils/media', () => ({
 
 vi.mock('../utils/active_request', () => ({
     cancelActiveRequests: vi.fn(),
-    getActiveRequestCount: vi.fn(),
+    getActiveRequestCount: vi.fn(() => 0),
 }));
 
 vi.mock('../utils/send', () => ({
+    buildRenderedTextParams: vi.fn((_parseMode: string, text: string) => ({
+        text,
+        parse_mode: 'MarkdownV2',
+    })),
     checkIsNeedTagIds: vi.fn(),
     sendAction: sendActionMock,
 }));
@@ -124,13 +135,21 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../utils/tg_utils')>();
     return {
         ...actual,
-        chunkArray: vi.fn(),
+        chunkArray: vi.fn((items: unknown[], size: number) => {
+            const result: unknown[][] = [];
+            for (let i = 0; i < items.length; i += size) {
+                result.push(items.slice(i, i + size));
+            }
+            return result;
+        }),
         getTelegramFile: getTelegramFileMock,
         isTelegramChatTypeGroup: vi.fn(() => false),
     };
 });
 
-const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, TTSCommandHandler, UnblockUserCommandHandler, VisionCommandHandler } = await import('./system');
+const { customInfo } = await import('../../agent');
+const { getStats } = await import('../../utils/stats');
+const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, ImgCommandHandler, PromoteCommandHandler, STTCommandHandler, SystemCommandHandler, TTSCommandHandler, UnblockUserCommandHandler, VisionCommandHandler } = await import('./system');
 
 function createReplyMessage(
     text: string,
@@ -235,9 +254,61 @@ describe('tTSCommandHandler', () => {
         redisMock.put.mockClear();
         sendActionMock.mockReset();
         sendImagesMock.mockReset();
+        sendMessageMock.mockReset();
         sttMock.mockReset();
         ttsMock.mockReset();
         chatWithLLMMock.mockReset();
+        getStatsMock.mockReset();
+        customInfoMock.mockReset();
+    });
+
+    it('renders /system as a callback-keyboard panel', async () => {
+        vi.mocked(getStats).mockReturnValue({
+            totalUsers: 11,
+            totalGroups: 7,
+            totalMessages: 99,
+            todayMessages: 5,
+        });
+        vi.mocked(customInfo).mockResolvedValue({
+            region: 'local',
+        });
+        sendMessageMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new SystemCommandHandler();
+        const message = createMessage('/system');
+        const sender = createSender();
+        const context = createContext();
+        context.USER_CONFIG.AI_CHAT_PROVIDER = 'openai';
+        context.USER_CONFIG.AI_IMAGE_PROVIDER = 'openai';
+        context.USER_CONFIG.AI_ASR_PROVIDER = 'openai';
+        context.USER_CONFIG.AI_TTS_PROVIDER = 'openai';
+        context.USER_CONFIG.OPENAI_CHAT_MODEL = 'gpt-5.4-mini';
+        context.USER_CONFIG.OPENAI_IMAGE_MODEL = 'gpt-image-2';
+        context.USER_CONFIG.OPENAI_STT_MODEL = 'gpt-4o-mini-transcribe';
+        context.USER_CONFIG.OPENAI_TTS_MODEL = 'gpt-4o-mini-tts';
+        context.USER_CONFIG.OPENAI_VISION_MODEL = 'gpt-5.4-mini';
+
+        const response = await handler.handle(message, '', context, sender);
+
+        expect(response.ok).toBe(true);
+        expect(sendMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+            chat_id: 123,
+            reply_markup: expect.objectContaining({
+                inline_keyboard: expect.arrayContaining([
+                    expect.arrayContaining([
+                        expect.objectContaining({ callback_data: '456.system' }),
+                    ]),
+                ]),
+            }),
+        }));
+        const payload = (sendMessageMock.mock.calls as any[][])[0]?.[0] as {
+            text: string;
+            reply_markup: {
+                inline_keyboard: Telegram.InlineKeyboardButton[][];
+            };
+        };
+        expect(payload).toBeDefined();
+        expect(payload.text).toContain('Selected view: `Summary`');
+        expect(payload.reply_markup.inline_keyboard.flat().some((item: Telegram.InlineKeyboardButton) => item.callback_data === 'system:view:stats')).toBe(true);
     });
 
     it('uses the replied message text when the command only has flags plus merged quote context', async () => {
