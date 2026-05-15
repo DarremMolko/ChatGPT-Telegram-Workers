@@ -9,6 +9,7 @@ import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
 import { warpLLMParams } from './model_middleware';
+import { messageUsesVisionModel } from './model_selector';
 import { renderImage } from './openai';
 import { buildOpenAIImageSettings, isOpenAIImageModel, resolveImageEditModel } from './openai_image';
 import { createOpenAIStyleHeaders, requestOpenAIStyleSpeech, requestOpenAIStyleTranscription } from './openai_style';
@@ -40,8 +41,9 @@ export class OpenAILike extends OpenAILikeBase implements ChatAgent {
     };
 
     readonly model = (ctx: AgentUserConfig, params?: LLMChatRequestParams): string => {
-        const msgType = Array.isArray(params?.content) ? params.content.at(-1)?.type : 'text';
-        return msgType === 'text' ? ctx.OAILIKE_CHAT_MODEL : ctx.OAILIKE_VISION_MODEL;
+        return messageUsesVisionModel(params)
+            ? ctx.OAILIKE_VISION_MODEL
+            : ctx.OAILIKE_CHAT_MODEL;
     };
 
     readonly request = async (params: LLMChatParams, context: AgentUserConfig, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> => {

@@ -1,13 +1,15 @@
 import type { AgentUserConfig } from '../config/env';
 import type { LLMChatRequestParams } from './types';
 
-export function resolveOpenAIChatModel(ctx: AgentUserConfig, params?: LLMChatRequestParams): string {
-    const msgType = Array.isArray(params?.content) ? params.content.at(-1)?.type : 'text';
-    switch (msgType) {
-        case 'image':
-        case 'file':
-            return ctx.OPENAI_VISION_MODEL;
-        default:
-            return ctx.OPENAI_CHAT_MODEL;
+export function messageUsesVisionModel(params?: LLMChatRequestParams): boolean {
+    if (!Array.isArray(params?.content)) {
+        return false;
     }
+    return params.content.some(part => part?.type === 'image' || part?.type === 'file');
+}
+
+export function resolveOpenAIChatModel(ctx: AgentUserConfig, params?: LLMChatRequestParams): string {
+    return messageUsesVisionModel(params)
+        ? ctx.OPENAI_VISION_MODEL
+        : ctx.OPENAI_CHAT_MODEL;
 }
