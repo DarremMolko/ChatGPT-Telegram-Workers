@@ -16,7 +16,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 
 | Area | What remains |
 | --- | --- |
-| Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing and Telegram text/image/audio/PDF inputs |
+| Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing, Telegram text/image/audio/PDF inputs, and optional document OCR preprocessing |
 | Streaming | Telegram replies stream through the normal message edit/send path |
 | Images | `/img` generation for both provider families; reply-to-image editing through the OpenAI-compatible image path |
 | Speech | Telegram voice/audio input via STT, explicit `/stt` transcription, text-to-speech output via `/tts`, and configurable text/audio workflows |
@@ -106,6 +106,21 @@ OAILIKE_API_BASE = "https://your-api.example.com/v1"
 OAILIKE_CHAT_MODEL = "gpt-5.4-mini"
 OAILIKE_VISION_MODEL = "gpt-5.4-mini"
 ```
+
+### Optional Document OCR Preprocessing
+
+If you want supported document uploads to be OCRed into plain text before they reach the chat model, enable the optional Mistral OCR integration:
+
+```toml
+[vars]
+DOCUMENT_OCR_PROVIDER = "mistral"
+MISTRAL_OCR_API_KEY = "your-mistral-ocr-key"
+MISTRAL_OCR_API_BASE = "https://api.mistral.ai/v1"
+MISTRAL_OCR_MODEL = "mistral-ocr-latest"
+```
+
+When OCR is enabled, the bot uploads supported document bytes to Mistral, injects the extracted text into the prompt, and falls back to the native PDF file upload path if OCR fails on PDFs.
+Common OCR-routed formats include `.doc`, `.docx`, `.ppt`, `.pptx`, `.xls`, `.xlsx`, `.odt`, `.epub`, and `.rtf`, while plain text files such as `.txt`, `.csv`, `.json`, `.xml`, `.tex`, `.bib`, and `.ipynb` stay on the local text-ingestion path.
 
 You can also enable the optional local HTTP server in `config.toml`:
 

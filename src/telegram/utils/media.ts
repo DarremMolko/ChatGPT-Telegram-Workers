@@ -4,6 +4,7 @@ import type { ASRRequestOptions, ImageResult, TTSRequestOptions } from '../../ag
 import type { AgentUserConfig } from '../../config/env';
 import type { MessageSender } from './send';
 import { loadASRLLM, loadTTSLLM, TTS_AGENTS } from '../../agent';
+import { canUseDocumentOcr, extractDocumentText } from '../../agent/document_ocr';
 import { ENV } from '../../config/env';
 import { getLog, log } from '../../log';
 import { imageToBase64String } from '../../utils/image';
@@ -214,21 +215,59 @@ export async function fileUrlToBase64Message({
         }
         case 'document':
         {
-            if (mimeType !== 'application/pdf') {
-                throw new Error(`Unsupported document type: ${mimeType || 'unknown'}. Only PDF documents are supported in generic document mode.`);
+            const supportsNativePdf = mimeType === 'application/pdf';
+            const supportsOcr = canUseDocumentOcr(mimeType, fileName);
+            if (!supportsNativePdf && !supportsOcr) {
+                throw new Error(`Unsupported document type: ${mimeType || fileName || 'unknown'}. This bot accepts PDFs natively and broader document types through DOCUMENT_OCR_PROVIDER.`);
             }
             const [response] = await Promise.all(urls.map(url => fetch(url))).then(r => r.filter(item => item.ok));
             if (!response) {
-                throw new Error('Failed to fetch PDF document');
+                throw new Error('Failed to fetch document');
             }
-            const pdf = new Uint8Array(await response.arrayBuffer());
-            (params.content as any[]).push({
-                type: 'file',
-                data: pdf,
-                mediaType: 'application/pdf',
-                filename: fileName || 'document.pdf',
-            });
-            break;
+            const documentData = new Uint8Array(await response.arrayBuffer());
+            let ocrError: Error | null = null;
+            if (supportsOcr) {
+                try {
+                    const extractedText = await extractDocumentText({
+                        data: documentData,
+                        mimeType: mimeType || 'application/octet-stream',
+                        fileName,
+                    });
+                    if (extractedText?.trim()) {
+                        const fileContext = [
+                            supportsNativePdf ? 'The user attached a PDF document.' : 'The user attached a document.',
+                            fileName ? `Filename: ${fileName}` : '',
+                            `OCR provider: ${ENV.DOCUMENT_OCR_PROVIDER}`,
+                            'Extracted text:',
+                            extractedText.trim(),
+                        ].filter(Boolean).join('\n');
+                        params.content = [
+                            {
+                                type: 'text',
+                                text: [text, fileContext].filter(Boolean).join('\n\n').trim(),
+                            },
+                        ];
+                        break;
+                    }
+                } catch (error) {
+                    ocrError = error as Error;
+                    if (supportsNativePdf) {
+                        log.warn(`[document-ocr] Falling back to native PDF file handling: ${(error as Error).message}`);
+                    } else {
+                        log.warn(`[document-ocr] OCR extraction failed for ${fileName || mimeType || 'document'}: ${(error as Error).message}`);
+                    }
+                }
+            }
+            if (supportsNativePdf) {
+                (params.content as any[]).push({
+                    type: 'file',
+                    data: documentData,
+                    mediaType: 'application/pdf',
+                    filename: fileName || 'document.pdf',
+                });
+                break;
+            }
+            throw new Error(ocrError?.message || `Failed to extract document text from ${fileName || mimeType || 'document'}`);
         }
     }
     return params;

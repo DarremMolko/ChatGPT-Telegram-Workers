@@ -63,6 +63,14 @@ export class EnvironmentConfig {
     // Whether to read files
     // Supported file formats: text, photo, voice, audio, video(based on model support), document(send pdf/image/audio/text as file), sticker(gif, jpg, png, webp, webm as video)
     SUPPORT_FORMAT: string[] = ['text', 'photo', 'voice', 'audio', 'image', 'document'];
+    // Optional PDF OCR preprocessing provider. Empty disables OCR and keeps the native PDF file flow.
+    DOCUMENT_OCR_PROVIDER: '' | 'mistral' = '';
+    // OCR request timeout in seconds.
+    DOCUMENT_OCR_TIMEOUT = 120;
+    // Mistral OCR credentials and request defaults. Used only when DOCUMENT_OCR_PROVIDER is `mistral`.
+    MISTRAL_OCR_API_KEY = '';
+    MISTRAL_OCR_API_BASE = 'https://api.mistral.ai/v1';
+    MISTRAL_OCR_MODEL = 'mistral-ocr-latest';
     // In group chats, the reply object is the trigger object by default, and when enabled, it is prioritized as the object to be replied to
     ENABLE_REPLY_TO_MENTION = false;
     // Ignore messages starting with specified text

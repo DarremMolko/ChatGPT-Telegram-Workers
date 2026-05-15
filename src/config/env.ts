@@ -35,6 +35,7 @@ const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_CHAT_CONCURRENCY_POLICIES = new Set(['queue', 'cancel_previous', 'drop_if_busy', 'parallel']);
 const SUPPORTED_ADMIN_UTILITIES = new Set<string>(ADMIN_UTILITY_TYPES);
+const SUPPORTED_DOCUMENT_OCR_PROVIDERS = new Set(['', 'mistral']);
 
 function resolveRuntimeBuildInfo(): { sha: string; timestamp: number } {
     const envSha = process.env.BUILD_VERSION?.trim();
@@ -152,6 +153,16 @@ class Environment extends EnvironmentConfig {
         this.ADMIN_AVAILABLE_UTILITIES = Array.from(new Set(
             this.ADMIN_AVAILABLE_UTILITIES.map((utility: string) => `${utility}`.trim()).filter(Boolean),
         )).filter((utility: string) => SUPPORTED_ADMIN_UTILITIES.has(utility));
+        this.DOCUMENT_OCR_PROVIDER = `${this.DOCUMENT_OCR_PROVIDER || ''}`.trim().toLowerCase() as '' | 'mistral';
+        if (!SUPPORTED_DOCUMENT_OCR_PROVIDERS.has(this.DOCUMENT_OCR_PROVIDER)) {
+            this.DOCUMENT_OCR_PROVIDER = '';
+        }
+        if (!Number.isFinite(this.DOCUMENT_OCR_TIMEOUT) || this.DOCUMENT_OCR_TIMEOUT <= 0) {
+            this.DOCUMENT_OCR_TIMEOUT = 120;
+        }
+        this.MISTRAL_OCR_API_BASE = `${this.MISTRAL_OCR_API_BASE || ''}`.trim() || 'https://api.mistral.ai/v1';
+        this.MISTRAL_OCR_API_KEY = `${this.MISTRAL_OCR_API_KEY || ''}`.trim();
+        this.MISTRAL_OCR_MODEL = `${this.MISTRAL_OCR_MODEL || ''}`.trim() || 'mistral-ocr-latest';
         this.TELEGRAM_ALLOWED_UPDATES = Array.from(new Set(this.TELEGRAM_ALLOWED_UPDATES.map((type: string) => `${type}`.trim()).filter(Boolean)));
         if (!SUPPORTED_CHAT_CONCURRENCY_POLICIES.has(this.CHAT_CONCURRENCY_POLICY)) {
             this.CHAT_CONCURRENCY_POLICY = 'queue';

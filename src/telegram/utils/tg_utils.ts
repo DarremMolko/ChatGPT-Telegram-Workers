@@ -1,4 +1,5 @@
 import type * as Telegram from 'telegram-bot-api-types';
+import { canUseDocumentOcr } from '../../agent/document_ocr';
 import { ENV } from '../../config/env';
 import { log } from '../../log';
 import { createTelegramBotAPI } from '../api';
@@ -38,6 +39,13 @@ const TEXT_LIKE_DOCUMENT_EXTENSIONS = new Set([
     'env',
     'log',
     'sql',
+    'bib',
+    'fb2',
+    'ipynb',
+    'opml',
+    'tex',
+    '1',
+    'man',
 ]);
 export interface UnionData {
     type: MsgType;
@@ -259,6 +267,9 @@ function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType
     const extension = fileName?.split('.').pop()?.toLowerCase() || '';
     if (TEXT_LIKE_DOCUMENT_EXTENSIONS.has(extension)) {
         return 'text';
+    }
+    if (canUseDocumentOcr(mediaType, fileName)) {
+        return 'document';
     }
     return 'unsupported';
 }

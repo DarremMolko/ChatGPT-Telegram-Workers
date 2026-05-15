@@ -8,6 +8,7 @@ const { getFileWithReturns, fetchMock } = vi.hoisted(() => ({
 
 vi.mock('../../config/env', () => ({
     ENV: {
+        DOCUMENT_OCR_PROVIDER: '',
         EXTRA_MESSAGE_CONTEXT: false,
         LOG_POSITION_ON_TOP: false,
         TELEGRAM_PHOTO_SIZE_OFFSET: -1,
@@ -51,6 +52,7 @@ function createDocumentMessage(mimeType: string, fileName = 'file.bin'): Telegra
 }
 
 beforeEach(() => {
+    ENV.DOCUMENT_OCR_PROVIDER = '';
     ENV.LOG_POSITION_ON_TOP = false;
     getFileWithReturns.mockReset();
     fetchMock.mockReset();
@@ -105,7 +107,7 @@ describe('extractMessageInfo', () => {
         }));
     });
 
-    it('marks unsupported document MIME types as unsupported', () => {
+    it('marks OCR-only document MIME types as unsupported when OCR is disabled', () => {
         const info = extractMessageInfo(createDocumentMessage('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'note.docx'), 999);
 
         expect(info).toEqual(expect.objectContaining({
@@ -113,6 +115,31 @@ describe('extractMessageInfo', () => {
             original_type: 'document',
             mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             file_name: 'note.docx',
+        }));
+    });
+
+    it('maps OCR-supported office documents to document input when OCR is enabled', () => {
+        ENV.DOCUMENT_OCR_PROVIDER = 'mistral';
+
+        const info = extractMessageInfo(createDocumentMessage('application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'note.docx'), 999);
+
+        expect(info).toEqual(expect.objectContaining({
+            type: 'document',
+            original_type: 'document',
+            mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            file_name: 'note.docx',
+        }));
+    });
+
+    it('falls back to OCR-supported extensions for generic document MIME types', () => {
+        ENV.DOCUMENT_OCR_PROVIDER = 'mistral';
+
+        const info = extractMessageInfo(createDocumentMessage('application/octet-stream', 'deck.pptx'), 999);
+
+        expect(info).toEqual(expect.objectContaining({
+            type: 'document',
+            mime_type: 'application/octet-stream',
+            file_name: 'deck.pptx',
         }));
     });
 

@@ -79,6 +79,13 @@ OPENAI_TTS_VOICE = "alloy"
 # Optional: restrict what admins can use. Supported values:
 # "chat", "image", "audio", "settings", "inline"
 # ADMIN_AVAILABLE_UTILITIES = ["chat", "settings"]
+#
+# Optional: OCR supported documents to text through Mistral before sending them to the chat model.
+# PDFs still fall back to the native PDF file upload path if OCR fails.
+# DOCUMENT_OCR_PROVIDER = "mistral"
+# MISTRAL_OCR_API_KEY = "your-mistral-ocr-key"
+# MISTRAL_OCR_API_BASE = "https://api.mistral.ai/v1"
+# MISTRAL_OCR_MODEL = "mistral-ocr-latest"
 
 # -----------------------------------------------------------------------------
 # 6. Common Optional Runtime Tweaks

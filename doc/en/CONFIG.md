@@ -13,7 +13,7 @@ Removed from the supported config surface:
 - Anthropic
 - xAI
 - Azure / Vertex / Workers AI
-- Mistral / Cohere
+- Mistral / Cohere chat, image, and audio providers
 - Kling / Fish Audio
 - plugin-based or internal/external repo-level tools
 
@@ -82,6 +82,7 @@ Important:
 | Image generation | `AI_IMAGE_PROVIDER`, `OPENAI_IMAGE_MODEL`, `OAILIKE_IMAGE_MODEL` |
 | Image editing | OpenAI `/img` reply-to-image flow |
 | Audio input/output | `AI_ASR_PROVIDER`, `AI_TTS_PROVIDER`, `TEXT_HANDLE_TYPE`, `AUDIO_HANDLE_TYPE`, `TEXT_OUTPUT`, `AUDIO_OUTPUT` |
+| Document OCR | `DOCUMENT_OCR_PROVIDER`, `MISTRAL_OCR_*` |
 | Generic tools | `MCP_*`, `USE_MCP`, `TOOL_MODEL` |
 | OpenAI built-in tools | `USE_OPENAI_BUILDIN`, `OPENAI_ENABLE_*` |
 | Group behavior | `CHAT_GROUP_WHITE_LIST`, `GROUP_CHAT_BOT_ENABLE`, `GROUP_CHAT_BOT_SHARE_MODE` |
@@ -111,6 +112,26 @@ Important:
 | `GROUP_CHAT_BOT_ENABLE` | Master group-chat enable switch. | `true` |
 | `GROUP_CHAT_BOT_SHARE_MODE` | If `true`, a group shares one history/config scope. If `false`, each user in the group gets an individual scope. | `true` |
 | `GROUP_INCLUDE_USERNAME` | Prefix group messages with a user identifier before sending them to the LLM. | `false` |
+
+## Document OCR
+
+`DOCUMENT_OCR_PROVIDER` is optional and disabled by default.
+
+When set to `mistral`:
+
+- incoming supported documents are uploaded to Mistral OCR as raw bytes, not by passing Telegram file URLs downstream
+- the extracted markdown text is appended to the user prompt
+- PDFs fall back to the existing native PDF file-part path when OCR fails
+- common OCR-routed binary formats include `.doc`, `.docx`, `.ppt`, `.pptx`, `.xls`, `.xlsx`, `.odt`, `.epub`, and `.rtf`
+- plain-text formats such as `.txt`, `.csv`, `.json`, `.xml`, `.tex`, `.bib`, `.ipynb`, and `.opml` stay on the local text ingestion path instead of going through OCR
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `DOCUMENT_OCR_PROVIDER` | Optional document OCR preprocessing provider. Supported values: `''`, `mistral`. | `''` |
+| `DOCUMENT_OCR_TIMEOUT` | OCR request timeout in seconds. | `120` |
+| `MISTRAL_OCR_API_KEY` | Mistral OCR API key. Required when `DOCUMENT_OCR_PROVIDER=mistral`. | `''` |
+| `MISTRAL_OCR_API_BASE` | Mistral OCR API base URL. | `https://api.mistral.ai/v1` |
+| `MISTRAL_OCR_MODEL` | Mistral OCR model ID. | `mistral-ocr-latest` |
 
 ## Local Process HTTP Endpoint
 
@@ -166,7 +187,8 @@ Telegram document notes:
 
 - Telegram image attachments are downloaded by the bot and forwarded to the model as inline image data, not as upstream-fetchable URLs
 - `text/*` documents are read as text and appended to the user prompt
-- `application/pdf` documents are sent to the chat model as PDF file parts
+- `application/pdf` documents are OCRed to text first when `DOCUMENT_OCR_PROVIDER` is configured; otherwise they are sent to the chat model as PDF file parts
+- common office-style documents such as `.docx` and `.pptx` are accepted only when `DOCUMENT_OCR_PROVIDER` is configured
 - document uploads with unsupported MIME types are ignored by the message filter
 
 ## Streaming, Rendering, And Output
