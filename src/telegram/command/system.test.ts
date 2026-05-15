@@ -164,7 +164,6 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
 });
 
 const { customInfo } = await import('../../agent');
-const { ENV } = await import('../../config/env');
 const { getStats } = await import('../../utils/stats');
 const { BlockUserCommandHandler, BlocklistCommandHandler, DemoteCommandHandler, getSettingsToggleSelectionLabel, ImgCommandHandler, InlineCommandHandler, PromoteCommandHandler, resolveSettingsToggleMutation, STTCommandHandler, SystemCommandHandler, TTSCommandHandler, UnblockUserCommandHandler, VisionCommandHandler } = await import('./system');
 
@@ -277,7 +276,6 @@ describe('tTSCommandHandler', () => {
         chatWithLLMMock.mockReset();
         getStatsMock.mockReset();
         customInfoMock.mockReset();
-        (ENV as any).CALLBACK_MENU = [];
     });
 
     it('renders /system as a callback-keyboard panel', async () => {
@@ -377,33 +375,6 @@ describe('tTSCommandHandler', () => {
             callBack: 'Off',
         });
         expect(message).toContain('Current value: `false`');
-    });
-
-    it('keeps Toggles visible when CALLBACK_MENU only includes ENVS', async () => {
-        const handler = new InlineCommandHandler();
-        const context = createContext();
-        Object.assign(context.USER_CONFIG, {
-            AI_CHAT_PROVIDER: 'openai',
-            AI_IMAGE_PROVIDER: 'openai',
-            AI_ASR_PROVIDER: 'openai',
-            AI_TTS_PROVIDER: 'openai',
-            STREAM_MODE: true,
-            SHOW_THINKING_TEXT: true,
-            ENABLE_SEARCH_SOURCE: true,
-            DISABLE_WEB_PREVIEW: false,
-            SEND_IMAGE_AS_FILE: false,
-            GROUP_INCLUDE_USERNAME: false,
-            QUOTE_EXPANDABLE: false,
-            EXPANDABLE_BANNER: false,
-            EXPANDABLE_THINKING: false,
-        });
-        (ENV as any).CALLBACK_MENU = ['ENVS'];
-
-        const inlines = await handler.defaultInlines(context.USER_CONFIG, {
-            access: { userId: '1', isOwner: true, isAdmin: true },
-        });
-
-        expect(inlines.map(item => item.label)).toEqual(['Envs', 'Toggles']);
     });
 
     it('maps toggle options to boolean overrides and default selection', () => {

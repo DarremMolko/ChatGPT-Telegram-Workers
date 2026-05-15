@@ -117,33 +117,6 @@ function formatSettingsValue(value: unknown): string {
     return JSON.stringify(value);
 }
 
-function normalizeCallbackMenuSelector(value: string): string {
-    return value.replace(/[^a-z0-9]+/gi, '').toUpperCase();
-}
-
-function matchesCallbackMenuSelector(inline: InlineItem, selector: string): boolean {
-    if (inline.config_key.endsWith(selector)) {
-        return true;
-    }
-    return normalizeCallbackMenuSelector(inline.label) === normalizeCallbackMenuSelector(selector);
-}
-
-function selectCallbackMenuInlines(inlines: InlineItem[], selectors: string[]): InlineItem[] {
-    const expandedSelectors = [...selectors];
-    if (selectors.includes('ENVS') && !selectors.some(selector => normalizeCallbackMenuSelector(selector) === normalizeCallbackMenuSelector('Toggles'))) {
-        expandedSelectors.push('Toggles');
-    }
-
-    const result: InlineItem[] = [];
-    for (const selector of expandedSelectors) {
-        const match = inlines.find(inline => matchesCallbackMenuSelector(inline, selector));
-        if (match && !result.includes(match)) {
-            result.push(match);
-        }
-    }
-    return result;
-}
-
 function isSystemPanelSection(value: string): value is SystemPanelSection {
     return value in SYSTEM_PANEL_LABELS;
 }
@@ -1283,9 +1256,7 @@ export class InlineCommandHandler implements CommandHandler {
             }
             return canManageRuntimeConfigForAccess(access, inline.config_key);
         });
-        const result = ENV.CALLBACK_MENU.length === 0
-            ? filteredInlines.sort((a, b) => a.label.localeCompare(b.label))
-            : selectCallbackMenuInlines(filteredInlines, ENV.CALLBACK_MENU);
+        const result = (ENV.CALLBACK_MENU.length === 0 ? filteredInlines.sort((a, b) => a.label.localeCompare(b.label)) : ENV.CALLBACK_MENU.map(key => filteredInlines.find(inline => inline.config_key.endsWith(key))).filter(Boolean) as InlineItem[]);
         return result;
     };
 
