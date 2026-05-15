@@ -1,4 +1,4 @@
-export const TEXT_LIKE_DOCUMENT_MIME_TYPES = new Set([
+const TEXT_LIKE_DOCUMENT_MIME_TYPES = new Set([
     'application/json',
     'application/ld+json',
     'application/x-ndjson',
@@ -9,7 +9,7 @@ export const TEXT_LIKE_DOCUMENT_MIME_TYPES = new Set([
     'application/xml',
 ]);
 
-export const TEXT_LIKE_DOCUMENT_EXTENSIONS = new Set([
+const TEXT_LIKE_DOCUMENT_EXTENSIONS = new Set([
     'txt',
     'text',
     'md',

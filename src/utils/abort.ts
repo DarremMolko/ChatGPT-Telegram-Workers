@@ -4,7 +4,7 @@ export function abortWithReason(controller: AbortController, reason: unknown): v
     controller.abort(reason);
 }
 
-export function isAbortSignalWithReason(signal: AbortSignal | undefined, reason: unknown): boolean {
+function isAbortSignalWithReason(signal: AbortSignal | undefined, reason: unknown): boolean {
     return !!signal?.aborted && signal.reason === reason;
 }
 

@@ -202,11 +202,6 @@ export function resolveCommandAccess(access?: string[] | null): CommandAccessLev
     return access?.includes('owner') ? 'owner' : 'admin';
 }
 
-export async function hasCommandAccess(userId: number | string | null | undefined, accessLevel: CommandAccessLevel, botIdOrToken?: number | string | null): Promise<boolean> {
-    const access = await resolveUserAccess(userId, botIdOrToken);
-    return accessLevel === 'owner' ? access.isOwner : access.isAdmin;
-}
-
 export function describeCommandAccess(accessLevel: CommandAccessLevel): string {
     return accessLevel;
 }

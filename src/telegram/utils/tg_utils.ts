@@ -215,7 +215,7 @@ export function extractMessageInfo(message: Telegram.Message, currentBotId: numb
     return messageData;
 }
 
-export function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType {
+function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType {
     const mediaType = mimeType?.toLowerCase() || '';
     const directSupport = mediaType.match(/^(audio|image|text|video)\//)?.[1];
     if (directSupport) {
@@ -233,7 +233,7 @@ export function resolveDocumentUnionType(mimeType?: string, fileName?: string): 
     return 'unsupported';
 }
 
-export function findPhotoFileID(photos: Telegram.PhotoSize[], offset: number): string {
+function findPhotoFileID(photos: Telegram.PhotoSize[], offset: number): string {
     let sizeIndex = offset >= 0 ? offset : photos.length + offset;
     sizeIndex = Math.max(0, Math.min(sizeIndex, photos.length - 1));
     return photos[sizeIndex].file_id;

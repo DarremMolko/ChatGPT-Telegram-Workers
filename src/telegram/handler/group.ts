@@ -50,7 +50,7 @@ function checkMention(content: string, entities: Telegram.MessageEntity[], botNa
  * @param {Telegram.Message} message
  * @returns {boolean} Returns true if a trigger prefix is found; otherwise false.
  */
-export function CheckTrigger(message: Telegram.Message): boolean {
+function checkTrigger(message: Telegram.Message): boolean {
     const textBefore = message.text || message.caption || '';
     const text = textBefore.replace(new RegExp(`^${ENV.CHAT_TRIGGER_PREFIX}`), '');
     message.text = text;
@@ -59,7 +59,7 @@ export function CheckTrigger(message: Telegram.Message): boolean {
 
 export class GroupMention implements MessageHandler {
     handle = async (message: Telegram.Message, context: WorkerContext): Promise<Response | null> => {
-        const isTriggered = CheckTrigger(message);
+        const isTriggered = checkTrigger(message);
 
         // Non-group messages are not checked here; pass them to the next middleware.
         if (!isTelegramChatTypeGroup(message.chat.type)) {
