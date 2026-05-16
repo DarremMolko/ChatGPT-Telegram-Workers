@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AIMiddleware } from './model_middleware';
 
-describe('aIMiddleware', () => {
+describe('AIMiddleware', () => {
     it('keeps the resolved model when tools are active but TOOL_MODEL is empty', async () => {
         const visionModel = {
             provider: 'oailike',
