@@ -35,9 +35,15 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
             abortSignal,
         }, createSilentPlannerStream(onStream));
 
-        const finalMessages = plannerResult.toolResults.length > 0
-            ? buildToolSynthesisMessages(messages, plannerResult.toolResults)
-            : messages;
+        if (plannerResult.toolResults.length === 0) {
+            log.info('[requestChatCompletionsV2] planner used no tools, skipping final synthesis pass');
+            return {
+                messages: plannerResult.messages,
+                content: plannerResult.content,
+            };
+        }
+
+        const finalMessages = buildToolSynthesisMessages(messages, plannerResult.toolResults);
         log.info(`[requestChatCompletionsV2] planner toolResults=${plannerResult.toolResults.length}, running final synthesis on chat model`);
         const finalResult = await executeChatCompletions({
             model,
@@ -87,6 +93,13 @@ interface StepToolResultRecord {
     input: unknown;
     output: unknown;
 }
+
+const TOOL_SYNTHESIS_MAX_STRING_LENGTH = 320;
+const TOOL_SYNTHESIS_MAX_ARRAY_ITEMS = 4;
+const TOOL_SYNTHESIS_MAX_OBJECT_KEYS = 12;
+const TOOL_SYNTHESIS_MAX_DEPTH = 4;
+const TOOL_SYNTHESIS_MAX_ARGS_LENGTH = 600;
+const TOOL_SYNTHESIS_MAX_RESULT_LENGTH = 1_600;
 
 async function executeChatCompletions({ model, system, messages, tools, activeTools, toolChoice, context, cache, abortSignal }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; system?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[]; abortSignal?: AbortSignal }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string; toolResults: ToolExecutionRecord[] }> {
     const messageInfo: StreamMessageInfo = {
@@ -215,8 +228,104 @@ function renderToolResultsForSynthesis(toolResults: ToolExecutionRecord[]) {
             : ((output && typeof output === 'object' && 'value' in (output as Record<string, unknown>))
                     ? (output as Record<string, unknown>).value
                     : output);
-        return `#### [tool \`${toolName}\` invoke detail]\n - args: ${safeJsonStringify(input)}\n - result:\n${safeJsonStringify(normalizedOutput)}\n`;
+        const summarizedInput = summarizeToolValue(input);
+        const summarizedOutput = summarizeToolValue(normalizedOutput);
+        return `#### [tool \`${toolName}\` invoke detail]\n - args: ${serializeToolSummary(summarizedInput, TOOL_SYNTHESIS_MAX_ARGS_LENGTH)}\n - result:\n${serializeToolSummary(summarizedOutput, TOOL_SYNTHESIS_MAX_RESULT_LENGTH)}\n`;
     }).join('\n').trim();
+}
+
+function summarizeToolValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+    if (value == null || typeof value === 'boolean' || typeof value === 'number') {
+        return value;
+    }
+
+    if (typeof value === 'string') {
+        return summarizeToolString(value);
+    }
+
+    if (typeof Blob !== 'undefined' && value instanceof Blob) {
+        return `[Blob ${value.size} bytes${value.type ? `, ${value.type}` : ''}]`;
+    }
+
+    if (ArrayBuffer.isView(value)) {
+        return `[Binary ${value.byteLength} bytes]`;
+    }
+
+    if (value instanceof ArrayBuffer) {
+        return `[Binary ${value.byteLength} bytes]`;
+    }
+
+    if (depth >= TOOL_SYNTHESIS_MAX_DEPTH) {
+        return Array.isArray(value) ? `[Array(${value.length}) truncated]` : '[Object truncated]';
+    }
+
+    if (Array.isArray(value)) {
+        return [
+            ...value.slice(0, TOOL_SYNTHESIS_MAX_ARRAY_ITEMS).map(item => summarizeToolValue(item, depth + 1, seen)),
+            ...(value.length > TOOL_SYNTHESIS_MAX_ARRAY_ITEMS ? [`[${value.length - TOOL_SYNTHESIS_MAX_ARRAY_ITEMS} more items truncated]`] : []),
+        ];
+    }
+
+    if (typeof value === 'object') {
+        const objectValue = value as Record<string, unknown>;
+        if (seen.has(objectValue)) {
+            return '[Circular]';
+        }
+        seen.add(objectValue);
+
+        const entries = Object.entries(objectValue);
+        const summarizedEntries = entries.slice(0, TOOL_SYNTHESIS_MAX_OBJECT_KEYS).map(([key, currentValue]) => [
+            key,
+            summarizeToolObjectField(key, currentValue, depth + 1, seen),
+        ]);
+        const summarizedObject = Object.fromEntries(summarizedEntries);
+        if (entries.length > TOOL_SYNTHESIS_MAX_OBJECT_KEYS) {
+            summarizedObject.__truncated_keys = entries.length - TOOL_SYNTHESIS_MAX_OBJECT_KEYS;
+        }
+        return summarizedObject;
+    }
+
+    return String(value);
+}
+
+function summarizeToolObjectField(key: string, value: unknown, depth: number, seen: WeakSet<object>) {
+    if (typeof value === 'string' && isBinaryLikeField(key, value)) {
+        return `[omitted binary-like field, ${value.length} chars]`;
+    }
+    return summarizeToolValue(value, depth, seen);
+}
+
+function summarizeToolString(value: string) {
+    const compact = value.trim();
+    if (compact.length === 0) {
+        return '';
+    }
+    if (compact.startsWith('data:') && compact.length > 96) {
+        return `${compact.slice(0, 64)}...[truncated ${compact.length - 64} chars]`;
+    }
+    if (looksLikeBase64(compact) && compact.length > 256) {
+        return `[base64-like string omitted, ${compact.length} chars]`;
+    }
+    if (compact.length <= TOOL_SYNTHESIS_MAX_STRING_LENGTH) {
+        return compact;
+    }
+    return `${compact.slice(0, TOOL_SYNTHESIS_MAX_STRING_LENGTH)}...[truncated ${compact.length - TOOL_SYNTHESIS_MAX_STRING_LENGTH} chars]`;
+}
+
+function isBinaryLikeField(key: string, value: string) {
+    return /^(?:data|base64|bytes|buffer|binary)$/i.test(key) || looksLikeBase64(value);
+}
+
+function looksLikeBase64(value: string) {
+    return value.length > 256 && /^[a-z0-9+/=\s]+$/i.test(value);
+}
+
+function serializeToolSummary(value: unknown, maxLength: number) {
+    const serialized = safeJsonStringify(value);
+    if (serialized.length <= maxLength) {
+        return serialized;
+    }
+    return `${serialized.slice(0, maxLength)}...[truncated ${serialized.length - maxLength} chars]`;
 }
 
 function safeJsonStringify(value: unknown) {
