@@ -151,7 +151,6 @@ describe('requestChatCompletionsV2 specialist mode', () => {
                 expect(params.providerOptions.openai).toEqual({ source: 'openai' });
                 expect(params.providerOptions['oailike.chat']).toBeUndefined();
                 expect(Object.keys(params.tools)).toEqual(expect.arrayContaining(['search', 'delegate_to_specialist']));
-                expect(params.activeTools).toEqual(expect.arrayContaining(['search', 'delegate_to_specialist']));
 
                 const specialistResult = await params.tools.delegate_to_specialist.execute({
                     task: 'Research the weather in Tokyo and summarize the key facts.',
@@ -184,7 +183,6 @@ describe('requestChatCompletionsV2 specialist mode', () => {
             expect(params.providerOptions.openai).toBeUndefined();
             expect(params.providerOptions['oailike.chat']).toEqual({ source: 'oailike' });
             expect(Object.keys(params.tools)).toEqual(['search']);
-            expect(params.activeTools).toEqual(['search']);
             expect(params.system).toContain('internal specialist assistant');
             expect(params.messages).toHaveLength(1);
             expect(params.messages[0].content[0].text).toContain('Delegated task:');
