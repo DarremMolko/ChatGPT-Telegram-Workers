@@ -145,4 +145,21 @@ describe('createThinkingExtractor', () => {
             text: 'Line two continues the quote correctly.',
         } as TextStreamPart<any>)).toBe('>Line two continues the quote correctly.');
     });
+
+    it('logs reasoning flush diagnostics at debug level', () => {
+        const messageInfo = { content: '' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        extractor({ type: 'reasoning-start' } as TextStreamPart<any>);
+        extractor({
+            type: 'reasoning-delta',
+            text: 'The tool call failed, so I cannot provide the forecast right now.',
+        } as TextStreamPart<any>);
+
+        const flushCall = debug.mock.calls.find(call => call[0] === '[thinkingExtractor] reasoning-flush');
+        expect(flushCall?.[1]).toMatchObject({
+            reason: ['sentence_boundary'],
+            joinMode: 'initial_quote',
+        });
+    });
 });

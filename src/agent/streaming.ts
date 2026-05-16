@@ -33,6 +33,14 @@ interface ThinkingStreamState {
     sources: StreamSource[];
 }
 
+type ReasoningFlushReason = 'sentence_boundary' | 'soft_boundary+length' | 'soft_boundary+time' | 'end';
+type ReasoningJoinMode = 'initial_quote' | 'direct' | 'space_inserted' | 'newline_continuation';
+
+interface ReasoningRenderResult {
+    output: string;
+    joinMode: ReasoningJoinMode;
+}
+
 export async function streamHandler(stream: AsyncIterable<any>, contentExtractor: (data: any) => string | null, onStream: ChatStreamTextHandler, messageInfo: StreamMessageInfo, abortSignal?: AbortSignal): Promise<string> {
     let lengthDelta = 0;
     let updateStep = 5;
@@ -46,10 +54,20 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             }
             lengthDelta += textPart.length;
             messageInfo.content += textPart;
+            log.debug('[streamHandler] append-extracted-text', {
+                appended: summarizeDebugText(textPart),
+                contentLength: messageInfo.content.length,
+                lengthDelta,
+                updateStep,
+            });
 
             if (lengthDelta > updateStep) {
                 lengthDelta = 0;
                 updateStep = Math.min(updateStep + 40, maxLength);
+                log.debug('[streamHandler] emit-progress-update', {
+                    contentLength: messageInfo.content.length,
+                    nextUpdateStep: updateStep,
+                });
                 onStream.send(`${messageInfo.content.trimEnd()}●`);
             }
         }
@@ -166,6 +184,10 @@ function handleReasoningStart(state: ThinkingStreamState) {
     state.lastOutputTime = Date.now();
     state.hasEmittedReasoningText = false;
     const output = renderThinkingTag(state.messageInfo.content, state.thinkingTag, { separateFromPrevious: state.hasPendingToolTransition });
+    log.debug('[thinkingExtractor] reasoning-start', {
+        pendingToolTransition: state.hasPendingToolTransition,
+        emittedTag: summarizeDebugText(output),
+    });
     state.hasPendingToolTransition = false;
     return output;
 }
@@ -174,23 +196,48 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
     if (!ENV.SHOW_THINKING_TEXT) {
         return '';
     }
+    const bufferBefore = state.reasoningBuffer;
     state.reasoningBuffer += text;
     const now = Date.now();
     const reachedSentenceBoundary = /[。！？.!?]\s*$/.test(state.reasoningBuffer.trim());
     const reachedSoftBoundary = /[\s,:;)\]}]$/.test(state.reasoningBuffer);
     const exceededLengthThreshold = state.reasoningBuffer.length >= 50;
     const exceededTimeThreshold = now - state.lastOutputTime > 500 && state.reasoningBuffer.length >= 20;
-    const shouldFlush = reachedSentenceBoundary
-        || (reachedSoftBoundary && (exceededLengthThreshold || exceededTimeThreshold));
+    const flushReasons = getReasoningFlushReasons({
+        reachedSentenceBoundary,
+        reachedSoftBoundary,
+        exceededLengthThreshold,
+        exceededTimeThreshold,
+    });
+    const shouldFlush = flushReasons.length > 0;
+    log.debug('[thinkingExtractor] reasoning-delta', {
+        raw: summarizeDebugText(text),
+        bufferBefore: summarizeDebugText(bufferBefore),
+        bufferAfter: summarizeDebugText(state.reasoningBuffer),
+        flushReasons: flushReasons.length > 0 ? flushReasons : ['hold'],
+        reachedSentenceBoundary,
+        reachedSoftBoundary,
+        exceededLengthThreshold,
+        exceededTimeThreshold,
+    });
     if (!shouldFlush) {
         return '';
     }
-    const output = renderQuotedReasoningChunk(
+    const rendered = renderQuotedReasoningChunk(
         state.reasoningBuffer,
         !state.hasEmittedReasoningText,
         state.lastEmittedReasoningChar,
     );
-    state.lastEmittedReasoningChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
+    const lastBufferChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
+    log.debug('[thinkingExtractor] reasoning-flush', {
+        reason: flushReasons,
+        joinMode: rendered.joinMode,
+        emitted: summarizeDebugText(rendered.output),
+        previousChar: summarizeDebugChar(state.lastEmittedReasoningChar),
+        nextLastChar: summarizeDebugChar(lastBufferChar),
+    });
+    const output = rendered.output;
+    state.lastEmittedReasoningChar = lastBufferChar;
     state.reasoningBuffer = '';
     state.lastOutputTime = now;
     state.hasEmittedReasoningText = true;
@@ -204,12 +251,21 @@ function handleReasoningEnd(state: ThinkingStreamState) {
     if (state.reasoningBuffer.length === 0) {
         return '';
     }
-    const output = renderQuotedReasoningChunk(
+    const rendered = renderQuotedReasoningChunk(
         state.reasoningBuffer,
         !state.hasEmittedReasoningText,
         state.lastEmittedReasoningChar,
     );
-    state.lastEmittedReasoningChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
+    const lastBufferChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
+    log.debug('[thinkingExtractor] reasoning-flush', {
+        reason: ['end' as ReasoningFlushReason],
+        joinMode: rendered.joinMode,
+        emitted: summarizeDebugText(rendered.output),
+        previousChar: summarizeDebugChar(state.lastEmittedReasoningChar),
+        nextLastChar: summarizeDebugChar(lastBufferChar),
+    });
+    const output = rendered.output;
+    state.lastEmittedReasoningChar = lastBufferChar;
     state.reasoningBuffer = '';
     state.hasEmittedReasoningText = true;
     return output;
@@ -320,19 +376,69 @@ function renderQuotedChunk(text: string, isStart: boolean) {
     return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
 }
 
-function renderQuotedReasoningChunk(text: string, isStart: boolean, previousChar: string) {
+function renderQuotedReasoningChunk(text: string, isStart: boolean, previousChar: string): ReasoningRenderResult {
     if (isStart) {
-        return renderQuotedChunk(text, true);
+        return {
+            output: renderQuotedChunk(text, true),
+            joinMode: 'initial_quote',
+        };
     }
 
     if (previousChar === '\n') {
-        return `>${text.replace(/\n/g, '\n>')}`;
+        return {
+            output: `>${text.replace(/\n/g, '\n>')}`,
+            joinMode: 'newline_continuation',
+        };
     }
 
     const firstChar = text[0];
     if (!firstChar || /[\s.,!?;:)\]}]/.test(firstChar) || /\s/.test(previousChar)) {
-        return text.replace(/\n/g, '\n>');
+        return {
+            output: text.replace(/\n/g, '\n>'),
+            joinMode: 'direct',
+        };
     }
 
-    return ` ${text.replace(/\n/g, '\n>')}`;
+    return {
+        output: ` ${text.replace(/\n/g, '\n>')}`,
+        joinMode: 'space_inserted',
+    };
+}
+
+function getReasoningFlushReasons({ reachedSentenceBoundary, reachedSoftBoundary, exceededLengthThreshold, exceededTimeThreshold }: {
+    reachedSentenceBoundary: boolean;
+    reachedSoftBoundary: boolean;
+    exceededLengthThreshold: boolean;
+    exceededTimeThreshold: boolean;
+}): ReasoningFlushReason[] {
+    const reasons: ReasoningFlushReason[] = [];
+    if (reachedSentenceBoundary) {
+        reasons.push('sentence_boundary');
+    }
+    if (reachedSoftBoundary && exceededLengthThreshold) {
+        reasons.push('soft_boundary+length');
+    }
+    if (reachedSoftBoundary && exceededTimeThreshold) {
+        reasons.push('soft_boundary+time');
+    }
+    return reasons;
+}
+
+function summarizeDebugText(text: string) {
+    const escaped = text
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t');
+    const maxPreviewLength = 200;
+    return {
+        length: text.length,
+        preview: escaped.length > maxPreviewLength ? `${escaped.slice(0, maxPreviewLength)}...` : escaped,
+    };
+}
+
+function summarizeDebugChar(char: string) {
+    if (!char) {
+        return '(empty)';
+    }
+    return summarizeDebugText(char).preview;
 }
