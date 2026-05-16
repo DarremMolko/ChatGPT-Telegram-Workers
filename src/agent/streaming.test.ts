@@ -174,6 +174,27 @@ describe('createThinkingExtractor', () => {
         } as TextStreamPart<any>)).toBe('>Line two continues the quote correctly.');
     });
 
+    it('starts a new quoted paragraph for block-shaped reasoning chunks', () => {
+        const messageInfo = { content: '' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        expect(extractor({ type: 'reasoning-start' } as TextStreamPart<any>))
+            .toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
+        expect(extractor({
+            type: 'reasoning-delta',
+            text: 'If all else fails, I might consider web search tools.',
+        } as TextStreamPart<any>)).toBe('\n>If all else fails, I might consider web search tools.');
+        expect(extractor({
+            type: 'reasoning-delta',
+            text: '**Exploring tool parameters**\n\nI\'m running into a similar issue with the `call_tool`.',
+        } as TextStreamPart<any>)).toBe('\n>**Exploring tool parameters**\n>\n>I\'m running into a similar issue with the `call_tool`.');
+
+        const flushCalls = debug.mock.calls.filter(call => call[0] === '[thinkingExtractor] reasoning-flush');
+        expect(flushCalls.at(-1)?.[1]).toMatchObject({
+            joinMode: 'paragraph_break',
+        });
+    });
+
     it('logs reasoning flush diagnostics at debug level', () => {
         const messageInfo = { content: '' };
         const extractor = createThinkingExtractor(messageInfo as any);

@@ -35,7 +35,7 @@ interface ThinkingStreamState {
 }
 
 type ReasoningFlushReason = 'sentence_boundary' | 'soft_boundary+length' | 'soft_boundary+time' | 'end';
-type ReasoningJoinMode = 'initial_quote' | 'direct' | 'space_inserted' | 'newline_continuation';
+type ReasoningJoinMode = 'initial_quote' | 'direct' | 'space_inserted' | 'newline_continuation' | 'paragraph_break';
 
 interface ReasoningRenderResult {
     output: string;
@@ -409,6 +409,13 @@ function renderQuotedReasoningChunk(text: string, isStart: boolean, previousChar
         };
     }
 
+    if (startsWithQuotedReasoningBlock(text)) {
+        return {
+            output: `\n>${text.replace(/\n/g, '\n>')}`,
+            joinMode: 'paragraph_break',
+        };
+    }
+
     const firstChar = text[0];
     if (!firstChar || /[\s.,!?;:)\]}]/.test(firstChar) || /\s/.test(previousChar)) {
         return {
@@ -421,6 +428,10 @@ function renderQuotedReasoningChunk(text: string, isStart: boolean, previousChar
         output: ` ${text.replace(/\n/g, '\n>')}`,
         joinMode: 'space_inserted',
     };
+}
+
+function startsWithQuotedReasoningBlock(text: string) {
+    return /^\S[^\n]*\n\s*\n/.test(text);
 }
 
 function getReasoningFlushReasons({ reachedSentenceBoundary, reachedSoftBoundary, exceededLengthThreshold, exceededTimeThreshold }: {
