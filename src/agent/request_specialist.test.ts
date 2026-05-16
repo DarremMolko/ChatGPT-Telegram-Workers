@@ -112,6 +112,28 @@ function createMessages() {
     }] as any;
 }
 
+async function finishStep(params: any, text: string) {
+    await params.onStepFinish({
+        request: {},
+        response: {},
+        text,
+        toolResults: [],
+        usage: {},
+    });
+}
+
+function createGenerateTextResult(text: string, overrides: Record<string, any> = {}) {
+    return {
+        providerMetadata: {},
+        reasoning: false,
+        response: {
+            messages: [{ role: 'assistant', content: text }],
+        },
+        text,
+        ...overrides,
+    };
+}
+
 beforeEach(() => {
     AIMiddlewareMock.mockReset();
     appendStreamSourcesMock.mockClear();
@@ -164,21 +186,8 @@ describe('requestChatCompletionsV2 specialist mode', () => {
                     summary: 'specialist findings',
                 });
 
-                await params.onStepFinish({
-                    request: {},
-                    response: {},
-                    text: 'final answer',
-                    toolResults: [],
-                    usage: {},
-                });
-                return {
-                    providerMetadata: {},
-                    reasoning: false,
-                    response: {
-                        messages: [{ role: 'assistant', content: 'final answer' }],
-                    },
-                    text: 'final answer',
-                };
+                await finishStep(params, 'final answer');
+                return createGenerateTextResult('final answer');
             }
 
             expect(params.providerOptions.openai).toBeUndefined();
@@ -190,21 +199,8 @@ describe('requestChatCompletionsV2 specialist mode', () => {
             expect(params.messages[0].content[0].text).toContain('Delegated task:');
             expect(params.messages[0].content[0].text).toContain('Research the weather in Tokyo');
             expect(params.messages[0].content[0].text).toContain('What is the weather in Tokyo today?');
-            await params.onStepFinish({
-                request: {},
-                response: {},
-                text: 'specialist findings',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                providerMetadata: {},
-                reasoning: false,
-                response: {
-                    messages: [{ role: 'assistant', content: 'specialist findings' }],
-                },
-                text: 'specialist findings',
-            };
+            await finishStep(params, 'specialist findings');
+            return createGenerateTextResult('specialist findings');
         });
 
         const result = await requestChatCompletionsV2({
@@ -225,21 +221,8 @@ describe('requestChatCompletionsV2 specialist mode', () => {
 
     it('clears outer toolChoice while passing it through to the specialist request', async () => {
         generateTextMock.mockImplementation(async (params: any) => {
-            await params.onStepFinish({
-                request: {},
-                response: {},
-                text: 'ok',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                providerMetadata: {},
-                reasoning: false,
-                response: {
-                    messages: [{ role: 'assistant', content: 'ok' }],
-                },
-                text: 'ok',
-            };
+            await finishStep(params, 'ok');
+            return createGenerateTextResult('ok');
         });
 
         await requestChatCompletionsV2({
@@ -278,39 +261,15 @@ describe('requestChatCompletionsV2 specialist mode', () => {
                     summary: 'Clean final answer',
                 });
 
-                await params.onStepFinish({
-                    request: {},
-                    response: {},
-                    text: 'outer answer',
-                    toolResults: [],
-                    usage: {},
-                });
-                return {
-                    providerMetadata: {},
-                    reasoning: false,
-                    response: {
-                        messages: [{ role: 'assistant', content: 'outer answer' }],
-                    },
-                    text: 'outer answer',
-                };
+                await finishStep(params, 'outer answer');
+                return createGenerateTextResult('outer answer');
             }
 
-            await params.onStepFinish({
-                request: {},
-                response: {},
-                text: 'Clean final answer',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                providerMetadata: {},
+            await finishStep(params, 'Clean final answer');
+            return createGenerateTextResult('Clean final answer', {
                 reasoning: true,
                 reasoningText: 'internal chain of thought',
-                response: {
-                    messages: [{ role: 'assistant', content: 'Clean final answer' }],
-                },
-                text: 'Clean final answer',
-            };
+            });
         });
 
         await requestChatCompletionsV2({
