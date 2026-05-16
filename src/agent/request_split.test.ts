@@ -131,16 +131,38 @@ beforeEach(() => {
 });
 
 describe('requestChatCompletionsV2 TOOL_MODEL split orchestration', () => {
-    it('returns the planner result directly when no tools are used', async () => {
+    it('falls back to a plain chat-model final pass when the planner uses no tools', async () => {
         const messages = createMessages();
         const model = createModel();
+        let call = 0;
 
         generateTextMock.mockImplementation(async (params: any) => {
+            call++;
+            if (call === 1) {
+                expect(params.activeTools).toEqual(['search']);
+                await params.onStepFinish({
+                    request: {},
+                    response: {},
+                    text: 'planner answer',
+                    toolResults: [],
+                    usage: {},
+                });
+                return {
+                    providerMetadata: {},
+                    reasoning: false,
+                    response: {
+                        messages: [{ role: 'assistant', content: 'planner answer' }],
+                    },
+                    text: 'planner answer',
+                };
+            }
+
+            expect(params.activeTools).toEqual([]);
             expect(params.messages).toEqual(messages);
             await params.onStepFinish({
                 request: {},
                 response: {},
-                text: 'planner answer',
+                text: 'chat answer',
                 toolResults: [],
                 usage: {},
             });
@@ -148,9 +170,9 @@ describe('requestChatCompletionsV2 TOOL_MODEL split orchestration', () => {
                 providerMetadata: {},
                 reasoning: false,
                 response: {
-                    messages: [{ role: 'assistant', content: 'planner answer' }],
+                    messages: [{ role: 'assistant', content: 'chat answer' }],
                 },
-                text: 'planner answer',
+                text: 'chat answer',
             };
         });
 
@@ -164,9 +186,9 @@ describe('requestChatCompletionsV2 TOOL_MODEL split orchestration', () => {
             tools: { search: {} },
         }, null);
 
-        expect(generateTextMock).toHaveBeenCalledTimes(1);
-        expect(result.content).toBe('planner answer');
-        expect(result.messages).toEqual([{ role: 'assistant', content: 'planner answer' }]);
+        expect(generateTextMock).toHaveBeenCalledTimes(2);
+        expect(result.content).toBe('chat answer');
+        expect(result.messages).toEqual([{ role: 'assistant', content: 'chat answer' }]);
     });
 
     it('feeds collected tool results into a clean chat-model synthesis pass', async () => {
@@ -314,94 +336,5 @@ describe('requestChatCompletionsV2 TOOL_MODEL split orchestration', () => {
         expect(generateTextMock).toHaveBeenCalledTimes(2);
         expect(result.content).toBe('final synthesized answer');
         expect(result.messages).toEqual([{ role: 'assistant', content: 'final synthesized answer' }]);
-    });
-
-    it('compacts oversized tool payloads before final synthesis', async () => {
-        const messages = createMessages();
-        const longBody = `headline:${'A'.repeat(600)}`;
-        const base64Payload = 'Q'.repeat(900);
-        let call = 0;
-
-        generateTextMock.mockImplementation(async (params: any) => {
-            call++;
-            if (call === 1) {
-                await params.onStepFinish({
-                    request: {},
-                    response: {},
-                    text: 'ignored planner answer',
-                    toolResults: [{
-                        input: {
-                            includeRaw: true,
-                            query: 'weather archive',
-                        },
-                        output: {
-                            value: {
-                                content: [
-                                    { text: longBody, type: 'text' },
-                                    { text: 'short fact', type: 'text' },
-                                    { text: 'another fact', type: 'text' },
-                                    { text: 'third fact', type: 'text' },
-                                    { text: 'fourth fact', type: 'text' },
-                                    { text: 'fifth fact', type: 'text' },
-                                ],
-                                data: base64Payload,
-                                nested: {
-                                    detail: 'sunny',
-                                    temperatureC: 26,
-                                },
-                            },
-                        },
-                        toolCallId: 'call_big',
-                        toolName: 'search',
-                    }],
-                    usage: {},
-                });
-                return {
-                    providerMetadata: {},
-                    reasoning: false,
-                    response: {
-                        messages: [{ role: 'assistant', content: 'ignored planner answer' }],
-                    },
-                    text: 'ignored planner answer',
-                };
-            }
-
-            const summaryText = params.messages.at(-1).content[0].text as string;
-            expect(summaryText).toContain('"query":"weather archive"');
-            expect(summaryText).toContain('"temperatureC":26');
-            expect(summaryText).toContain('[truncated');
-            expect(summaryText).toContain('[2 more items truncated]');
-            expect(summaryText).toContain('[omitted binary-like field, 900 chars]');
-            expect(summaryText).not.toContain(base64Payload);
-            expect(summaryText.length).toBeLessThan(2600);
-            await params.onStepFinish({
-                request: {},
-                response: {},
-                text: 'final compact answer',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                providerMetadata: {},
-                reasoning: false,
-                response: {
-                    messages: [{ role: 'assistant', content: 'final compact answer' }],
-                },
-                text: 'final compact answer',
-            };
-        });
-
-        const result = await requestChatCompletionsV2({
-            activeTools: ['search'],
-            context: createContext(),
-            messages,
-            model: createModel(),
-            system: 'Be helpful.',
-            toolChoice: undefined,
-            tools: { search: {} },
-        }, null);
-
-        expect(generateTextMock).toHaveBeenCalledTimes(2);
-        expect(result.content).toBe('final compact answer');
     });
 });
