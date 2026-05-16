@@ -15,7 +15,6 @@ import { getLogSingleton, log, writeDebugLog } from '../log';
 import { resolveMcpTools } from '../mcp/tools';
 import { sendToolResult } from '../telegram/utils/tool_result';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
-import { shouldOverrideToolModel } from './tool_model';
 
 export interface MessageInfo {
     content: string;
@@ -60,7 +59,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
         prepareStepPre: (middleware: any) => async ({ model, stepNumber, steps }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
             currentModel = model;
             const targetModel = config.TOOL_MODEL.trim();
-            const useToolModelOverride = shouldOverrideToolModel(config, activeTools.length);
+            const useToolModelOverride = activeTools.length > 0 && targetModel.length > 0;
             if (useToolModelOverride) {
                 currentModel = wrapLanguageModel({
                     model: await createLlmModel(targetModel, config),
@@ -399,7 +398,7 @@ export async function warpLLMParams({ system, messages, model, cache, abortSigna
     const manualToolChoiceNames = [...activeToolNames];
     const activeTools = [...manualToolChoiceNames];
     const requestedOpenAIResponsesTools = hasRequestedOpenAIResponsesTools(context);
-    const effectiveTarget = shouldOverrideToolModel(context, activeTools.length, requestedOpenAIResponsesTools)
+    const effectiveTarget = (activeTools.length > 0 || requestedOpenAIResponsesTools) && context.TOOL_MODEL
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
                 agent: getAgentProvider(model),

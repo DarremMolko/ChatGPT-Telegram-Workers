@@ -48,7 +48,6 @@ export default {
  -s Adjust the current STT model
  -t Adjust the current TTS model
  -tm Adjust TOOL_MODEL
- -tmm Adjust TOOL_MODEL_MODE
  -tp Adjust CHAT_TEMPERATURE
 
  You can set MAPPING_KEY, use half-width | to separate entries, and put the option on the left and the target variable on the right.
