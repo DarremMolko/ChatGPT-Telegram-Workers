@@ -9,6 +9,7 @@ vi.mock('../config/env', () => ({
         SHOW_THINKING_TEXT: true,
         EXPANDABLE_THINKING: true,
         ENABLE_SEARCH_SOURCE: true,
+        STREAM_DEBUG_DIAGNOSTICS: true,
     },
 }));
 
@@ -29,6 +30,7 @@ beforeEach(() => {
     ENV.SHOW_THINKING_TEXT = true;
     ENV.EXPANDABLE_THINKING = true;
     ENV.ENABLE_SEARCH_SOURCE = true;
+    ENV.STREAM_DEBUG_DIAGNOSTICS = true;
 });
 
 describe('streamHandler', () => {
@@ -50,6 +52,50 @@ describe('streamHandler', () => {
         expect(debug).toHaveBeenCalledWith('[streamHandler] stream-begin', {
             initialContentLength: 0,
             hasAbortSignal: false,
+        });
+    });
+
+    it('skips streamed diagnostics when the env flag is disabled', async () => {
+        ENV.STREAM_DEBUG_DIAGNOSTICS = false;
+
+        async function* stream() {
+            yield { text: 'abc' };
+            yield { text: 'def' };
+        }
+
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo = { content: '' };
+
+        const result = await streamHandler(stream(), part => part.text, onStream as any, messageInfo as any);
+
+        expect(result).toBe('abcdef');
+        expect(debug).not.toHaveBeenCalledWith('[streamHandler] stream-begin', expect.anything());
+        expect(debug).not.toHaveBeenCalledWith('[streamHandler] append-extracted-text', expect.anything());
+        expect(debug).not.toHaveBeenCalledWith('[streamHandler] emit-progress-update', expect.anything());
+    });
+
+    it('logs empty extractor results when diagnostics are enabled', async () => {
+        async function* stream() {
+            yield { type: 'source', title: 'Example' };
+        }
+
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo = { content: '' };
+
+        const result = await streamHandler(stream(), () => '', onStream as any, messageInfo as any);
+
+        expect(result).toBe('');
+        expect(debug).toHaveBeenCalledWith('[streamHandler] no-extracted-text', {
+            part: {
+                type: 'source',
+                preview: {
+                    type: 'source',
+                },
+            },
         });
     });
 });
@@ -92,6 +138,19 @@ describe('createThinkingExtractor', () => {
         expect((messageInfo as any).sources).toEqual([
             { url: 'https://example.com', title: 'Example' },
         ]);
+        expect(debug).toHaveBeenCalledWith('[thinkingExtractor] source-event', {
+            accepted: true,
+            sourceType: 'url',
+            title: {
+                length: 7,
+                preview: 'Example',
+            },
+            url: {
+                length: 19,
+                preview: 'https://example.com',
+            },
+            totalSources: 1,
+        });
     });
 
     it('logs the first raw stream part type once', () => {
@@ -124,6 +183,47 @@ describe('createThinkingExtractor', () => {
 
         expect(extractor({ type: 'text-start' } as TextStreamPart<any>)).toBe('');
         expect(SEGMENTATION_MARK).toBe('//SEGMENTATIONMARK//');
+        expect(debug).toHaveBeenCalledWith('[thinkingExtractor] text-start', {
+            mode: 'noop',
+        });
+    });
+
+    it('logs tool transitions before the final text starts', () => {
+        const messageInfo = { content: 'Existing answer' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        expect(extractor({ type: 'tool-call', toolName: 'search_tools' } as TextStreamPart<any>)).toBe('');
+        expect(extractor({ type: 'text-start' } as TextStreamPart<any>)).toBe('\n');
+
+        expect(debug).toHaveBeenCalledWith('[thinkingExtractor] tool-call-transition', {
+            pendingToolTransition: true,
+            contentLength: expect.any(Number),
+        });
+        expect(debug).toHaveBeenCalledWith('[thinkingExtractor] text-start', {
+            mode: 'pending_tool_transition',
+            emitted: {
+                length: 1,
+                preview: '\\n',
+            },
+        });
+    });
+
+    it('logs inline thought detection in text-delta mode', () => {
+        const messageInfo = { content: '' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        expect(extractor({
+            type: 'text-delta',
+            text: 'Thinking: I should inspect the tools first.',
+        } as TextStreamPart<any>)).toContain('Thinking: I should inspect the tools first.');
+
+        const inlineThoughtLog = debug.mock.calls.find(call => call[0] === '[thinkingExtractor] inline-thought-detected');
+        expect(inlineThoughtLog?.[1]).toEqual({
+            initialChunk: {
+                length: 43,
+                preview: 'Thinking: I should inspect the tools first.',
+            },
+        });
     });
 
     it('waits for a safer boundary before flushing streamed reasoning text', () => {

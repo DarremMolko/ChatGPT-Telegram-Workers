@@ -170,4 +170,6 @@ export class EnvironmentConfig {
     ENABLE_SEARCH_SOURCE = true;
     // Whether to show thinking text
     SHOW_THINKING_TEXT = true;
+    // Enable verbose stream diagnostics in debug logs, including reasoning, text, tool, and source transitions.
+    STREAM_DEBUG_DIAGNOSTICS = false;
 }

@@ -48,18 +48,21 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
     const maxLength = 10_000;
 
     try {
-        log.debug('[streamHandler] stream-begin', {
+        debugStreamDiagnostics('[streamHandler] stream-begin', {
             initialContentLength: messageInfo.content.length,
             hasAbortSignal: Boolean(abortSignal),
         });
         for await (const part of stream) {
             const textPart = contentExtractor(part);
             if (textPart === null || textPart === undefined || textPart === '') {
+                debugStreamDiagnostics('[streamHandler] no-extracted-text', {
+                    part: summarizeUnknownPart(part),
+                });
                 continue;
             }
             lengthDelta += textPart.length;
             messageInfo.content += textPart;
-            log.debug('[streamHandler] append-extracted-text', {
+            debugStreamDiagnostics('[streamHandler] append-extracted-text', {
                 appended: summarizeDebugText(textPart),
                 contentLength: messageInfo.content.length,
                 lengthDelta,
@@ -69,7 +72,7 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             if (lengthDelta > updateStep) {
                 lengthDelta = 0;
                 updateStep = Math.min(updateStep + 40, maxLength);
-                log.debug('[streamHandler] emit-progress-update', {
+                debugStreamDiagnostics('[streamHandler] emit-progress-update', {
                     contentLength: messageInfo.content.length,
                     nextUpdateStep: updateStep,
                 });
@@ -78,11 +81,19 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
         }
     } catch (e) {
         if (isUserCancelledSignal(abortSignal)) {
+            debugStreamDiagnostics('[streamHandler] cancelled', {
+                contentLength: messageInfo.content.length,
+                hadPartialContent: messageInfo.content.length > 0,
+            });
             if (messageInfo.content === '') {
                 throw e;
             }
             return messageInfo.content;
         }
+        debugStreamDiagnostics('[streamHandler] error', {
+            error: summarizeDebugError(e),
+            contentLength: messageInfo.content.length,
+        });
         if (messageInfo.content === '') {
             throw e;
         }
@@ -165,14 +176,21 @@ function handleStreamPart(state: ThinkingStreamState, data: TextStreamPart<any>)
         case 'text-delta':
             return handleTextDelta(state, data.text);
         case 'text-end':
-            return '';
+            return handleTextEnd(state);
         case 'tool-call':
             return handleToolCall(state);
         case 'source':
             return handleSource(state, data);
         case 'error':
+            debugStreamDiagnostics('[thinkingExtractor] error-part', {
+                error: summarizeDebugError(data.error),
+            });
             throw data.error;
         default:
+            debugStreamDiagnostics('[thinkingExtractor] ignored-stream-part', {
+                type: data.type,
+                preview: summarizeStreamPart(data),
+            });
             return '';
     }
 }
@@ -182,7 +200,7 @@ function logFirstStreamPart(state: ThinkingStreamState, data: TextStreamPart<any
         return;
     }
     state.hasLoggedFirstPart = true;
-    log.debug('[thinkingExtractor] stream-first-part', {
+    debugStreamDiagnostics('[thinkingExtractor] stream-first-part', {
         type: data.type,
         preview: summarizeStreamPart(data),
     });
@@ -190,9 +208,15 @@ function logFirstStreamPart(state: ThinkingStreamState, data: TextStreamPart<any
 
 function handleReasoningStart(state: ThinkingStreamState) {
     if (!ENV.SHOW_THINKING_TEXT) {
+        debugStreamDiagnostics('[thinkingExtractor] reasoning-start-skipped', {
+            reason: 'thinking_disabled',
+        });
         return '';
     }
     if (state.thinkingStart) {
+        debugStreamDiagnostics('[thinkingExtractor] reasoning-start-skipped', {
+            reason: 'already_started',
+        });
         return '';
     }
     state.thinkingStart = true;
@@ -202,7 +226,7 @@ function handleReasoningStart(state: ThinkingStreamState) {
     state.lastOutputTime = Date.now();
     state.hasEmittedReasoningText = false;
     const output = renderThinkingTag(state.messageInfo.content, state.thinkingTag, { separateFromPrevious: state.hasPendingToolTransition });
-    log.debug('[thinkingExtractor] reasoning-start', {
+    debugStreamDiagnostics('[thinkingExtractor] reasoning-start', {
         pendingToolTransition: state.hasPendingToolTransition,
         emittedTag: summarizeDebugText(output),
     });
@@ -212,6 +236,10 @@ function handleReasoningStart(state: ThinkingStreamState) {
 
 function handleReasoningDelta(state: ThinkingStreamState, text: string) {
     if (!ENV.SHOW_THINKING_TEXT) {
+        debugStreamDiagnostics('[thinkingExtractor] reasoning-delta-skipped', {
+            reason: 'thinking_disabled',
+            raw: summarizeDebugText(text),
+        });
         return '';
     }
     const bufferBefore = state.reasoningBuffer;
@@ -228,7 +256,7 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
         exceededTimeThreshold,
     });
     const shouldFlush = flushReasons.length > 0;
-    log.debug('[thinkingExtractor] reasoning-delta', {
+    debugStreamDiagnostics('[thinkingExtractor] reasoning-delta', {
         raw: summarizeDebugText(text),
         bufferBefore: summarizeDebugText(bufferBefore),
         bufferAfter: summarizeDebugText(state.reasoningBuffer),
@@ -247,7 +275,7 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
         state.lastEmittedReasoningChar,
     );
     const lastBufferChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
-    log.debug('[thinkingExtractor] reasoning-flush', {
+    debugStreamDiagnostics('[thinkingExtractor] reasoning-flush', {
         reason: flushReasons,
         joinMode: rendered.joinMode,
         emitted: summarizeDebugText(rendered.output),
@@ -264,9 +292,15 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
 
 function handleReasoningEnd(state: ThinkingStreamState) {
     if (!ENV.SHOW_THINKING_TEXT) {
+        debugStreamDiagnostics('[thinkingExtractor] reasoning-end-skipped', {
+            reason: 'thinking_disabled',
+        });
         return '';
     }
     if (state.reasoningBuffer.length === 0) {
+        debugStreamDiagnostics('[thinkingExtractor] reasoning-end-skipped', {
+            reason: 'empty_buffer',
+        });
         return '';
     }
     const rendered = renderQuotedReasoningChunk(
@@ -275,7 +309,7 @@ function handleReasoningEnd(state: ThinkingStreamState) {
         state.lastEmittedReasoningChar,
     );
     const lastBufferChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
-    log.debug('[thinkingExtractor] reasoning-flush', {
+    debugStreamDiagnostics('[thinkingExtractor] reasoning-flush', {
         reason: ['end' as ReasoningFlushReason],
         joinMode: rendered.joinMode,
         emitted: summarizeDebugText(rendered.output),
@@ -290,13 +324,20 @@ function handleReasoningEnd(state: ThinkingStreamState) {
 }
 
 function handleTextStart(state: ThinkingStreamState) {
-    log.info('[thinkingExtractor] text-start event');
     if (!state.thinkingStart) {
         if (state.hasPendingToolTransition) {
             state.hasPendingToolTransition = false;
             state.shouldTrimLeadingToolTransitionText = true;
-            return renderResponseBreak(state.messageInfo.content);
+            const output = renderResponseBreak(state.messageInfo.content);
+            debugStreamDiagnostics('[thinkingExtractor] text-start', {
+                mode: 'pending_tool_transition',
+                emitted: summarizeDebugText(output),
+            });
+            return output;
         }
+        debugStreamDiagnostics('[thinkingExtractor] text-start', {
+            mode: 'noop',
+        });
         return '';
     }
     state.thinkingStart = false;
@@ -305,20 +346,39 @@ function handleTextStart(state: ThinkingStreamState) {
         .replace(state.thinkingTag, `>\`Thought for ${thinkingTime} seconds\``)
         .replace(/(\n>)*$/, '')
         .replace(/(\n>){3,}$/g, '\n>\n>');
-    return `\n>✹\n${SEGMENTATION_MARK}\n`;
+    const output = `\n>✹\n${SEGMENTATION_MARK}\n`;
+    debugStreamDiagnostics('[thinkingExtractor] text-start', {
+        mode: 'after_reasoning',
+        thinkingTime,
+        emitted: summarizeDebugText(output),
+    });
+    return output;
 }
 
 function handleTextDelta(state: ThinkingStreamState, textDelta: string) {
     let nextTextDelta = textDelta;
+    let trimmedLeadingToolTransition = false;
     if (state.shouldTrimLeadingToolTransitionText) {
         nextTextDelta = trimLeadingToolTransitionText(nextTextDelta);
+        trimmedLeadingToolTransition = nextTextDelta !== textDelta;
         if (nextTextDelta.length === 0) {
+            debugStreamDiagnostics('[thinkingExtractor] text-delta', {
+                raw: summarizeDebugText(textDelta),
+                trimmedLeadingToolTransition,
+                result: 'empty_after_trim',
+            });
             return '';
         }
         state.shouldTrimLeadingToolTransitionText = false;
     }
 
-    log.debug(`[thinkingExtractor] text-delta: "${nextTextDelta}"`);
+    debugStreamDiagnostics('[thinkingExtractor] text-delta', {
+        raw: summarizeDebugText(textDelta),
+        next: summarizeDebugText(nextTextDelta),
+        trimmedLeadingToolTransition,
+        thinkingEnabled: ENV.SHOW_THINKING_TEXT,
+        inlineThoughtActive: state.detectedInlineThought,
+    });
 
     if (!ENV.SHOW_THINKING_TEXT) {
         return nextTextDelta;
@@ -331,7 +391,9 @@ function handleTextDelta(state: ThinkingStreamState, textDelta: string) {
     if (isStartOfMessage && thoughtPatterns.test(nextTextDelta)) {
         state.detectedInlineThought = true;
         state.inlineThoughtBuffer = nextTextDelta;
-        log.info('[thinkingExtractor] Detected inline thought text from AI model');
+        debugStreamDiagnostics('[thinkingExtractor] inline-thought-detected', {
+            initialChunk: summarizeDebugText(nextTextDelta),
+        });
         return wrapExpandableQuote(`${state.thinkingTag}${renderQuotedChunk(nextTextDelta, true)}`, ENV.EXPANDABLE_THINKING);
     }
 
@@ -345,6 +407,14 @@ function handleTextDelta(state: ThinkingStreamState, textDelta: string) {
             || (isVeryLong && /[.!?]\s*$/.test(state.inlineThoughtBuffer.trim()));
 
         if (!shouldEndThought) {
+            debugStreamDiagnostics('[thinkingExtractor] inline-thought-update', {
+                action: 'hold',
+                chunk: summarizeDebugText(nextTextDelta),
+                buffer: summarizeDebugText(state.inlineThoughtBuffer),
+                hasDoubleNewline,
+                endsWithSentenceThenCapital,
+                isVeryLong,
+            });
             return renderQuotedChunk(nextTextDelta, false);
         }
 
@@ -353,7 +423,6 @@ function handleTextDelta(state: ThinkingStreamState, textDelta: string) {
         state.messageInfo.content = state.messageInfo.content
             .replace(state.thinkingTag, `>\`Thought for ${estimatedTime} seconds\``);
         state.inlineThoughtBuffer = '';
-        log.info('[thinkingExtractor] Inline thought block ended');
 
         if (hasDoubleNewline) {
             const lastNewlineMatch = nextTextDelta.match(/\n\s*\n/);
@@ -361,14 +430,34 @@ function handleTextDelta(state: ThinkingStreamState, textDelta: string) {
                 const splitIndex = lastNewlineMatch.index! + lastNewlineMatch[0].length;
                 const thoughtPart = nextTextDelta.slice(0, splitIndex);
                 const responsePart = nextTextDelta.slice(splitIndex);
+                debugStreamDiagnostics('[thinkingExtractor] inline-thought-ended', {
+                    estimatedTime,
+                    splitResponse: true,
+                    chunk: summarizeDebugText(nextTextDelta),
+                    responsePreview: summarizeDebugText(responsePart),
+                });
                 return `${renderQuotedChunk(thoughtPart, false)}\n>✹\n${SEGMENTATION_MARK}\n${responsePart}`;
             }
         }
 
+        debugStreamDiagnostics('[thinkingExtractor] inline-thought-ended', {
+            estimatedTime,
+            splitResponse: false,
+            chunk: summarizeDebugText(nextTextDelta),
+        });
         return `${renderQuotedChunk(nextTextDelta, false)}\n>✹\n${SEGMENTATION_MARK}\n`;
     }
 
     return nextTextDelta;
+}
+
+function handleTextEnd(state: ThinkingStreamState) {
+    debugStreamDiagnostics('[thinkingExtractor] text-end', {
+        thinkingActive: state.thinkingStart,
+        inlineThoughtActive: state.detectedInlineThought,
+        contentLength: state.messageInfo.content.length,
+    });
+    return '';
 }
 
 function handleToolCall(state: ThinkingStreamState) {
@@ -376,6 +465,10 @@ function handleToolCall(state: ThinkingStreamState) {
     if (state.hasPendingToolTransition) {
         state.messageInfo.content = trimToolTransitionContent(state.messageInfo.content);
     }
+    debugStreamDiagnostics('[thinkingExtractor] tool-call-transition', {
+        pendingToolTransition: state.hasPendingToolTransition,
+        contentLength: state.messageInfo.content.length,
+    });
     return '';
 }
 
@@ -386,7 +479,20 @@ function handleSource(state: ThinkingStreamState, data: TextStreamPart<any>) {
             url: source.url || '',
             title: source.title || source.url || '',
         });
+        debugStreamDiagnostics('[thinkingExtractor] source-event', {
+            accepted: true,
+            sourceType: source.sourceType,
+            title: summarizeOptionalDebugText(source.title),
+            url: summarizeOptionalDebugText(source.url),
+            totalSources: state.sources.length,
+        });
+        return '';
     }
+    debugStreamDiagnostics('[thinkingExtractor] source-event', {
+        accepted: false,
+        sourceType: source.sourceType ?? '(unknown)',
+        enabled: ENV.ENABLE_SEARCH_SOURCE,
+    });
     return '';
 }
 
@@ -434,6 +540,13 @@ function startsWithQuotedReasoningBlock(text: string) {
     return /^\S[^\n]*\n\s*\n/.test(text);
 }
 
+function debugStreamDiagnostics(message: string, payload: Record<string, unknown>) {
+    if (!ENV.STREAM_DEBUG_DIAGNOSTICS) {
+        return;
+    }
+    log.debug(message, payload);
+}
+
 function getReasoningFlushReasons({ reachedSentenceBoundary, reachedSoftBoundary, exceededLengthThreshold, exceededTimeThreshold }: {
     reachedSentenceBoundary: boolean;
     reachedSoftBoundary: boolean;
@@ -470,6 +583,36 @@ function summarizeDebugChar(char: string) {
         return '(empty)';
     }
     return summarizeDebugText(char).preview;
+}
+
+function summarizeOptionalDebugText(text: string | undefined) {
+    if (!text) {
+        return '(empty)';
+    }
+    return summarizeDebugText(text);
+}
+
+function summarizeDebugError(error: unknown) {
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message,
+        };
+    }
+    return summarizeDebugText(String(error));
+}
+
+function summarizeUnknownPart(part: unknown) {
+    if (part && typeof part === 'object' && 'type' in part) {
+        const data = part as TextStreamPart<any>;
+        return {
+            type: data.type,
+            preview: summarizeStreamPart(data),
+        };
+    }
+    return {
+        type: typeof part,
+    };
 }
 
 function summarizeStreamPart(data: TextStreamPart<any>) {
