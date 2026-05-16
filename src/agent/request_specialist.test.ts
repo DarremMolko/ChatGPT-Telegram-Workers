@@ -137,7 +137,7 @@ beforeEach(() => {
 });
 
 describe('requestChatCompletionsV2 specialist mode', () => {
-    it('adds delegate_to_specialist and runs the subrequest on TOOL_MODEL without recursive delegation', async () => {
+    it('only exposes delegate_to_specialist to the outer model and runs the subrequest on TOOL_MODEL without recursive delegation', async () => {
         const messages = createMessages();
         let call = 0;
         createLlmModelMock.mockResolvedValue({
@@ -150,8 +150,8 @@ describe('requestChatCompletionsV2 specialist mode', () => {
             if (call === 1) {
                 expect(params.providerOptions.openai).toEqual({ source: 'openai' });
                 expect(params.providerOptions['oailike.chat']).toBeUndefined();
-                expect(Object.keys(params.tools)).toEqual(expect.arrayContaining(['search', 'delegate_to_specialist']));
-                expect(params.activeTools).toEqual(expect.arrayContaining(['search', 'delegate_to_specialist']));
+                expect(Object.keys(params.tools)).toEqual(['delegate_to_specialist']);
+                expect(params.activeTools).toEqual(['delegate_to_specialist']);
 
                 const specialistResult = await params.tools.delegate_to_specialist.execute({
                     task: 'Research the weather in Tokyo and summarize the key facts.',
@@ -221,5 +221,39 @@ describe('requestChatCompletionsV2 specialist mode', () => {
         expect(generateTextMock).toHaveBeenCalledTimes(2);
         expect(result.content).toBe('final answer');
         expect(result.messages).toEqual([{ role: 'assistant', content: 'final answer' }]);
+    });
+
+    it('clears outer toolChoice while passing it through to the specialist request', async () => {
+        generateTextMock.mockImplementation(async (params: any) => {
+            await params.onStepFinish({
+                request: {},
+                response: {},
+                text: 'ok',
+                toolResults: [],
+                usage: {},
+            });
+            return {
+                providerMetadata: {},
+                reasoning: false,
+                response: {
+                    messages: [{ role: 'assistant', content: 'ok' }],
+                },
+                text: 'ok',
+            };
+        });
+
+        await requestChatCompletionsV2({
+            activeTools: ['search'],
+            context: createContext(),
+            messages: createMessages(),
+            model: createModel(),
+            system: 'Be helpful.',
+            toolChoice: [{ type: 'tool', toolName: 'search' }],
+            tools: { search: {} },
+        }, null);
+
+        expect(AIMiddlewareMock).toHaveBeenCalledTimes(1);
+        expect(AIMiddlewareMock.mock.calls[0][0].activeTools).toEqual(['delegate_to_specialist']);
+        expect(AIMiddlewareMock.mock.calls[0][0].toolChoice).toEqual([]);
     });
 });

@@ -22,13 +22,14 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         return { role: m.role };
     }))}, system: ${system ? 'present' : 'absent'}`);
 
-    const { activeTools: effectiveActiveTools, tools: effectiveTools } = createRequestTools({
+    const { activeTools: effectiveActiveTools, tools: effectiveTools, toolChoice: effectiveToolChoice } = createRequestTools({
         activeTools,
         baseTools: tools || {},
         cache,
         context,
         messages,
         system,
+        toolChoice,
         abortSignal,
         enableSpecialistTool,
     });
@@ -41,7 +42,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         config: context,
         activeTools: effectiveActiveTools,
         onStream,
-        toolChoice: toolChoice || [],
+        toolChoice: effectiveToolChoice || [],
         messageInfo,
     });
 
@@ -140,19 +141,19 @@ async function combineParams({ context, middleware, model, system, messages, act
     };
 }
 
-function createRequestTools({ activeTools, baseTools, cache, context, messages, system, abortSignal, enableSpecialistTool }: { activeTools: string[]; baseTools: Record<string, any>; cache?: string[]; context: AgentUserConfig; messages: ModelMessage[]; system?: string; abortSignal?: AbortSignal; enableSpecialistTool: boolean }) {
+function createRequestTools({ activeTools, baseTools, cache, context, messages, system, toolChoice, abortSignal, enableSpecialistTool }: { activeTools: string[]; baseTools: Record<string, any>; cache?: string[]; context: AgentUserConfig; messages: ModelMessage[]; system?: string; toolChoice?: ToolChoice[]; abortSignal?: AbortSignal; enableSpecialistTool: boolean }) {
     if (!enableSpecialistTool || !shouldEnableSpecialistTool(context, activeTools.length)) {
         return {
             activeTools,
             tools: baseTools,
+            toolChoice,
         };
     }
 
     const specialistToolName = 'delegate_to_specialist';
     return {
-        activeTools: [...activeTools, specialistToolName],
+        activeTools: [specialistToolName],
         tools: {
-            ...baseTools,
             [specialistToolName]: tool({
                 description: 'Delegate a focused tool-heavy subtask to TOOL_MODEL. Use this when you need deeper research, tool planning, or synthesis before answering.',
                 inputSchema: z.object({
@@ -167,7 +168,7 @@ function createRequestTools({ activeTools, baseTools, cache, context, messages, 
                         messages: buildSpecialistMessages(messages, task, specialistContext, activeTools),
                         tools: baseTools,
                         activeTools,
-                        toolChoice: undefined,
+                        toolChoice,
                         context,
                         cache: cache ? [...cache] : [],
                         abortSignal: mergeAbortSignals([abortSignal, options.abortSignal]),
@@ -179,6 +180,8 @@ function createRequestTools({ activeTools, baseTools, cache, context, messages, 
                 },
             }),
         },
+        // The outer model cannot directly use the hidden tools, so clear any direct tool-choice state here.
+        toolChoice: [],
     };
 }
 
