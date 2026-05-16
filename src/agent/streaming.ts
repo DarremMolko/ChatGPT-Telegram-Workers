@@ -179,7 +179,7 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
     if (!shouldFlush) {
         return '';
     }
-    const output = renderQuotedChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
+    const output = renderQuotedReasoningChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
     state.reasoningBuffer = '';
     state.lastOutputTime = now;
     state.hasEmittedReasoningText = true;
@@ -193,7 +193,7 @@ function handleReasoningEnd(state: ThinkingStreamState) {
     if (state.reasoningBuffer.length === 0) {
         return '';
     }
-    const output = renderQuotedChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
+    const output = renderQuotedReasoningChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
     state.reasoningBuffer = '';
     state.hasEmittedReasoningText = true;
     return output;
@@ -302,4 +302,8 @@ function handleSource(state: ThinkingStreamState, data: TextStreamPart<any>) {
 
 function renderQuotedChunk(text: string, isStart: boolean) {
     return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
+}
+
+function renderQuotedReasoningChunk(text: string, isStart: boolean) {
+    return `${isStart ? '\n>' : text.startsWith('\n') ? '' : '\n>'}${text.replace(/\n/g, '\n>')}`;
 }
