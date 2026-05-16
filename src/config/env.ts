@@ -33,6 +33,7 @@ const SUPPORTED_CHAT_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_IMAGE_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_ASR_PROVIDERS = new Set(['openai', 'oailike']);
 const SUPPORTED_TTS_PROVIDERS = new Set(['openai', 'oailike']);
+const SUPPORTED_TOOL_MODEL_MODES = new Set(['override', 'specialist']);
 const SUPPORTED_CHAT_CONCURRENCY_POLICIES = new Set(['queue', 'cancel_previous', 'drop_if_busy', 'parallel']);
 const SUPPORTED_ADMIN_UTILITIES = new Set<string>(ADMIN_UTILITY_TYPES);
 const SUPPORTED_DOCUMENT_OCR_PROVIDERS = new Set(['', 'mistral']);
@@ -179,6 +180,10 @@ class Environment extends EnvironmentConfig {
         if (!SUPPORTED_TTS_PROVIDERS.has(this.USER_CONFIG.AI_TTS_PROVIDER)) {
             this.USER_CONFIG.AI_TTS_PROVIDER = 'openai';
         }
+        const normalizedToolModelMode = `${this.USER_CONFIG.TOOL_MODEL_MODE || 'override'}`.trim().toLowerCase();
+        this.USER_CONFIG.TOOL_MODEL_MODE = SUPPORTED_TOOL_MODEL_MODES.has(normalizedToolModelMode)
+            ? normalizedToolModelMode as 'override' | 'specialist'
+            : 'override';
         if (this.USER_CONFIG.OPENAI_API_KEY.length === 0 && this.USER_CONFIG.OAILIKE_API_KEY) {
             this.USER_CONFIG.AI_CHAT_PROVIDER = 'oailike';
             this.USER_CONFIG.AI_IMAGE_PROVIDER = 'oailike';

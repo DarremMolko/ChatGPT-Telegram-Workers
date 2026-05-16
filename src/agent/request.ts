@@ -4,15 +4,17 @@ import type { AgentUserConfig } from '../config/env';
 import type { ToolChoice } from './model_middleware';
 import type { StreamMessageInfo } from './streaming';
 import type { ChatStreamTextHandler, ResponseMessage } from './types';
-import { generateText, stepCountIs, streamText, wrapLanguageModel } from 'ai';
+import { generateText, stepCountIs, streamText, tool, wrapLanguageModel } from 'ai';
+import { z } from 'zod';
 import { ENV } from '../config/env';
 import { log } from '../log';
 import { wrapExpandableQuote } from '../telegram/utils/render_shared';
-import { getAgentProvider, resolveLlmTarget } from './llm';
+import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { appendStreamSources, createThinkingExtractor, streamHandler } from './streaming';
+import { shouldEnableSpecialistTool, shouldOverrideToolModel } from './tool_model';
 
-export async function requestChatCompletionsV2({ model, system, messages, tools, activeTools, toolChoice, context, cache, abortSignal }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; system?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[]; abortSignal?: AbortSignal }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
+export async function requestChatCompletionsV2({ model, system, messages, tools, activeTools, toolChoice, context, cache, abortSignal, enableSpecialistTool = true }: { model: LanguageModelV3; toolModel?: LanguageModelV3; prompt?: string; system?: string; messages: ModelMessage[]; tools?: any; activeTools: string[]; toolChoice?: ToolChoice[] | undefined; context: AgentUserConfig; cache?: string[]; abortSignal?: AbortSignal; enableSpecialistTool?: boolean }, onStream: ChatStreamTextHandler | null): Promise<{ messages: ResponseMessage[]; content: string }> {
     log.info(`[requestChatCompletionsV2] messages before SDK: ${JSON.stringify(messages.map((m) => {
         if (m.role === 'user' && Array.isArray(m.content)) {
             return { role: m.role, content: m.content.map(c => c.type === 'file' ? { type: c.type, mediaType: (c as any).mediaType } : { type: c.type }) };
@@ -20,19 +22,30 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         return { role: m.role };
     }))}, system: ${system ? 'present' : 'absent'}`);
 
+    const { activeTools: effectiveActiveTools, tools: effectiveTools } = createRequestTools({
+        activeTools,
+        baseTools: tools || {},
+        cache,
+        context,
+        messages,
+        system,
+        abortSignal,
+        enableSpecialistTool,
+    });
+
     const messageInfo: StreamMessageInfo = {
         content: cache?.join() ?? '',
         occured_error: false,
     };
     const { prepareStepPre, onStepFinish, onChunk, ...middleware } = await AIMiddleware({
         config: context,
-        activeTools,
+        activeTools: effectiveActiveTools,
         onStream,
         toolChoice: toolChoice || [],
         messageInfo,
     });
 
-    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk, abortSignal });
+    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools: effectiveActiveTools, tools: effectiveTools, prepareStepPre, onStepFinish, onChunk, abortSignal });
 
     let responseMessages: ResponseMessage[] = [];
     let contentFull = '';
@@ -87,7 +100,7 @@ function mergeAbortSignals(signals: Array<AbortSignal | undefined>): AbortSignal
 }
 
 async function combineParams({ context, middleware, model, system, messages, activeTools, tools, prepareStepPre, onStepFinish, onChunk, abortSignal }: { context: AgentUserConfig; middleware: any; model: LanguageModelV3; system?: string; messages: ModelMessage[]; activeTools: string[]; tools: any; prepareStepPre: (middleware: (...args: any[]) => any) => any; onStepFinish: (data: StepResult<any>) => void; onChunk: (data: { chunk: TextStreamPart<any> }) => void; abortSignal?: AbortSignal }) {
-    const effectiveTarget = activeTools.length > 0 && context.TOOL_MODEL
+    const effectiveTarget = shouldOverrideToolModel(context, activeTools.length)
         ? resolveLlmTarget(context.TOOL_MODEL, context)
         : {
                 agent: getAgentProvider(model),
@@ -125,4 +138,84 @@ async function combineParams({ context, middleware, model, system, messages, act
         onChunk,
         ...(mergedAbortSignal && { abortSignal: mergedAbortSignal }),
     };
+}
+
+function createRequestTools({ activeTools, baseTools, cache, context, messages, system, abortSignal, enableSpecialistTool }: { activeTools: string[]; baseTools: Record<string, any>; cache?: string[]; context: AgentUserConfig; messages: ModelMessage[]; system?: string; abortSignal?: AbortSignal; enableSpecialistTool: boolean }) {
+    if (!enableSpecialistTool || !shouldEnableSpecialistTool(context, activeTools.length)) {
+        return {
+            activeTools,
+            tools: baseTools,
+        };
+    }
+
+    const specialistToolName = 'delegate_to_specialist';
+    return {
+        activeTools: [...activeTools, specialistToolName],
+        tools: {
+            ...baseTools,
+            [specialistToolName]: tool({
+                description: 'Delegate a focused tool-heavy subtask to TOOL_MODEL. Use this when you need deeper research, tool planning, or synthesis before answering.',
+                inputSchema: z.object({
+                    task: z.string().min(1).describe('The focused task for the specialist model to complete.'),
+                    context: z.string().optional().describe('Optional extra context or constraints the specialist should consider.'),
+                }),
+                execute: async ({ task, context: specialistContext }, options) => {
+                    const specialistModel = await createLlmModel(context.TOOL_MODEL.trim(), context);
+                    const specialistResult = await requestChatCompletionsV2({
+                        model: specialistModel,
+                        system: buildSpecialistSystemPrompt(system),
+                        messages: buildSpecialistMessages(messages, task, specialistContext, activeTools),
+                        tools: baseTools,
+                        activeTools,
+                        toolChoice: undefined,
+                        context,
+                        cache: cache ? [...cache] : [],
+                        abortSignal: mergeAbortSignals([abortSignal, options.abortSignal]),
+                        enableSpecialistTool: false,
+                    }, null);
+                    return {
+                        summary: specialistResult.content,
+                    };
+                },
+            }),
+        },
+    };
+}
+
+function buildSpecialistSystemPrompt(system?: string) {
+    const baseSystem = system?.trim() || 'You are a helpful assistant.';
+    return `${baseSystem}\n\nYou are an internal specialist assistant helping another model. Focus on the delegated task, use tools when helpful, and return concise findings for the calling model. Do not write as if you are directly speaking to the end user.`;
+}
+
+function buildSpecialistMessages(messages: ModelMessage[], task: string, specialistContext: string | undefined, activeTools: string[]): ModelMessage[] {
+    const sections = [
+        `Delegated task:\n${task.trim()}`,
+        specialistContext?.trim() ? `Caller context:\n${specialistContext.trim()}` : '',
+        getLatestUserText(messages) ? `Latest user message:\n${getLatestUserText(messages)}` : '',
+        activeTools.length > 0 ? `Available tools:\n${activeTools.join(', ')}` : '',
+        'Return concise findings for the calling model. Include concrete facts from any tool results you gather.',
+    ].filter(Boolean);
+
+    return [{
+        role: 'user',
+        content: [{
+            type: 'text',
+            text: sections.join('\n\n'),
+        }],
+    }];
+}
+
+function getLatestUserText(messages: ModelMessage[]) {
+    const userMessage = messages.findLast(message => message.role === 'user');
+    if (!userMessage) {
+        return '';
+    }
+    if (Array.isArray(userMessage.content)) {
+        return userMessage.content
+            .filter(part => part.type === 'text')
+            .map(part => part.text)
+            .join('\n')
+            .trim();
+    }
+    return `${userMessage.content || ''}`.trim();
 }
