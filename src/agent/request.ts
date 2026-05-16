@@ -22,7 +22,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         return { role: m.role };
     }))}, system: ${system ? 'present' : 'absent'}`);
 
-    const effectiveTools = createRequestTools({
+    const { activeTools: effectiveActiveTools, tools: effectiveTools } = createRequestTools({
         activeTools,
         baseTools: tools || {},
         cache,
@@ -39,13 +39,13 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
     };
     const { prepareStepPre, onStepFinish, onChunk, ...middleware } = await AIMiddleware({
         config: context,
-        activeTools,
+        activeTools: effectiveActiveTools,
         onStream,
         toolChoice: toolChoice || [],
         messageInfo,
     });
 
-    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools, tools: effectiveTools, prepareStepPre, onStepFinish, onChunk, abortSignal });
+    const handledParams = await combineParams({ context, middleware, model, system, messages, activeTools: effectiveActiveTools, tools: effectiveTools, prepareStepPre, onStepFinish, onChunk, abortSignal });
 
     let responseMessages: ResponseMessage[] = [];
     let contentFull = '';
@@ -142,36 +142,43 @@ async function combineParams({ context, middleware, model, system, messages, act
 
 function createRequestTools({ activeTools, baseTools, cache, context, messages, system, abortSignal, enableSpecialistTool }: { activeTools: string[]; baseTools: Record<string, any>; cache?: string[]; context: AgentUserConfig; messages: ModelMessage[]; system?: string; abortSignal?: AbortSignal; enableSpecialistTool: boolean }) {
     if (!enableSpecialistTool || !shouldEnableSpecialistTool(context, activeTools.length)) {
-        return baseTools;
+        return {
+            activeTools,
+            tools: baseTools,
+        };
     }
 
+    const specialistToolName = 'delegate_to_specialist';
     return {
-        ...baseTools,
-        delegate_to_specialist: tool({
-            description: 'Delegate a focused tool-heavy subtask to TOOL_MODEL. Use this when you need deeper research, tool planning, or synthesis before answering.',
-            inputSchema: z.object({
-                task: z.string().min(1).describe('The focused task for the specialist model to complete.'),
-                context: z.string().optional().describe('Optional extra context or constraints the specialist should consider.'),
+        activeTools: [...activeTools, specialistToolName],
+        tools: {
+            ...baseTools,
+            [specialistToolName]: tool({
+                description: 'Delegate a focused tool-heavy subtask to TOOL_MODEL. Use this when you need deeper research, tool planning, or synthesis before answering.',
+                inputSchema: z.object({
+                    task: z.string().min(1).describe('The focused task for the specialist model to complete.'),
+                    context: z.string().optional().describe('Optional extra context or constraints the specialist should consider.'),
+                }),
+                execute: async ({ task, context: specialistContext }, options) => {
+                    const specialistModel = await createLlmModel(context.TOOL_MODEL.trim(), context);
+                    const specialistResult = await requestChatCompletionsV2({
+                        model: specialistModel,
+                        system: buildSpecialistSystemPrompt(system),
+                        messages: buildSpecialistMessages(messages, task, specialistContext, activeTools),
+                        tools: baseTools,
+                        activeTools,
+                        toolChoice: undefined,
+                        context,
+                        cache: cache ? [...cache] : [],
+                        abortSignal: mergeAbortSignals([abortSignal, options.abortSignal]),
+                        enableSpecialistTool: false,
+                    }, null);
+                    return {
+                        summary: specialistResult.content,
+                    };
+                },
             }),
-            execute: async ({ task, context: specialistContext }, options) => {
-                const specialistModel = await createLlmModel(context.TOOL_MODEL.trim(), context);
-                const specialistResult = await requestChatCompletionsV2({
-                    model: specialistModel,
-                    system: buildSpecialistSystemPrompt(system),
-                    messages: buildSpecialistMessages(messages, task, specialistContext, activeTools),
-                    tools: baseTools,
-                    activeTools,
-                    toolChoice: undefined,
-                    context,
-                    cache: cache ? [...cache] : [],
-                    abortSignal: mergeAbortSignals([abortSignal, options.abortSignal]),
-                    enableSpecialistTool: false,
-                }, null);
-                return {
-                    summary: specialistResult.content,
-                };
-            },
-        }),
+        },
     };
 }
 
