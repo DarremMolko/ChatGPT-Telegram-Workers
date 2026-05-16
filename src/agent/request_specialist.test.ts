@@ -256,4 +256,73 @@ describe('requestChatCompletionsV2 specialist mode', () => {
         expect(AIMiddlewareMock.mock.calls[0][0].activeTools).toEqual(['delegate_to_specialist']);
         expect(AIMiddlewareMock.mock.calls[0][0].toolChoice).toEqual([]);
     });
+
+    it('strips internal thinking wrappers from the specialist summary passed back to the caller', async () => {
+        let call = 0;
+        createLlmModelMock.mockResolvedValue({
+            modelId: 'deepseek-chat',
+            provider: 'oailike',
+        });
+
+        generateTextMock.mockImplementation(async (params: any) => {
+            call++;
+            if (call === 1) {
+                const specialistResult = await params.tools.delegate_to_specialist.execute({
+                    task: 'Look up the weather.',
+                    context: 'Use tools if needed.',
+                }, {
+                    abortSignal: undefined,
+                });
+
+                expect(specialistResult).toEqual({
+                    summary: 'Clean final answer',
+                });
+
+                await params.onStepFinish({
+                    request: {},
+                    response: {},
+                    text: 'outer answer',
+                    toolResults: [],
+                    usage: {},
+                });
+                return {
+                    providerMetadata: {},
+                    reasoning: false,
+                    response: {
+                        messages: [{ role: 'assistant', content: 'outer answer' }],
+                    },
+                    text: 'outer answer',
+                };
+            }
+
+            await params.onStepFinish({
+                request: {},
+                response: {},
+                text: 'Clean final answer',
+                toolResults: [],
+                usage: {},
+            });
+            return {
+                providerMetadata: {},
+                reasoning: true,
+                reasoningText: 'internal chain of thought',
+                response: {
+                    messages: [{ role: 'assistant', content: 'Clean final answer' }],
+                },
+                text: 'Clean final answer',
+            };
+        });
+
+        await requestChatCompletionsV2({
+            activeTools: ['search'],
+            context: createContext(),
+            messages: createMessages(),
+            model: createModel(),
+            system: 'Be helpful.',
+            toolChoice: undefined,
+            tools: { search: {} },
+        }, null);
+
+        expect(generateTextMock).toHaveBeenCalledTimes(2);
+    });
 });

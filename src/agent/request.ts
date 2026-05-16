@@ -8,7 +8,7 @@ import { generateText, stepCountIs, streamText, tool, wrapLanguageModel } from '
 import { z } from 'zod';
 import { ENV } from '../config/env';
 import { log } from '../log';
-import { wrapExpandableQuote } from '../telegram/utils/render_shared';
+import { EXPANDABLE_QUOTE_MARK, wrapExpandableQuote } from '../telegram/utils/render_shared';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { appendStreamSources, createThinkingExtractor, streamHandler } from './streaming';
@@ -175,7 +175,7 @@ function createRequestTools({ activeTools, baseTools, cache, context, messages, 
                         enableSpecialistTool: false,
                     }, null);
                     return {
-                        summary: specialistResult.content,
+                        summary: sanitizeSpecialistSummary(specialistResult.content),
                     };
                 },
             }),
@@ -221,4 +221,18 @@ function getLatestUserText(messages: ModelMessage[]) {
             .trim();
     }
     return `${userMessage.content || ''}`.trim();
+}
+
+function sanitizeSpecialistSummary(content: string) {
+    let summary = `${content || ''}`.trim();
+    const expandablePrefix = `${EXPANDABLE_QUOTE_MARK}\n`;
+    if (summary.startsWith(expandablePrefix)) {
+        summary = summary.slice(expandablePrefix.length);
+        const thinkingEndMarker = '\n>✹\n';
+        const thinkingEndIndex = summary.indexOf(thinkingEndMarker);
+        if (thinkingEndIndex >= 0) {
+            summary = summary.slice(thinkingEndIndex + thinkingEndMarker.length);
+        }
+    }
+    return summary.trim();
 }
