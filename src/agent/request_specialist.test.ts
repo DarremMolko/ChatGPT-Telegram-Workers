@@ -47,6 +47,7 @@ vi.mock('../config/env', () => ({
     ENV: {
         CHAT_TOTAL_DURATION_LIMIT: 0,
         EXPANDABLE_THINKING: true,
+        TOOL_MODEL_SPECIALIST_SYSTEM: '',
     },
 }));
 
@@ -76,6 +77,7 @@ vi.mock('./streaming', () => ({
 }));
 
 const { requestChatCompletionsV2 } = await import('./request');
+const { ENV } = await import('../config/env');
 
 function createContext(overrides: Record<string, any> = {}) {
     return {
@@ -147,6 +149,7 @@ beforeEach(() => {
     streamHandlerMock.mockReset();
     streamTextMock.mockReset();
     wrapLanguageModelMock.mockClear();
+    ENV.TOOL_MODEL_SPECIALIST_SYSTEM = '';
 
     AIMiddlewareMock.mockResolvedValue({
         onChunk: vi.fn(),
@@ -195,6 +198,7 @@ describe('requestChatCompletionsV2 specialist mode', () => {
             expect(Object.keys(params.tools)).toEqual(['search']);
             expect(params.activeTools).toEqual(['search']);
             expect(params.system).toContain('internal specialist assistant');
+            expect(params.system).not.toContain('Be helpful.');
             expect(params.messages).toHaveLength(1);
             expect(params.messages[0].content[0].text).toContain('Delegated task:');
             expect(params.messages[0].content[0].text).toContain('Research the weather in Tokyo');
@@ -238,6 +242,49 @@ describe('requestChatCompletionsV2 specialist mode', () => {
         expect(AIMiddlewareMock).toHaveBeenCalledTimes(1);
         expect(AIMiddlewareMock.mock.calls[0][0].activeTools).toEqual(['delegate_to_specialist']);
         expect(AIMiddlewareMock.mock.calls[0][0].toolChoice).toEqual([]);
+    });
+
+    it('uses the configured specialist system prompt from the environment', async () => {
+        ENV.TOOL_MODEL_SPECIALIST_SYSTEM = 'You are the custom specialist. Return only verified findings.';
+        let call = 0;
+        createLlmModelMock.mockResolvedValue({
+            modelId: 'deepseek-chat',
+            provider: 'oailike',
+        });
+
+        generateTextMock.mockImplementation(async (params: any) => {
+            call++;
+            if (call === 1) {
+                const specialistResult = await params.tools.delegate_to_specialist.execute({
+                    task: 'Look up the weather.',
+                }, {
+                    abortSignal: undefined,
+                });
+
+                expect(specialistResult).toEqual({
+                    summary: 'specialist findings',
+                });
+
+                await finishStep(params, 'outer answer');
+                return createGenerateTextResult('outer answer');
+            }
+
+            expect(params.system).toBe('You are the custom specialist. Return only verified findings.');
+            await finishStep(params, 'specialist findings');
+            return createGenerateTextResult('specialist findings');
+        });
+
+        await requestChatCompletionsV2({
+            activeTools: ['search'],
+            context: createContext(),
+            messages: createMessages(),
+            model: createModel(),
+            system: 'Be helpful.',
+            toolChoice: undefined,
+            tools: { search: {} },
+        }, null);
+
+        expect(generateTextMock).toHaveBeenCalledTimes(2);
     });
 
     it('strips internal thinking wrappers from the specialist summary passed back to the caller', async () => {

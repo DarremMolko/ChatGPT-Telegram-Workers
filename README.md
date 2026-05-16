@@ -278,6 +278,13 @@ Two tool layers remain:
 - a plain model ID, such as `gpt-5.4-mini`
 - an explicit provider-prefixed target, such as `oailike:deepseek-chat`
 
+`TOOL_MODEL_MODE` controls how that model is used:
+
+- `override` keeps the existing behavior and runs tool-capable steps directly on `TOOL_MODEL`
+- `specialist` exposes `TOOL_MODEL` as an internal delegation path, so the main chat model delegates tool work to a specialist instead of seeing the real tool list directly
+
+`TOOL_MODEL_SPECIALIST_SYSTEM` can override the specialist’s internal system prompt globally. When left empty, the specialist uses the built-in neutral prompt instead of inheriting the main chat system prompt.
+
 ## Endpoint Routing
 
 `OPENAI_API_BASE` and `OAILIKE_API_BASE` can point to:

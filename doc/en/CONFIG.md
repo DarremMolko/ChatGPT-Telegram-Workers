@@ -83,10 +83,10 @@ Important:
 | Image editing | OpenAI `/img` reply-to-image flow |
 | Audio input/output | `AI_ASR_PROVIDER`, `AI_TTS_PROVIDER`, `TEXT_HANDLE_TYPE`, `AUDIO_HANDLE_TYPE`, `TEXT_OUTPUT`, `AUDIO_OUTPUT` |
 | Document OCR | `DOCUMENT_OCR_PROVIDER`, `MISTRAL_OCR_*` |
-| Generic tools | `MCP_*`, `USE_MCP`, `TOOL_MODEL` |
+| Generic tools | `MCP_*`, `USE_MCP`, `TOOL_MODEL`, `TOOL_MODEL_MODE`, `TOOL_MODEL_SPECIALIST_SYSTEM` |
 | OpenAI built-in tools | `USE_OPENAI_BUILDIN`, `OPENAI_ENABLE_*` |
 | Group behavior | `CHAT_GROUP_WHITE_LIST`, `GROUP_CHAT_BOT_ENABLE`, `GROUP_CHAT_BOT_SHARE_MODE` |
-| Persistence and cleanup | `REDIS_URL`, `MAX_HISTORY_LENGTH`, `EXPIRED_TIME`, `CRON_CHECK_TIME` |
+| Persistence and cleanup | `REDIS_URL`, `MAX_HISTORY_LENGTH`, `EXPIRED_TIME`, `CRON_CHECK_TIME`, `STREAM_DEBUG_DIAGNOSTICS` |
 | Inline settings and shortcuts | `MAPPING_KEY`, `MAPPING_VALUE`, `ENVS_VARIABLES`, `CALLBACK_MENU` |
 
 ## Required Settings
@@ -233,6 +233,7 @@ Telegram document notes:
 | `LOG_LEVEL` | Runtime logger level. | `info` |
 | `LOG_TO_FILE` | Optional NDJSON file path for structured runtime, config, reasoning, and tool-call traces. When empty, file logging is disabled. | `''` |
 | `DEBUG_LOG_MAX_STRING_LENGTH` | Max string length written to the debug log file before truncation. | `8000` |
+| `STREAM_DEBUG_DIAGNOSTICS` | Emit verbose stream-processing diagnostics at debug level for reasoning, text chunks, inline-thought detection, tool transitions, and source handling. Useful when investigating streamed output formatting edge cases. | `false` |
 | `SAVE_LAST_TELEGRAM_MESSAGE` | Persist the last raw Telegram message payload in Redis for the current chat/session. | `false` |
 | `DEV_MODE` | Expose additional debug output in commands such as `/system`. | `false` |
 | `HIDE_MIDDLE_MESSAGE` | Hide intermediate transcription/tool status messages where possible. | `false` |
@@ -355,6 +356,8 @@ Non-chat APIs such as `/models`, `/images`, and `/audio` continue to use the str
 | Variable | Description | Default |
 | --- | --- | --- |
 | `TOOL_MODEL` | Optional dedicated model for MCP or OpenAI built-in tool steps. Accepts plain model IDs or `provider:model` form. | `''` |
+| `TOOL_MODEL_MODE` | Tool-model routing mode. `override` runs tool-capable steps directly on `TOOL_MODEL`; `specialist` exposes `TOOL_MODEL` as an internal delegation path so the main chat model delegates tool work instead of seeing the real tool list directly. | `override` |
+| `TOOL_MODEL_SPECIALIST_SYSTEM` | Optional deployment-level system prompt used only by the specialist path when `TOOL_MODEL_MODE=specialist`. When empty, the built-in neutral specialist prompt is used instead of inheriting the main chat system prompt. | `''` |
 | `CHAT_TEMPERATURE` | Temperature for regular chat turns. | `undefined` |
 | `FUNCTION_CALL_TEMPERATURE` | Temperature for tool-calling steps. | `undefined` |
 | `MAX_TOKENS` | Max output tokens. | `undefined` |
@@ -604,6 +607,7 @@ Default shortcut mapping:
 -s:STT_MODEL
 -t:TTS_MODEL
 -tm:TOOL_MODEL
+-tmm:TOOL_MODEL_MODE
 -as:AI_ASR_PROVIDER
 -at:AI_TTS_PROVIDER
 -tp:CHAT_TEMPERATURE

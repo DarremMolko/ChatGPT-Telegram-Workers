@@ -94,6 +94,12 @@ OPENAI_TTS_VOICE = "alloy"
 #
 # Optional: use a dedicated model for MCP or built-in tool steps.
 # TOOL_MODEL = "gpt-5.4"
+# Optional: route tool work through TOOL_MODEL directly or via the specialist delegation path.
+# Supported values: "override", "specialist"
+# TOOL_MODEL_MODE = "specialist"
+# Optional: override the specialist-only system prompt globally.
+# When omitted, the built-in neutral specialist prompt is used.
+# TOOL_MODEL_SPECIALIST_SYSTEM = "You are an internal specialist assistant. Return concise verified findings."
 #
 # Optional: change text/audio behavior.
 # TEXT_OUTPUT = "audio"
@@ -121,6 +127,8 @@ OPENAI_TTS_VOICE = "alloy"
 # -----------------------------------------------------------------------------
 # Optional: increase console verbosity.
 # LOG_LEVEL = "debug"
+# Optional: add verbose stream-processing diagnostics when LOG_LEVEL=debug.
+# STREAM_DEBUG_DIAGNOSTICS = true
 #
 # Optional: write structured NDJSON traces for runtime, config, request,
 # reasoning, and tool-call diagnostics.

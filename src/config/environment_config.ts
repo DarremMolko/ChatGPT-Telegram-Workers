@@ -172,4 +172,6 @@ export class EnvironmentConfig {
     SHOW_THINKING_TEXT = true;
     // Enable verbose stream diagnostics in debug logs, including reasoning, text, tool, and source transitions.
     STREAM_DEBUG_DIAGNOSTICS = false;
+    // Optional specialist-only system prompt used by TOOL_MODEL_MODE=specialist. When empty, the built-in neutral specialist prompt is used.
+    TOOL_MODEL_SPECIALIST_SYSTEM = '';
 }

@@ -15,8 +15,7 @@ import { appendStreamSources, createThinkingExtractor, streamHandler } from './s
 import { shouldEnableSpecialistTool, shouldOverrideToolModel } from './tool_model';
 
 const SPECIALIST_TOOL_NAME = 'delegate_to_specialist';
-const DEFAULT_SPECIALIST_SYSTEM = 'You are a helpful assistant.';
-const SPECIALIST_SYSTEM_SUFFIX = 'You are an internal specialist assistant helping another model. Focus on the delegated task, use tools when helpful, and return concise findings for the calling model. Do not write as if you are directly speaking to the end user.';
+const DEFAULT_SPECIALIST_SYSTEM = 'You are an internal specialist assistant helping another model. Focus on the delegated task, use tools when helpful, and return concise findings for the calling model. Do not write as if you are directly speaking to the end user.';
 
 interface RequestChatCompletionsOptions {
     model: LanguageModelV3;
@@ -39,7 +38,6 @@ interface CreateRequestToolsOptions {
     cache?: string[];
     context: AgentUserConfig;
     messages: ModelMessage[];
-    system?: string;
     toolChoice?: ToolChoice[];
     abortSignal?: AbortSignal;
     enableSpecialistTool: boolean;
@@ -53,7 +51,6 @@ interface CreateSpecialistRequestOptions {
     messages: ModelMessage[];
     task: string;
     specialistContext?: string;
-    system?: string;
     toolChoice?: ToolChoice[];
     abortSignal?: AbortSignal;
 }
@@ -72,7 +69,6 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         cache,
         context,
         messages,
-        system,
         toolChoice,
         abortSignal,
         enableSpecialistTool,
@@ -185,7 +181,7 @@ async function combineParams({ context, middleware, model, system, messages, act
     };
 }
 
-function createRequestTools({ activeTools, baseTools, cache, context, messages, system, toolChoice, abortSignal, enableSpecialistTool }: CreateRequestToolsOptions) {
+function createRequestTools({ activeTools, baseTools, cache, context, messages, toolChoice, abortSignal, enableSpecialistTool }: CreateRequestToolsOptions) {
     if (!enableSpecialistTool || !shouldEnableSpecialistTool(context, activeTools.length)) {
         return {
             activeTools,
@@ -203,7 +199,6 @@ function createRequestTools({ activeTools, baseTools, cache, context, messages, 
                 cache,
                 context,
                 messages,
-                system,
                 toolChoice,
                 abortSignal,
             }),
@@ -213,7 +208,7 @@ function createRequestTools({ activeTools, baseTools, cache, context, messages, 
     };
 }
 
-function createSpecialistDelegateTool({ activeTools, baseTools, cache, context, messages, system, toolChoice, abortSignal }: Omit<CreateRequestToolsOptions, 'enableSpecialistTool'>) {
+function createSpecialistDelegateTool({ activeTools, baseTools, cache, context, messages, toolChoice, abortSignal }: Omit<CreateRequestToolsOptions, 'enableSpecialistTool'>) {
     return tool({
         description: 'Delegate a focused tool-heavy subtask to TOOL_MODEL. Use this when you need deeper research, tool planning, or synthesis before answering.',
         inputSchema: z.object({
@@ -229,7 +224,6 @@ function createSpecialistDelegateTool({ activeTools, baseTools, cache, context, 
                 messages,
                 task,
                 specialistContext,
-                system,
                 toolChoice,
                 abortSignal: mergeAbortSignals([abortSignal, options.abortSignal]),
             });
@@ -241,11 +235,11 @@ function createSpecialistDelegateTool({ activeTools, baseTools, cache, context, 
     });
 }
 
-async function createSpecialistRequest({ activeTools, baseTools, cache, context, messages, task, specialistContext, system, toolChoice, abortSignal }: CreateSpecialistRequestOptions): Promise<RequestChatCompletionsOptions> {
+async function createSpecialistRequest({ activeTools, baseTools, cache, context, messages, task, specialistContext, toolChoice, abortSignal }: CreateSpecialistRequestOptions): Promise<RequestChatCompletionsOptions> {
     const specialistModel = await createLlmModel(context.TOOL_MODEL.trim(), context);
     return {
         model: specialistModel,
-        system: buildSpecialistSystemPrompt(system),
+        system: buildSpecialistSystemPrompt(),
         messages: buildSpecialistMessages(messages, task, specialistContext, activeTools),
         tools: baseTools,
         activeTools,
@@ -257,9 +251,9 @@ async function createSpecialistRequest({ activeTools, baseTools, cache, context,
     };
 }
 
-function buildSpecialistSystemPrompt(system?: string) {
-    const baseSystem = system?.trim() || DEFAULT_SPECIALIST_SYSTEM;
-    return `${baseSystem}\n\n${SPECIALIST_SYSTEM_SUFFIX}`;
+function buildSpecialistSystemPrompt() {
+    const configuredSystem = `${ENV.TOOL_MODEL_SPECIALIST_SYSTEM || ''}`.trim();
+    return configuredSystem || DEFAULT_SPECIALIST_SYSTEM;
 }
 
 function buildSpecialistMessages(messages: ModelMessage[], task: string, specialistContext: string | undefined, activeTools: string[]): ModelMessage[] {
