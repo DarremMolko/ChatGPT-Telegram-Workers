@@ -115,6 +115,7 @@ async function collectSystemPanelSnapshot(context: Pick<WorkerContext, 'USER_CON
         AI_CHAT_PROVIDER: chatAgent.provider,
         [chatAgent.modelKey]: chatAgent.model,
         TOOL_MODEL: context.USER_CONFIG.TOOL_MODEL || 'same as chat model',
+        TOOL_MODEL_MODE: context.USER_CONFIG.TOOL_MODEL_MODE || 'override',
         AI_IMAGE_PROVIDER: imageAgent.provider,
         [imageAgent.modelKey]: imageAgent.model,
         AI_ASR_PROVIDER: asrAgent.provider,
@@ -217,6 +218,7 @@ export async function renderSystemPanel(context: Pick<WorkerContext, 'USER_CONFI
         + `Chat: \`${snapshot.agent.AI_CHAT_PROVIDER}\`\n`
         + `Chat Model: \`${snapshot.agent[Object.keys(snapshot.agent).find(key => key.endsWith('CHAT_MODEL')) || 'TOOL_MODEL']}\`\n`
         + `Tool Model: \`${snapshot.agent.TOOL_MODEL}\`\n`
+        + `Tool Model Mode: \`${snapshot.agent.TOOL_MODEL_MODE}\`\n`
         + `Image: \`${snapshot.agent.AI_IMAGE_PROVIDER}\`\n`
         + `ASR: \`${snapshot.agent.AI_ASR_PROVIDER}\`\n`
         + `TTS: \`${snapshot.agent.AI_TTS_PROVIDER}\`\n\n`
@@ -1162,7 +1164,7 @@ export class SetCommandHandler extends RenewConfig implements CommandHandler {
             this.ensureRuntimeConfigAccess(message, updatedKeys);
             if (needUpdate && updatedKeys.length > 0 && context.SHARE_CONTEXT?.configStoreKey) {
                 await this.store({}, context);
-                const suffixWhiteList = ['_PROVIDER', '_MODEL', '_MODELS', '_TOOLS', '_TYPE', '_OUTPUT', '_AGENT', '_TEMPERATURE', 'MAPPING_KEY', 'MAPPING_VALUE', 'USE_MCP', 'USE_OPENAI_BUILDIN'];
+                const suffixWhiteList = ['_PROVIDER', '_MODEL', '_MODE', '_MODELS', '_TOOLS', '_TYPE', '_OUTPUT', '_AGENT', '_TEMPERATURE', 'MAPPING_KEY', 'MAPPING_VALUE', 'USE_MCP', 'USE_OPENAI_BUILDIN'];
                 msg += `${updatedKeys
                     .filter(key => suffixWhiteList.some(suffix => key.endsWith(suffix)))
                     .map(key => `${key}: ${context.USER_CONFIG[key]}`)
