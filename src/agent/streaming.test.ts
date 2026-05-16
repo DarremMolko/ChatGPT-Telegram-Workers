@@ -98,6 +98,28 @@ describe('streamHandler', () => {
             },
         });
     });
+
+    it('defers progress updates that end on a segmentation boundary', async () => {
+        async function* stream() {
+            yield { text: `answer\n${SEGMENTATION_MARK}\n` };
+        }
+
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo = { content: '' };
+
+        const result = await streamHandler(stream(), part => part.text, onStream as any, messageInfo as any);
+
+        expect(result).toBe(`answer\n${SEGMENTATION_MARK}\n`);
+        expect(onStream.send).not.toHaveBeenCalled();
+        expect(debug).toHaveBeenCalledWith('[streamHandler] defer-progress-update', {
+            reason: 'segmentation_boundary',
+            contentLength: expect.any(Number),
+            lengthDelta: expect.any(Number),
+            updateStep: 5,
+        });
+    });
 });
 
 describe('appendStreamSources', () => {

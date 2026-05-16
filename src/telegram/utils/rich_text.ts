@@ -9,7 +9,12 @@ import {
     renderMarkdownDocumentToTelegram,
     stripBlockquotePrefix,
 } from './markdown_core';
-import { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK } from './render_shared';
+import {
+    EXPANDABLE_QUOTE_MARK,
+    normalizeSegmentationBoundaries,
+    SEGMENTATION_MARK,
+    stripSegmentationMarkerLines,
+} from './render_shared';
 import { transformPipeTables } from './table_render';
 
 const MAX_CHUNK_SIZE = 4000;
@@ -56,10 +61,11 @@ export function markdownToEntities(
 }
 
 function normalizeMessage(message: string, expandParams: ExpandParams): { text: string; quoteEntireMessage: boolean; quoteExpandable: boolean } {
-    const lines = message.split('\n');
+    const normalizedMessage = normalizeSegmentationBoundaries(message);
+    const lines = normalizedMessage.split('\n');
     if (!expandParams.addQuote) {
         return {
-            text: lines.map(line => line === SEGMENTATION_MARK ? '' : line).join('\n').trim(),
+            text: stripSegmentationMarkerLines(normalizedMessage).trim(),
             quoteEntireMessage: false,
             quoteExpandable: expandParams.quoteExpandable,
         };

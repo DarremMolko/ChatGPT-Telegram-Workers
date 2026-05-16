@@ -3,6 +3,7 @@ import type { ChosenInlineSender, MessageSender } from './send';
 import { ENV } from '../../config/env';
 import { getLog, log } from '../../log';
 import { parseMarkdownDocument, renderMarkdownDocumentToTelegraph } from './markdown_core';
+import { stripSegmentationMarkerLines } from './render_shared';
 import { waitUntil } from './tg_utils';
 
 interface Author {
@@ -159,6 +160,7 @@ export class TelegraphSender {
 export async function sendTelegraph(sendContext: TelegraphSendContext, question: string, text: string) {
     log.info('start send telegraph');
     const { context, textSender, telegraphSender, hasSentTelegraphLink, isEnd, containRaw } = sendContext;
+    const sanitizedText = stripSegmentationMarkerLines(text).trim();
     let trimmedQuestion = question;
     if (question.length > 600) {
         trimmedQuestion = `${question.slice(0, 300)}...${question.slice(-300)}`;
@@ -167,15 +169,15 @@ export async function sendTelegraph(sendContext: TelegraphSendContext, question:
     const telegraphPrefix = `${prefix}\n#Answer\n🤖 **${getLog(context.USER_CONFIG, { onlyModel: true, isParagraph: true })}**\n`;
     const debugInfo = `${getLog(context.USER_CONFIG, { onlyModel: false, isParagraph: true })}`;
     const telegraphSuffix = `\n---\n\`\`\`\n${debugInfo}\n\`\`\``;
-    const textLength = (telegraphPrefix + text + telegraphSuffix).length;
+    const textLength = (telegraphPrefix + sanitizedText + telegraphSuffix).length;
     try {
         if (textLength >= 10917 * 6) {
             throw new Error('Telegraph message too long');
         }
         await telegraphSender.send(
             'Daily Q&A',
-            telegraphPrefix + text + telegraphSuffix,
-            containRaw ? text : undefined,
+            telegraphPrefix + sanitizedText + telegraphSuffix,
+            containRaw ? sanitizedText : undefined,
         );
 
         if (!hasSentTelegraphLink) {
@@ -187,7 +189,7 @@ export async function sendTelegraph(sendContext: TelegraphSendContext, question:
         return undefined;
     } catch {
         if (isEnd) {
-            return sendDocument(textSender as MessageSender, { question, answer: text, log: debugInfo });
+            return sendDocument(textSender as MessageSender, { question, answer: sanitizedText, log: debugInfo });
         }
         return undefined;
     }
@@ -195,7 +197,8 @@ export async function sendTelegraph(sendContext: TelegraphSendContext, question:
 
 export async function sendDocument(textSender: MessageSender, document: TelegraphDocumentText) {
     const { question, answer, log: documentLog } = document;
-    const text = `🆀 ${question}\n🅻 ${documentLog}\n\n🅰${answer}\n`;
+    const sanitizedAnswer = stripSegmentationMarkerLines(answer).trim();
+    const text = `🆀 ${question}\n🅻 ${documentLog}\n\n🅰${sanitizedAnswer}\n`;
     const file = new File([text], 'answer.md', { type: 'text/markdown' });
     return textSender.sendDocument(file, '>`Answer is cooked, check the document`', 'MarkdownV2');
 }

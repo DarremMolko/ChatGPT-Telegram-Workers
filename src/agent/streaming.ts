@@ -70,13 +70,23 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
             });
 
             if (lengthDelta > updateStep) {
+                const progressContent = messageInfo.content.trimEnd();
+                if (progressContent.endsWith(SEGMENTATION_MARK)) {
+                    debugStreamDiagnostics('[streamHandler] defer-progress-update', {
+                        reason: 'segmentation_boundary',
+                        contentLength: messageInfo.content.length,
+                        lengthDelta,
+                        updateStep,
+                    });
+                    continue;
+                }
                 lengthDelta = 0;
                 updateStep = Math.min(updateStep + 40, maxLength);
                 debugStreamDiagnostics('[streamHandler] emit-progress-update', {
                     contentLength: messageInfo.content.length,
                     nextUpdateStep: updateStep,
                 });
-                onStream.send(`${messageInfo.content.trimEnd()}●`);
+                onStream.send(`${progressContent}●`);
             }
         }
     } catch (e) {
