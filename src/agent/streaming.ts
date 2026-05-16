@@ -173,13 +173,16 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
     }
     state.reasoningBuffer += text;
     const now = Date.now();
-    const shouldFlush = state.reasoningBuffer.length >= 50
-        || /[。！？.!?]\s*$/.test(state.reasoningBuffer.trim())
-        || (now - state.lastOutputTime > 500 && state.reasoningBuffer.length >= 20);
+    const reachedSentenceBoundary = /[。！？.!?]\s*$/.test(state.reasoningBuffer.trim());
+    const reachedSoftBoundary = /[\s,:;)\]}]$/.test(state.reasoningBuffer);
+    const exceededLengthThreshold = state.reasoningBuffer.length >= 50;
+    const exceededTimeThreshold = now - state.lastOutputTime > 500 && state.reasoningBuffer.length >= 20;
+    const shouldFlush = reachedSentenceBoundary
+        || (reachedSoftBoundary && (exceededLengthThreshold || exceededTimeThreshold));
     if (!shouldFlush) {
         return '';
     }
-    const output = renderQuotedReasoningChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
+    const output = renderQuotedChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
     state.reasoningBuffer = '';
     state.lastOutputTime = now;
     state.hasEmittedReasoningText = true;
@@ -193,7 +196,7 @@ function handleReasoningEnd(state: ThinkingStreamState) {
     if (state.reasoningBuffer.length === 0) {
         return '';
     }
-    const output = renderQuotedReasoningChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
+    const output = renderQuotedChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
     state.reasoningBuffer = '';
     state.hasEmittedReasoningText = true;
     return output;
@@ -302,8 +305,4 @@ function handleSource(state: ThinkingStreamState, data: TextStreamPart<any>) {
 
 function renderQuotedChunk(text: string, isStart: boolean) {
     return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
-}
-
-function renderQuotedReasoningChunk(text: string, isStart: boolean) {
-    return `${isStart ? '\n>' : text.startsWith('\n') ? '' : '\n>'}${text.replace(/\n/g, '\n>')}`;
 }

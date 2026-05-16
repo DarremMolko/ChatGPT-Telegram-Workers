@@ -98,7 +98,7 @@ describe('createThinkingExtractor', () => {
         expect(SEGMENTATION_MARK).toBe('//SEGMENTATIONMARK//');
     });
 
-    it('starts each streamed reasoning chunk on its own quoted line', () => {
+    it('waits for a safer boundary before flushing streamed reasoning text', () => {
         const messageInfo = { content: '' };
         const extractor = createThinkingExtractor(messageInfo as any);
 
@@ -106,11 +106,11 @@ describe('createThinkingExtractor', () => {
             .toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
         expect(extractor({
             type: 'reasoning-delta',
-            text: 'First reasoning chunk is long enough to trigger an immediate flush.',
-        } as TextStreamPart<any>)).toBe('\n>First reasoning chunk is long enough to trigger an immediate flush.');
+            text: 'Considering user response style I think the user probably',
+        } as TextStreamPart<any>)).toBe('');
         expect(extractor({
             type: 'reasoning-delta',
-            text: 'Second reasoning chunk should not be glued to the previous line.',
-        } as TextStreamPart<any>)).toBe('\n>Second reasoning chunk should not be glued to the previous line.');
+            text: ' wants me to stop with the jokes.',
+        } as TextStreamPart<any>)).toBe('\n>Considering user response style I think the user probably wants me to stop with the jokes.');
     });
 });
