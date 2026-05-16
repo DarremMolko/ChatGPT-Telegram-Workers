@@ -113,4 +113,36 @@ describe('createThinkingExtractor', () => {
             text: ' wants me to stop with the jokes.',
         } as TextStreamPart<any>)).toBe('\n>Considering user response style I think the user probably wants me to stop with the jokes.');
     });
+
+    it('inserts a separator between flushed reasoning chunks when the next chunk starts a new sentence fragment', () => {
+        const messageInfo = { content: '' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        expect(extractor({ type: 'reasoning-start' } as TextStreamPart<any>))
+            .toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
+        expect(extractor({
+            type: 'reasoning-delta',
+            text: 'The tool call failed, so I cannot provide the forecast right now.',
+        } as TextStreamPart<any>)).toBe('\n>The tool call failed, so I cannot provide the forecast right now.');
+        expect(extractor({
+            type: 'reasoning-delta',
+            text: 'Clarifying weather data limitations.',
+        } as TextStreamPart<any>)).toBe(' Clarifying weather data limitations.');
+    });
+
+    it('continues quoted reasoning correctly after a flushed newline', () => {
+        const messageInfo = { content: '' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        expect(extractor({ type: 'reasoning-start' } as TextStreamPart<any>))
+            .toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\``);
+        expect(extractor({
+            type: 'reasoning-delta',
+            text: 'Line one is long enough to flush after a newline.\n',
+        } as TextStreamPart<any>)).toBe('\n>Line one is long enough to flush after a newline.\n>');
+        expect(extractor({
+            type: 'reasoning-delta',
+            text: 'Line two continues the quote correctly.',
+        } as TextStreamPart<any>)).toBe('>Line two continues the quote correctly.');
+    });
 });

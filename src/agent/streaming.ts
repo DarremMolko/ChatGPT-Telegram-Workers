@@ -22,6 +22,7 @@ interface ThinkingStreamState {
     thinkingStart: boolean;
     thinkingStartTime?: number;
     reasoningBuffer: string;
+    lastEmittedReasoningChar: string;
     lastOutputTime: number;
     hasEmittedReasoningText: boolean;
     detectedInlineThought: boolean;
@@ -114,6 +115,7 @@ function createThinkingState(messageInfo: StreamMessageInfo): ThinkingStreamStat
         messageInfo,
         thinkingStart: false,
         reasoningBuffer: '',
+        lastEmittedReasoningChar: '',
         lastOutputTime: 0,
         hasEmittedReasoningText: false,
         detectedInlineThought: false,
@@ -160,6 +162,7 @@ function handleReasoningStart(state: ThinkingStreamState) {
     state.thinkingStart = true;
     state.thinkingStartTime = Date.now();
     state.reasoningBuffer = '';
+    state.lastEmittedReasoningChar = '';
     state.lastOutputTime = Date.now();
     state.hasEmittedReasoningText = false;
     const output = renderThinkingTag(state.messageInfo.content, state.thinkingTag, { separateFromPrevious: state.hasPendingToolTransition });
@@ -182,7 +185,12 @@ function handleReasoningDelta(state: ThinkingStreamState, text: string) {
     if (!shouldFlush) {
         return '';
     }
-    const output = renderQuotedChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
+    const output = renderQuotedReasoningChunk(
+        state.reasoningBuffer,
+        !state.hasEmittedReasoningText,
+        state.lastEmittedReasoningChar,
+    );
+    state.lastEmittedReasoningChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
     state.reasoningBuffer = '';
     state.lastOutputTime = now;
     state.hasEmittedReasoningText = true;
@@ -196,7 +204,12 @@ function handleReasoningEnd(state: ThinkingStreamState) {
     if (state.reasoningBuffer.length === 0) {
         return '';
     }
-    const output = renderQuotedChunk(state.reasoningBuffer, !state.hasEmittedReasoningText);
+    const output = renderQuotedReasoningChunk(
+        state.reasoningBuffer,
+        !state.hasEmittedReasoningText,
+        state.lastEmittedReasoningChar,
+    );
+    state.lastEmittedReasoningChar = state.reasoningBuffer.at(-1) || state.lastEmittedReasoningChar;
     state.reasoningBuffer = '';
     state.hasEmittedReasoningText = true;
     return output;
@@ -305,4 +318,21 @@ function handleSource(state: ThinkingStreamState, data: TextStreamPart<any>) {
 
 function renderQuotedChunk(text: string, isStart: boolean) {
     return `${isStart ? '\n>' : ''}${text.replace(/\n/g, '\n>')}`;
+}
+
+function renderQuotedReasoningChunk(text: string, isStart: boolean, previousChar: string) {
+    if (isStart) {
+        return renderQuotedChunk(text, true);
+    }
+
+    if (previousChar === '\n') {
+        return `>${text.replace(/\n/g, '\n>')}`;
+    }
+
+    const firstChar = text[0];
+    if (!firstChar || /[\s.,!?;:)\]}]/.test(firstChar) || /\s/.test(previousChar)) {
+        return text.replace(/\n/g, '\n>');
+    }
+
+    return ` ${text.replace(/\n/g, '\n>')}`;
 }
