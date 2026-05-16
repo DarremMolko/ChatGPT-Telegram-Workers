@@ -19,6 +19,7 @@ export interface StreamMessageInfo extends MessageInfo {
 
 interface ThinkingStreamState {
     messageInfo: StreamMessageInfo;
+    hasLoggedFirstPart: boolean;
     thinkingStart: boolean;
     thinkingStartTime?: number;
     reasoningBuffer: string;
@@ -47,6 +48,10 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
     const maxLength = 10_000;
 
     try {
+        log.debug('[streamHandler] stream-begin', {
+            initialContentLength: messageInfo.content.length,
+            hasAbortSignal: Boolean(abortSignal),
+        });
         for await (const part of stream) {
             const textPart = contentExtractor(part);
             if (textPart === null || textPart === undefined || textPart === '') {
@@ -131,6 +136,7 @@ function createThinkingState(messageInfo: StreamMessageInfo): ThinkingStreamStat
     messageInfo.sources = sources;
     return {
         messageInfo,
+        hasLoggedFirstPart: false,
         thinkingStart: false,
         reasoningBuffer: '',
         lastEmittedReasoningChar: '',
@@ -146,6 +152,7 @@ function createThinkingState(messageInfo: StreamMessageInfo): ThinkingStreamStat
 }
 
 function handleStreamPart(state: ThinkingStreamState, data: TextStreamPart<any>) {
+    logFirstStreamPart(state, data);
     switch (data.type) {
         case 'reasoning-start':
             return handleReasoningStart(state);
@@ -168,6 +175,17 @@ function handleStreamPart(state: ThinkingStreamState, data: TextStreamPart<any>)
         default:
             return '';
     }
+}
+
+function logFirstStreamPart(state: ThinkingStreamState, data: TextStreamPart<any>) {
+    if (state.hasLoggedFirstPart) {
+        return;
+    }
+    state.hasLoggedFirstPart = true;
+    log.debug('[thinkingExtractor] stream-first-part', {
+        type: data.type,
+        preview: summarizeStreamPart(data),
+    });
 }
 
 function handleReasoningStart(state: ThinkingStreamState) {
@@ -441,4 +459,22 @@ function summarizeDebugChar(char: string) {
         return '(empty)';
     }
     return summarizeDebugText(char).preview;
+}
+
+function summarizeStreamPart(data: TextStreamPart<any>) {
+    if ('text' in data && typeof data.text === 'string') {
+        return summarizeDebugText(data.text);
+    }
+    if ('toolName' in data && typeof data.toolName === 'string') {
+        return { toolName: data.toolName };
+    }
+    if ('sourceType' in data && typeof data.sourceType === 'string') {
+        return {
+            sourceType: data.sourceType,
+            ...(typeof (data as { title?: string }).title === 'string'
+                ? { title: (data as { title?: string }).title }
+                : {}),
+        };
+    }
+    return { type: data.type };
 }

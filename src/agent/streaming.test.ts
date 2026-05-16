@@ -47,6 +47,10 @@ describe('streamHandler', () => {
 
         expect(result).toBe('abcdef');
         expect(onStream.send).toHaveBeenCalledWith('abcdef●');
+        expect(debug).toHaveBeenCalledWith('[streamHandler] stream-begin', {
+            initialContentLength: 0,
+            hasAbortSignal: false,
+        });
     });
 });
 
@@ -88,6 +92,30 @@ describe('createThinkingExtractor', () => {
         expect((messageInfo as any).sources).toEqual([
             { url: 'https://example.com', title: 'Example' },
         ]);
+    });
+
+    it('logs the first raw stream part type once', () => {
+        const messageInfo = { content: '' };
+        const extractor = createThinkingExtractor(messageInfo as any);
+
+        extractor({
+            type: 'text-delta',
+            text: 'hola',
+        } as TextStreamPart<any>);
+        extractor({
+            type: 'text-delta',
+            text: ' mundo',
+        } as TextStreamPart<any>);
+
+        const firstPartLogs = debug.mock.calls.filter(call => call[0] === '[thinkingExtractor] stream-first-part');
+        expect(firstPartLogs).toHaveLength(1);
+        expect(firstPartLogs[0][1]).toMatchObject({
+            type: 'text-delta',
+            preview: {
+                length: 4,
+                preview: 'hola',
+            },
+        });
     });
 
     it('keeps the segmentation marker available for the final answer split', () => {
