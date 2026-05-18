@@ -1,5 +1,5 @@
 import { ENV } from '../config/env';
-import { SEGMENTATION_MARK, wrapExpandableQuote } from '../telegram/utils/render_shared';
+import { EXPANDABLE_QUOTE_MARK, SEGMENTATION_MARK, wrapExpandableQuote } from '../telegram/utils/render_shared';
 
 export function renderThinkingTag(
     content: string,
@@ -87,12 +87,53 @@ function extractFirstParagraph(text: string) {
         .find(Boolean) || '';
 }
 
-function hasNonQuotedVisibleLine(content: string) {
+function splitVisibleParagraphs(content: string) {
     return content
+        .trim()
+        .split(/\n\s*\n/)
+        .map(part => part.trim())
+        .filter(Boolean);
+}
+
+function getParagraphVisibleLines(paragraph: string) {
+    return paragraph
         .split('\n')
         .map(line => line.trim())
-        .filter(Boolean)
-        .some(line => !line.startsWith('>'));
+        .filter(Boolean);
+}
+
+function isQuotedParagraph(paragraph: string) {
+    const visibleLines = getParagraphVisibleLines(paragraph)
+        .filter(line => line !== EXPANDABLE_QUOTE_MARK);
+    return visibleLines.length > 0 && visibleLines.every(line => line.startsWith('>'));
+}
+
+function normalizeQuotedLine(line: string) {
+    return line
+        .replace(/^>+\s*/, '')
+        .trim()
+        .replace(/^`(.+)`$/u, '$1')
+        .trim();
+}
+
+function isPlaceholderQuotedLine(line: string) {
+    if (!line || line === '✹' || line === SEGMENTATION_MARK) {
+        return true;
+    }
+    return /^thinking\.\.\.$/iu.test(line)
+        || /^thought for [\d.]+ seconds$/iu.test(line);
+}
+
+function hasMeaningfulQuotedLine(paragraph: string) {
+    return getParagraphVisibleLines(paragraph)
+        .filter(line => line.startsWith('>'))
+        .map(normalizeQuotedLine)
+        .some(line => !isPlaceholderQuotedLine(line));
+}
+
+function hasNonQuotedVisibleLine(content: string) {
+    return getParagraphVisibleLines(content)
+        .some(line => line !== EXPANDABLE_QUOTE_MARK && !line.startsWith('>'));
 }
 
 export function extractPreservedToolPreamble(content: string) {
@@ -105,10 +146,27 @@ export function extractPreservedToolPreamble(content: string) {
         }
         return `${prefix}${firstParagraph}`.trimEnd();
     }
+    const paragraphs = splitVisibleParagraphs(content);
+    if (paragraphs.length === 0) {
+        return '';
+    }
+    const firstParagraph = paragraphs[0];
+    if (isQuotedParagraph(firstParagraph)) {
+        if (!hasMeaningfulQuotedLine(firstParagraph)) {
+            return paragraphs.find((paragraph, index) => index > 0 && (
+                hasNonQuotedVisibleLine(paragraph) || hasMeaningfulQuotedLine(paragraph)
+            )) || '';
+        }
+        const nextParagraph = paragraphs[1];
+        if (nextParagraph && hasNonQuotedVisibleLine(nextParagraph)) {
+            return `${firstParagraph}\n\n${nextParagraph}`.trimEnd();
+        }
+        return firstParagraph.trimEnd();
+    }
     if (!hasNonQuotedVisibleLine(content)) {
         return '';
     }
-    return extractLeadingStreamedAnswerText(content);
+    return firstParagraph;
 }
 
 export function prependPreservedPreamble(content: string, preamble?: string) {

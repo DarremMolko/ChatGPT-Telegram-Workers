@@ -90,6 +90,16 @@ describe('extractPreservedToolPreamble', () => {
         expect(extractPreservedToolPreamble('>`Thinking...`')).toBe('');
     });
 
+    it('preserves a quoted reasoning-only preamble before the first tool call', () => {
+        expect(extractPreservedToolPreamble('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."'))
+            .toBe('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."');
+    });
+
+    it('skips a placeholder-only thinking paragraph and keeps the next visible preamble', () => {
+        expect(extractPreservedToolPreamble('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n\nOk, I will check that for you.'))
+            .toBe('Ok, I will check that for you.');
+    });
+
     it('keeps reasoning context together with the first answer paragraph', () => {
         expect(extractPreservedToolPreamble('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.\n\nActually, let me compare tools.'))
             .toBe('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.');

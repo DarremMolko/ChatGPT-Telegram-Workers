@@ -103,4 +103,45 @@ describe('aIMiddleware', () => {
         expect(messageInfo.preservedPreamble).toBe('Déjame buscar eso para ti.');
         expect(messageInfo.suppressProgressUpdates).toBe(true);
     });
+
+    it('preserves a quoted reasoning preamble instead of dropping it as a bare placeholder', async () => {
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo: any = {
+            content: '//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."\n',
+            hideToolCallNarration: true,
+        };
+        const middleware = await AIMiddleware({
+            config: {
+                TOOL_MODEL: '',
+                ENABLE_ALIAS: false,
+                MAPPING_VALUE: '',
+            } as any,
+            activeTools: ['search_tools'],
+            onStream: onStream as any,
+            toolChoice: [],
+            messageInfo: messageInfo as any,
+        });
+
+        await middleware.prepareStepPre({})({
+            model: {
+                provider: 'oailike',
+                modelId: 'deepseek-chat',
+            } as any,
+            stepNumber: 0,
+            steps: [],
+        });
+        middleware.onChunk({
+            chunk: {
+                type: 'tool-call',
+                toolName: 'search_tools',
+                toolCallId: 'call_1',
+                input: {},
+            },
+        });
+
+        expect(onStream.send).toHaveBeenCalledWith('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."\n\ntool call start: `search_tools`');
+        expect(messageInfo.preservedPreamble).toBe('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."');
+    });
 });
