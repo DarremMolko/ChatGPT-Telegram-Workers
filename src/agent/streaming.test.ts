@@ -120,6 +120,30 @@ describe('streamHandler', () => {
             updateStep: 5,
         });
     });
+
+    it('suppresses progress updates when the message state requests narration hiding', async () => {
+        async function* stream() {
+            yield { text: 'abcdef' };
+        }
+
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo = {
+            content: '',
+            suppressProgressUpdates: true,
+        };
+
+        const result = await streamHandler(stream(), part => part.text, onStream as any, messageInfo as any);
+
+        expect(result).toBe('abcdef');
+        expect(onStream.send).not.toHaveBeenCalled();
+        expect(debug).toHaveBeenCalledWith('[streamHandler] suppress-progress-update', {
+            reason: 'tool_narration_hidden',
+            contentLength: 6,
+            nextUpdateStep: 45,
+        });
+    });
 });
 
 describe('appendStreamSources', () => {

@@ -39,3 +39,35 @@ export function trimToolTransitionContent(content: string) {
 export function trimLeadingToolTransitionText(text: string) {
     return text.replace(/^\n+/, '');
 }
+
+function findLatestSegmentationBoundary(content: string) {
+    const directIndex = content.lastIndexOf(SEGMENTATION_MARK);
+    if (directIndex < 0) {
+        return -1;
+    }
+    let boundaryEnd = directIndex + SEGMENTATION_MARK.length;
+    if (content.charAt(boundaryEnd) === '\n') {
+        boundaryEnd++;
+    }
+    return boundaryEnd;
+}
+
+export function stripStreamedAnswerText(content: string) {
+    const boundaryEnd = findLatestSegmentationBoundary(content);
+    if (boundaryEnd < 0) {
+        return '';
+    }
+    return content.slice(0, boundaryEnd);
+}
+
+export function reconcileStreamedAnswerText(content: string, authoritativeText: string) {
+    const finalText = `${authoritativeText || ''}`.trim();
+    if (!finalText) {
+        return content;
+    }
+    const boundaryEnd = findLatestSegmentationBoundary(content);
+    if (boundaryEnd < 0) {
+        return finalText;
+    }
+    return `${content.slice(0, boundaryEnd)}${finalText.trimStart()}`;
+}

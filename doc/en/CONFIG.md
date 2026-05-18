@@ -201,6 +201,7 @@ Telegram document notes:
 | `DEFAULT_PARSE_MODE` | Telegram parse mode for rich messages. | `MarkdownV2` |
 | `DISABLE_WEB_PREVIEW` | Disable Telegram link previews. | `false` |
 | `SHOW_THINKING_TEXT` | Show streamed reasoning text when the underlying model/provider returns it. | `true` |
+| `HIDE_TOOL_CALL_NARRATION` | Suppress streamed assistant preambles around tool-use steps and reconcile the final reply with the provider's authoritative final step text. Keeps separate `tool call start:` status lines. | `false` |
 | `EXPANDABLE_BANNER` | Render the show-info banner as an expandable quote. | `false` |
 | `EXPANDABLE_THINKING` | Render streamed thinking blocks as expandable quotes. | `false` |
 | `ENABLE_SEARCH_SOURCE` | Show provider search/source metadata when available. | `true` |

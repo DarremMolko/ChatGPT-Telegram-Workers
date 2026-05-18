@@ -82,6 +82,14 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
                 }
                 lengthDelta = 0;
                 updateStep = Math.min(updateStep + 40, maxLength);
+                if (messageInfo.suppressProgressUpdates) {
+                    debugStreamDiagnostics('[streamHandler] suppress-progress-update', {
+                        reason: 'tool_narration_hidden',
+                        contentLength: messageInfo.content.length,
+                        nextUpdateStep: updateStep,
+                    });
+                    continue;
+                }
                 debugStreamDiagnostics('[streamHandler] emit-progress-update', {
                     contentLength: messageInfo.content.length,
                     nextUpdateStep: updateStep,

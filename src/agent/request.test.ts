@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ENV } from '../config/env';
 import { EXPANDABLE_QUOTE_MARK } from '../telegram/utils/render_shared';
-import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
+import { reconcileStreamedAnswerText, renderResponseBreak, renderThinkingTag, stripStreamedAnswerText, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 const previousExpandableThinking = ENV.EXPANDABLE_THINKING;
 
@@ -59,5 +59,30 @@ describe('trimLeadingToolTransitionText', () => {
 
     it('preserves non-leading line breaks', () => {
         expect(trimLeadingToolTransitionText('Linea 1\nLinea 2')).toBe('Linea 1\nLinea 2');
+    });
+});
+
+describe('stripStreamedAnswerText', () => {
+    it('drops streamed answer text while preserving prior reasoning blocks', () => {
+        expect(stripStreamedAnswerText(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nDéjame buscar eso para ti.`))
+            .toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\n`);
+    });
+
+    it('clears the content when no segmentation boundary exists', () => {
+        expect(stripStreamedAnswerText('Déjame buscar eso para ti.')).toBe('');
+    });
+});
+
+describe('reconcileStreamedAnswerText', () => {
+    it('replaces only the final answer segment after the last segmentation marker', () => {
+        expect(reconcileStreamedAnswerText(
+            `${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nDéjame buscar eso para ti.`,
+            'El clima hoy está despejado.',
+        )).toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nEl clima hoy está despejado.`);
+    });
+
+    it('falls back to the authoritative text when no segmentation marker exists', () => {
+        expect(reconcileStreamedAnswerText('Déjame buscar eso para ti.', 'El clima hoy está despejado.'))
+            .toBe('El clima hoy está despejado.');
     });
 });

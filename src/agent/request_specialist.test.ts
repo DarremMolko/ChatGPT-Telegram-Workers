@@ -47,6 +47,7 @@ vi.mock('../config/env', () => ({
     ENV: {
         CHAT_TOTAL_DURATION_LIMIT: 0,
         EXPANDABLE_THINKING: true,
+        HIDE_TOOL_CALL_NARRATION: false,
         TOOL_MODEL_SPECIALIST_SYSTEM: '',
     },
 }));
@@ -149,6 +150,7 @@ beforeEach(() => {
     streamHandlerMock.mockReset();
     streamTextMock.mockReset();
     wrapLanguageModelMock.mockClear();
+    ENV.HIDE_TOOL_CALL_NARRATION = false;
     ENV.TOOL_MODEL_SPECIALIST_SYSTEM = '';
 
     AIMiddlewareMock.mockResolvedValue({
@@ -330,5 +332,48 @@ describe('requestChatCompletionsV2 specialist mode', () => {
         }, null);
 
         expect(generateTextMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('reconciles streamed draft text with the final authoritative step text', async () => {
+        streamHandlerMock.mockResolvedValue('Déjame buscar eso para ti.\n\nEl clima hoy está despejado.');
+        streamTextMock.mockImplementation((params: any) => {
+            void params.onStepFinish({
+                request: {},
+                response: {},
+                text: 'El clima hoy está despejado.',
+                toolResults: [],
+                usage: {},
+            });
+            return {
+                fullStream: {},
+                providerMetadata: Promise.resolve({}),
+                response: Promise.resolve({
+                    messages: [{ role: 'assistant', content: 'El clima hoy está despejado.' }],
+                }),
+            };
+        });
+        AIMiddlewareMock.mockImplementation(async ({ messageInfo }: { messageInfo: Record<string, any> }) => ({
+            onChunk: vi.fn(),
+            onStepFinish: vi.fn(async ({ text }: { text: string }) => {
+                messageInfo.authoritativeText = text;
+            }),
+            prepareStepPre: vi.fn(() => async ({ model }: { model: unknown }) => ({ model })),
+            transformParams: vi.fn(async ({ params }: { params: unknown }) => params),
+            wrapGenerate: vi.fn(async ({ doGenerate }: { doGenerate: () => Promise<unknown> }) => doGenerate()),
+            wrapStream: vi.fn(async ({ doStream }: { doStream: () => Promise<unknown> }) => doStream()),
+        }));
+
+        const result = await requestChatCompletionsV2({
+            activeTools: ['search'],
+            context: createContext(),
+            messages: createMessages(),
+            model: createModel(),
+            system: 'Be helpful.',
+            toolChoice: undefined,
+            tools: { search: {} },
+        }, { send: vi.fn() } as any);
+
+        expect(result.content).toBe('El clima hoy está despejado.');
+        expect(result.messages).toEqual([{ role: 'assistant', content: 'El clima hoy está despejado.' }]);
     });
 });
