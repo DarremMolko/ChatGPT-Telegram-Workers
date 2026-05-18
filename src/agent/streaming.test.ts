@@ -144,6 +144,28 @@ describe('streamHandler', () => {
             nextUpdateStep: 45,
         });
     });
+
+    it('captures the first visible pre-tool streamed message for later preservation', async () => {
+        async function* stream() {
+            yield { text: 'Thinking aloud...\n\nActual preamble' };
+        }
+
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo = {
+            content: '',
+            hasSeenToolUse: false,
+            hideToolCallNarration: true,
+            preservedPreamble: '',
+        };
+
+        const result = await streamHandler(stream(), part => part.text, onStream as any, messageInfo as any);
+
+        expect(result).toBe('Thinking aloud...\n\nActual preamble');
+        expect(messageInfo.preservedPreamble).toBe('Thinking aloud...\n\nActual preamble');
+        expect(onStream.send).toHaveBeenCalledWith('Thinking aloud...\n\nActual preamble●');
+    });
 });
 
 describe('appendStreamSources', () => {

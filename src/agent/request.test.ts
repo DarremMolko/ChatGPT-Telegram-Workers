@@ -95,6 +95,11 @@ describe('prependPreservedPreamble', () => {
         expect(prependPreservedPreamble('Ok, I will look that up for you.\n\nEl clima hoy está despejado.', 'Ok, I will look that up for you.'))
             .toBe('Ok, I will look that up for you.\n\nEl clima hoy está despejado.');
     });
+
+    it('preserves multiline reasoning-heavy preambles intact', () => {
+        expect(prependPreservedPreamble('El clima hoy está despejado.', 'Thinking aloud...\n\nOk, I will look that up for you.'))
+            .toBe('Thinking aloud...\n\nOk, I will look that up for you.\n\nEl clima hoy está despejado.');
+    });
 });
 
 describe('reconcileStreamedAnswerText', () => {

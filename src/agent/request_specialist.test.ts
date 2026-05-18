@@ -417,7 +417,12 @@ describe('requestChatCompletionsV2 specialist mode', () => {
             onStepFinish: vi.fn(async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
                 if (toolResults.length > 0) {
                     messageInfo.hasSeenToolUse = true;
-                    messageInfo.preservedPreamble = 'The user wants the weather forecast.';
+                    messageInfo.preservedPreamble = [
+                        'The user wants the weather forecast.',
+                        '',
+                        'Let me describe both tools first.',
+                        '✹',
+                    ].join('\n');
                 }
                 messageInfo.authoritativeText = `${messageInfo.authoritativeText || ''}${text}`;
             }),
@@ -437,7 +442,14 @@ describe('requestChatCompletionsV2 specialist mode', () => {
             tools: { search: {} },
         }, { send: vi.fn() } as any);
 
-        expect(result.content).toBe('The user wants the weather forecast.\n\n¡Hmp! Pronóstico para Paraná hoy 18/05.');
+        expect(result.content).toBe([
+            'The user wants the weather forecast.',
+            '',
+            'Let me describe both tools first.',
+            '✹',
+            '',
+            '¡Hmp! Pronóstico para Paraná hoy 18/05.',
+        ].join('\n'));
         expect(result.messages).toEqual([{ role: 'assistant', content: '¡Hmp! Pronóstico para Paraná hoy 18/05.' }]);
     });
 

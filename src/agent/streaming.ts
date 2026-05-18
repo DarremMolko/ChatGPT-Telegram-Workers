@@ -90,6 +90,9 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
                     });
                     continue;
                 }
+                if (messageInfo.hideToolCallNarration && !messageInfo.hasSeenToolUse && !messageInfo.preservedPreamble?.trim()) {
+                    messageInfo.preservedPreamble = progressContent;
+                }
                 debugStreamDiagnostics('[streamHandler] emit-progress-update', {
                     contentLength: messageInfo.content.length,
                     nextUpdateStep: updateStep,
