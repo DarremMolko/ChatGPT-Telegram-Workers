@@ -376,4 +376,57 @@ describe('requestChatCompletionsV2 specialist mode', () => {
         expect(result.content).toBe('El clima hoy está despejado.');
         expect(result.messages).toEqual([{ role: 'assistant', content: 'El clima hoy está despejado.' }]);
     });
+
+    it('uses only the authoritative final text for tool-enabled streamed reasoning when narration hiding is enabled', async () => {
+        ENV.HIDE_TOOL_CALL_NARRATION = true;
+        streamHandlerMock.mockResolvedValue([
+            'The user wants the weather forecast.',
+            'Let me describe both tools first.',
+            '✹',
+            '//SEGMENTATIONMARK//',
+            'Let me give a nice summary as Erica.',
+            '✹',
+            '',
+            '¡Hmp! Pronóstico para Paraná hoy 18/05.',
+        ].join('\n'));
+        streamTextMock.mockImplementation((params: any) => {
+            void params.onStepFinish({
+                request: {},
+                response: {},
+                text: '¡Hmp! Pronóstico para Paraná hoy 18/05.',
+                toolResults: [],
+                usage: {},
+            });
+            return {
+                fullStream: {},
+                providerMetadata: Promise.resolve({}),
+                response: Promise.resolve({
+                    messages: [{ role: 'assistant', content: '¡Hmp! Pronóstico para Paraná hoy 18/05.' }],
+                }),
+            };
+        });
+        AIMiddlewareMock.mockImplementation(async ({ messageInfo }: { messageInfo: Record<string, any> }) => ({
+            onChunk: vi.fn(),
+            onStepFinish: vi.fn(async ({ text }: { text: string }) => {
+                messageInfo.authoritativeText = `${messageInfo.authoritativeText || ''}${text}`;
+            }),
+            prepareStepPre: vi.fn(() => async ({ model }: { model: unknown }) => ({ model })),
+            transformParams: vi.fn(async ({ params }: { params: unknown }) => params),
+            wrapGenerate: vi.fn(async ({ doGenerate }: { doGenerate: () => Promise<unknown> }) => doGenerate()),
+            wrapStream: vi.fn(async ({ doStream }: { doStream: () => Promise<unknown> }) => doStream()),
+        }));
+
+        const result = await requestChatCompletionsV2({
+            activeTools: ['search'],
+            context: createContext(),
+            messages: createMessages(),
+            model: createModel(),
+            system: 'Be helpful.',
+            toolChoice: undefined,
+            tools: { search: {} },
+        }, { send: vi.fn() } as any);
+
+        expect(result.content).toBe('¡Hmp! Pronóstico para Paraná hoy 18/05.');
+        expect(result.messages).toEqual([{ role: 'assistant', content: '¡Hmp! Pronóstico para Paraná hoy 18/05.' }]);
+    });
 });

@@ -26,6 +26,7 @@ export interface MessageInfo {
     hideToolCallNarration?: boolean;
     sawToolCallThisStep?: boolean;
     suppressProgressUpdates?: boolean;
+    toolEnabledRequest?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'shell', 'mcp']);
@@ -67,7 +68,11 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             currentModel = model;
             if (messageInfo.hideToolCallNarration) {
                 messageInfo.sawToolCallThisStep = false;
-                messageInfo.suppressProgressUpdates = steps.some(({ toolResults }) => (toolResults?.length || 0) > 0);
+                messageInfo.suppressProgressUpdates = Boolean(
+                    messageInfo.toolEnabledRequest
+                    || messageInfo.hasSeenToolUse
+                    || steps.some(({ toolResults }) => (toolResults?.length || 0) > 0),
+                );
             }
             const targetModel = config.TOOL_MODEL.trim();
             const useToolModelOverride = shouldOverrideToolModel(config, activeTools.length);
