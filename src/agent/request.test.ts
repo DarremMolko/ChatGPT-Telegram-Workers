@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ENV } from '../config/env';
 import { EXPANDABLE_QUOTE_MARK } from '../telegram/utils/render_shared';
-import { extractLeadingStreamedAnswerText, prependPreservedPreamble, reconcileStreamedAnswerText, renderResponseBreak, renderThinkingTag, stripStreamedAnswerText, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
+import { extractLeadingStreamedAnswerText, extractPreservedToolPreamble, prependPreservedPreamble, reconcileStreamedAnswerText, renderResponseBreak, renderThinkingTag, stripStreamedAnswerText, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 const previousExpandableThinking = ENV.EXPANDABLE_THINKING;
 
@@ -82,6 +82,17 @@ describe('extractLeadingStreamedAnswerText', () => {
     it('extracts the first answer sentence after the reasoning segmentation boundary', () => {
         expect(extractLeadingStreamedAnswerText(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast. Let me inspect both tools first.`))
             .toBe('The user wants the weather forecast.');
+    });
+});
+
+describe('extractPreservedToolPreamble', () => {
+    it('ignores a pure quoted thinking placeholder before any answer text exists', () => {
+        expect(extractPreservedToolPreamble('>`Thinking...`')).toBe('');
+    });
+
+    it('keeps reasoning context together with the first answer paragraph', () => {
+        expect(extractPreservedToolPreamble('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.\n\nActually, let me compare tools.'))
+            .toBe('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.');
     });
 });
 

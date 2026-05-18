@@ -15,7 +15,7 @@ import { getLogSingleton, log, writeDebugLog } from '../log';
 import { resolveMcpTools } from '../mcp/tools';
 import { sendToolResult } from '../telegram/utils/tool_result';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
-import { extractLeadingStreamedAnswerText, stripStreamedAnswerText } from './thinking_format';
+import { extractPreservedToolPreamble, stripStreamedAnswerText } from './thinking_format';
 import { shouldOverrideToolModel } from './tool_model';
 
 export interface MessageInfo {
@@ -69,7 +69,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
         if (messageInfo.preservedPreamble?.trim()) {
             return messageInfo.preservedPreamble.trim();
         }
-        const extracted = extractLeadingStreamedAnswerText(messageInfo.content);
+        const extracted = extractPreservedToolPreamble(messageInfo.content);
         messageInfo.preservedPreamble = extracted;
         return extracted;
     };

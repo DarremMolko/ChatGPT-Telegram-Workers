@@ -6,7 +6,7 @@ import { ENV } from '../config/env';
 import { log } from '../log';
 import { SEGMENTATION_MARK, wrapExpandableQuote } from '../telegram/utils/render_shared';
 import { isUserCancelledSignal } from '../utils/abort';
-import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
+import { extractPreservedToolPreamble, renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 export interface StreamSource {
     url: string;
@@ -91,7 +91,7 @@ export async function streamHandler(stream: AsyncIterable<any>, contentExtractor
                     continue;
                 }
                 if (messageInfo.hideToolCallNarration && !messageInfo.hasSeenToolUse && !messageInfo.preservedPreamble?.trim()) {
-                    messageInfo.preservedPreamble = progressContent;
+                    messageInfo.preservedPreamble = extractPreservedToolPreamble(progressContent);
                 }
                 debugStreamDiagnostics('[streamHandler] emit-progress-update', {
                     contentLength: messageInfo.content.length,

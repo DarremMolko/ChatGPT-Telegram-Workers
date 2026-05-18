@@ -147,7 +147,7 @@ describe('streamHandler', () => {
 
     it('captures the first visible pre-tool streamed message for later preservation', async () => {
         async function* stream() {
-            yield { text: 'Thinking aloud...\n\nActual preamble' };
+            yield { text: '>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble\n\nExtra follow-up' };
         }
 
         const onStream = {
@@ -162,9 +162,9 @@ describe('streamHandler', () => {
 
         const result = await streamHandler(stream(), part => part.text, onStream as any, messageInfo as any);
 
-        expect(result).toBe('Thinking aloud...\n\nActual preamble');
-        expect(messageInfo.preservedPreamble).toBe('Thinking aloud...\n\nActual preamble');
-        expect(onStream.send).toHaveBeenCalledWith('Thinking aloud...\n\nActual preamble●');
+        expect(result).toBe('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble\n\nExtra follow-up');
+        expect(messageInfo.preservedPreamble).toBe('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble');
+        expect(onStream.send).toHaveBeenCalledWith('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble\n\nExtra follow-up●');
     });
 });
 
