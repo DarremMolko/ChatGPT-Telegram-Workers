@@ -1,16 +1,16 @@
 FROM --platform=$BUILDPLATFORM node:24-alpine AS deps
 
 WORKDIR /build
-COPY package.json /build/
-RUN npm install --omit=dev
+COPY package.json package-lock.json /build/
+RUN npm ci --omit=dev
 
 FROM node:24-alpine AS build
 
 WORKDIR /app
-COPY package.json vite.config.ts tsconfig.json /app/
+COPY package.json package-lock.json vite.config.ts tsconfig.json /app/
 COPY scripts /app/scripts
 COPY src /app/src
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 FROM node:24-alpine AS prod
 
