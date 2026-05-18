@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ENV } from '../config/env';
 import { EXPANDABLE_QUOTE_MARK } from '../telegram/utils/render_shared';
-import { extractLeadingStreamedAnswerText, reconcileStreamedAnswerText, renderResponseBreak, renderThinkingTag, stripStreamedAnswerText, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
+import { extractLeadingStreamedAnswerText, prependPreservedPreamble, reconcileStreamedAnswerText, renderResponseBreak, renderThinkingTag, stripStreamedAnswerText, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 const previousExpandableThinking = ENV.EXPANDABLE_THINKING;
 
@@ -82,6 +82,18 @@ describe('extractLeadingStreamedAnswerText', () => {
     it('extracts the first answer sentence after the reasoning segmentation boundary', () => {
         expect(extractLeadingStreamedAnswerText(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast. Let me inspect both tools first.`))
             .toBe('The user wants the weather forecast.');
+    });
+});
+
+describe('prependPreservedPreamble', () => {
+    it('keeps the first preamble ahead of the final answer', () => {
+        expect(prependPreservedPreamble('El clima hoy está despejado.', 'Ok, I will look that up for you.'))
+            .toBe('Ok, I will look that up for you.\n\nEl clima hoy está despejado.');
+    });
+
+    it('does not duplicate the preamble when the final content already starts with it', () => {
+        expect(prependPreservedPreamble('Ok, I will look that up for you.\n\nEl clima hoy está despejado.', 'Ok, I will look that up for you.'))
+            .toBe('Ok, I will look that up for you.\n\nEl clima hoy está despejado.');
     });
 });
 

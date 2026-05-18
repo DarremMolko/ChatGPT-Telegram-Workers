@@ -100,6 +100,7 @@ describe('aIMiddleware', () => {
 
         expect(onStream.send).toHaveBeenCalledWith('Déjame buscar eso para ti.\n\ntool call start: `search_tools`');
         expect(messageInfo.content).toBe('');
+        expect(messageInfo.preservedPreamble).toBe('Déjame buscar eso para ti.');
         expect(messageInfo.suppressProgressUpdates).toBe(true);
     });
 });

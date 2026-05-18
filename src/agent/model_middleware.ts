@@ -24,6 +24,7 @@ export interface MessageInfo {
     authoritativeText?: string;
     hasSeenToolUse?: boolean;
     hideToolCallNarration?: boolean;
+    preservedPreamble?: string;
     sawToolCallThisStep?: boolean;
     suppressProgressUpdates?: boolean;
 }
@@ -61,12 +62,21 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     let hasRecordFirstChunkTime = false;
     let record: LogStruct;
     let currentModel: LanguageModelV3;
+    const ensurePreservedPreamble = () => {
+        if (!messageInfo.hideToolCallNarration) {
+            return '';
+        }
+        if (messageInfo.preservedPreamble?.trim()) {
+            return messageInfo.preservedPreamble.trim();
+        }
+        const extracted = extractLeadingStreamedAnswerText(messageInfo.content);
+        messageInfo.preservedPreamble = extracted;
+        return extracted;
+    };
     const renderToolCallStatus = (toolLabel: string) => {
-        const firstNarration = !messageInfo.hasSeenToolUse && messageInfo.hideToolCallNarration
-            ? extractLeadingStreamedAnswerText(messageInfo.content)
-            : '';
-        return firstNarration
-            ? `${firstNarration}\n\ntool call start: \`${toolLabel}\``
+        const preservedPreamble = ensurePreservedPreamble();
+        return preservedPreamble
+            ? `${preservedPreamble}\n\ntool call start: \`${toolLabel}\``
             : `tool call start: \`${toolLabel}\``;
     };
 

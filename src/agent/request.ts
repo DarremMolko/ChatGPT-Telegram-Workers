@@ -12,7 +12,7 @@ import { EXPANDABLE_QUOTE_MARK, wrapExpandableQuote } from '../telegram/utils/re
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
 import { AIMiddleware, metaDataExtractor } from './model_middleware';
 import { appendStreamSources, createThinkingExtractor, streamHandler } from './streaming';
-import { reconcileStreamedAnswerText } from './thinking_format';
+import { prependPreservedPreamble, reconcileStreamedAnswerText } from './thinking_format';
 import { shouldEnableSpecialistTool, shouldOverrideToolModel } from './tool_model';
 
 const SPECIALIST_TOOL_NAME = 'delegate_to_specialist';
@@ -81,6 +81,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         occured_error: false,
         hasSeenToolUse: false,
         hideToolCallNarration: ENV.HIDE_TOOL_CALL_NARRATION,
+        preservedPreamble: '',
         sawToolCallThisStep: false,
         suppressProgressUpdates: false,
     };
@@ -104,7 +105,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         contentFull = await streamHandler(stream.fullStream, dataExtractor, onStream, messageInfo, abortSignal);
         responseMessages = messageInfo.occured_error ? [{ role: 'assistant', content: contentFull }] : (await stream.response).messages;
         if (!messageInfo.occured_error && messageInfo.hideToolCallNarration && messageInfo.hasSeenToolUse && messageInfo.authoritativeText) {
-            contentFull = messageInfo.authoritativeText;
+            contentFull = prependPreservedPreamble(messageInfo.authoritativeText, messageInfo.preservedPreamble);
         } else if (!messageInfo.occured_error && messageInfo.authoritativeText) {
             const reconciledContent = reconcileStreamedAnswerText(contentFull, messageInfo.authoritativeText);
             if (reconciledContent !== contentFull) {

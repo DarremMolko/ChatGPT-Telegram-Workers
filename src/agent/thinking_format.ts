@@ -79,6 +79,21 @@ export function extractLeadingStreamedAnswerText(content: string) {
     return firstSentence || compactLine;
 }
 
+export function prependPreservedPreamble(content: string, preamble?: string) {
+    const preserved = `${preamble || ''}`.trim();
+    if (!preserved) {
+        return content;
+    }
+    const nextContent = `${content || ''}`.trim();
+    if (!nextContent) {
+        return preserved;
+    }
+    if (nextContent.startsWith(preserved)) {
+        return nextContent;
+    }
+    return `${preserved}\n\n${nextContent}`;
+}
+
 export function reconcileStreamedAnswerText(content: string, authoritativeText: string) {
     const finalText = `${authoritativeText || ''}`.trim();
     if (!finalText) {
