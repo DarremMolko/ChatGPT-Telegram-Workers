@@ -52,6 +52,18 @@ function findLatestSegmentationBoundary(content: string) {
     return boundaryEnd;
 }
 
+function findFirstSegmentationBoundary(content: string) {
+    const directIndex = content.indexOf(SEGMENTATION_MARK);
+    if (directIndex < 0) {
+        return -1;
+    }
+    let boundaryEnd = directIndex + SEGMENTATION_MARK.length;
+    if (content.charAt(boundaryEnd) === '\n') {
+        boundaryEnd++;
+    }
+    return boundaryEnd;
+}
+
 export function stripStreamedAnswerText(content: string) {
     const boundaryEnd = findLatestSegmentationBoundary(content);
     if (boundaryEnd < 0) {
@@ -137,7 +149,7 @@ function hasNonQuotedVisibleLine(content: string) {
 }
 
 export function extractPreservedToolPreamble(content: string) {
-    const boundaryEnd = findLatestSegmentationBoundary(content);
+    const boundaryEnd = findFirstSegmentationBoundary(content);
     if (boundaryEnd >= 0) {
         const prefix = content.slice(0, boundaryEnd);
         const firstParagraph = extractFirstParagraph(content.slice(boundaryEnd));

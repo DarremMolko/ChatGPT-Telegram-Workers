@@ -104,6 +104,31 @@ describe('extractPreservedToolPreamble', () => {
         expect(extractPreservedToolPreamble('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.\n\nActually, let me compare tools.'))
             .toBe('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.');
     });
+
+    it('keeps only the first reasoning-plus-answer block when later tool-planning rounds were also streamed', () => {
+        expect(extractPreservedToolPreamble([
+            '//EXPANDABLEQUOTEMARK//',
+            '>`Thought for 0.4 seconds`',
+            '>The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
+            '>✹',
+            '//SEGMENTATIONMARK//',
+            'The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
+            '',
+            '//EXPANDABLEQUOTEMARK//',
+            '>`Thought for 0.9 seconds`',
+            '>The user wants the weather forecast for Paraná, Argentina. I found some weather tools.',
+            '>✹',
+            '//SEGMENTATIONMARK//',
+            'The user wants the weather forecast for Paraná, Argentina. I found some weather tools.',
+        ].join('\n'))).toBe([
+            '//EXPANDABLEQUOTEMARK//',
+            '>`Thought for 0.4 seconds`',
+            '>The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
+            '>✹',
+            '//SEGMENTATIONMARK//',
+            'The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
+        ].join('\n'));
+    });
 });
 
 describe('prependPreservedPreamble', () => {
