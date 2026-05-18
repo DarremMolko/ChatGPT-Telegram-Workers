@@ -186,4 +186,58 @@ describe('aIMiddleware', () => {
         expect(onStream.send).toHaveBeenCalledWith('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>The user wants to know the weather forecast for today in Paraná, Argentina.\n\ntool call start: `search_tools`');
         expect(messageInfo.preservedPreamble).toBe('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>The user wants to know the weather forecast for today in Paraná, Argentina.');
     });
+
+    it('resets authoritative text when a later tool step happens before the final answer', async () => {
+        const messageInfo: any = {
+            authoritativeText: '',
+            content: '',
+        };
+        const middleware = await AIMiddleware({
+            config: {
+                TOOL_MODEL: '',
+                ENABLE_ALIAS: false,
+                MAPPING_VALUE: '',
+            } as any,
+            activeTools: ['search_tools'],
+            onStream: null,
+            toolChoice: [],
+            messageInfo,
+        });
+
+        await middleware.prepareStepPre({})({
+            model: {
+                provider: 'oailike',
+                modelId: 'deepseek-chat',
+            } as any,
+            stepNumber: 0,
+            steps: [],
+        });
+
+        await middleware.onStepFinish({
+            request: {},
+            response: {},
+            text: 'Let me describe both tools first.',
+            toolResults: [],
+            usage: {},
+        });
+        expect(messageInfo.authoritativeText).toBe('Let me describe both tools first.');
+
+        await middleware.onStepFinish({
+            request: {},
+            response: {},
+            text: 'Actually, let me call both simultaneously.',
+            toolResults: [{ toolName: 'search_tools', toolCallId: 'call_1', input: {}, output: {} }],
+            usage: {},
+        });
+        expect(messageInfo.authoritativeText).toBe('');
+
+        await middleware.onStepFinish({
+            request: {},
+            response: {},
+            text: 'Final weather summary.',
+            toolResults: [],
+            usage: {},
+        });
+        expect(messageInfo.authoritativeText).toBe('Final weather summary.');
+    });
 });

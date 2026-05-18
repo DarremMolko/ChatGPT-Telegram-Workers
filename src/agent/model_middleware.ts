@@ -277,7 +277,9 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             log.info('llm request end');
             log.info(`[onStepFinish] text: "${text}", text length: ${text?.length || 0}, toolResults count: ${toolResults.length}`);
             log.debug('step raw request:', request);
-            if (text && text.trim() && toolResults.length === 0) {
+            if (toolResults.length > 0) {
+                messageInfo.authoritativeText = '';
+            } else if (text && text.trim()) {
                 messageInfo.authoritativeText = `${messageInfo.authoritativeText || ''}${text}`;
             }
             writeDebugLog({
