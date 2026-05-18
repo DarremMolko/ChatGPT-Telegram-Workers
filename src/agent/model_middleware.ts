@@ -62,16 +62,29 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     let hasRecordFirstChunkTime = false;
     let record: LogStruct;
     let currentModel: LanguageModelV3;
+    const choosePreservedPreamble = (existingPreamble: string, nextPreamble: string) => {
+        const existing = existingPreamble.trim();
+        const next = nextPreamble.trim();
+        if (!next) {
+            return existing;
+        }
+        if (!existing) {
+            return next;
+        }
+        if (next.length > existing.length) {
+            return next;
+        }
+        return existing;
+    };
     const ensurePreservedPreamble = () => {
         if (!messageInfo.hideToolCallNarration) {
             return '';
         }
-        if (messageInfo.preservedPreamble?.trim()) {
-            return messageInfo.preservedPreamble.trim();
-        }
+        const existing = `${messageInfo.preservedPreamble || ''}`;
         const extracted = extractPreservedToolPreamble(messageInfo.content);
-        messageInfo.preservedPreamble = extracted;
-        return extracted;
+        const preserved = choosePreservedPreamble(existing, extracted);
+        messageInfo.preservedPreamble = preserved;
+        return preserved;
     };
     const renderToolCallStatus = (toolLabel: string) => {
         const preservedPreamble = ensurePreservedPreamble();

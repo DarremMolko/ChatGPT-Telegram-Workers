@@ -144,4 +144,46 @@ describe('aIMiddleware', () => {
         expect(onStream.send).toHaveBeenCalledWith('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."\n\ntool call start: `search_tools`');
         expect(messageInfo.preservedPreamble).toBe('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."');
     });
+
+    it('upgrades an early partial preserved preamble with the fuller tool-call-time content', async () => {
+        const onStream = {
+            send: vi.fn(),
+        };
+        const messageInfo: any = {
+            content: '//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>The user wants to know the weather forecast for today in Paraná, Argentina.',
+            hideToolCallNarration: true,
+            preservedPreamble: '//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>The user wants to know the weather forecast for today in Paraná,',
+        };
+        const middleware = await AIMiddleware({
+            config: {
+                TOOL_MODEL: '',
+                ENABLE_ALIAS: false,
+                MAPPING_VALUE: '',
+            } as any,
+            activeTools: ['search_tools'],
+            onStream: onStream as any,
+            toolChoice: [],
+            messageInfo: messageInfo as any,
+        });
+
+        await middleware.prepareStepPre({})({
+            model: {
+                provider: 'oailike',
+                modelId: 'deepseek-chat',
+            } as any,
+            stepNumber: 0,
+            steps: [],
+        });
+        middleware.onChunk({
+            chunk: {
+                type: 'tool-call',
+                toolName: 'search_tools',
+                toolCallId: 'call_1',
+                input: {},
+            },
+        });
+
+        expect(onStream.send).toHaveBeenCalledWith('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>The user wants to know the weather forecast for today in Paraná, Argentina.\n\ntool call start: `search_tools`');
+        expect(messageInfo.preservedPreamble).toBe('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>The user wants to know the weather forecast for today in Paraná, Argentina.');
+    });
 });
