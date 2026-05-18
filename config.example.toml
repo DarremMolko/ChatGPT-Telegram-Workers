@@ -117,10 +117,6 @@ OPENAI_TTS_VOICE = "alloy"
 # SHOW_PARTS = ["model", "model_time", "token", "tool", "tool_time"]
 # SHOW_TOOL_ARGS_MAX_LENGTH = 80
 # Set SHOW_TOOL_ARGS_MAX_LENGTH = -1 to show full tool arguments.
-# Optional: suppress streamed "I'll search/check that..." style preambles around tool use.
-# This keeps explicit `tool call start:` status updates while reconciling the final answer
-# against the provider's authoritative step text.
-# HIDE_TOOL_CALL_NARRATION = true
 #
 # Optional: serialize same-chat execution to avoid overlapping replies.
 # Supported values: "queue", "cancel_previous", "drop_if_busy", "parallel"

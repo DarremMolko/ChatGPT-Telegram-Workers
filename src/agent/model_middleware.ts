@@ -15,18 +15,11 @@ import { getLogSingleton, log, writeDebugLog } from '../log';
 import { resolveMcpTools } from '../mcp/tools';
 import { sendToolResult } from '../telegram/utils/tool_result';
 import { createLlmModel, getAgentProvider, resolveLlmTarget } from './llm';
-import { extractPreservedToolPreamble, stripStreamedAnswerText } from './thinking_format';
 import { shouldOverrideToolModel } from './tool_model';
 
 export interface MessageInfo {
     content: string;
     occured_error?: boolean;
-    authoritativeText?: string;
-    hasSeenToolUse?: boolean;
-    hideToolCallNarration?: boolean;
-    preservedPreamble?: string;
-    sawToolCallThisStep?: boolean;
-    suppressProgressUpdates?: boolean;
 }
 
 const OPENAI_PROVIDER_TOOLS = new Set(['web_search', 'code_interpreter', 'file_search', 'image_generation', 'shell', 'mcp']);
@@ -62,47 +55,10 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
     let hasRecordFirstChunkTime = false;
     let record: LogStruct;
     let currentModel: LanguageModelV3;
-    const choosePreservedPreamble = (existingPreamble: string, nextPreamble: string) => {
-        const existing = existingPreamble.trim();
-        const next = nextPreamble.trim();
-        if (!next) {
-            return existing;
-        }
-        if (!existing) {
-            return next;
-        }
-        if (next.length > existing.length) {
-            return next;
-        }
-        return existing;
-    };
-    const ensurePreservedPreamble = () => {
-        if (!messageInfo.hideToolCallNarration) {
-            return '';
-        }
-        const existing = `${messageInfo.preservedPreamble || ''}`;
-        const extracted = extractPreservedToolPreamble(messageInfo.content);
-        const preserved = choosePreservedPreamble(existing, extracted);
-        messageInfo.preservedPreamble = preserved;
-        return preserved;
-    };
-    const renderToolCallStatus = (toolLabel: string) => {
-        const preservedPreamble = ensurePreservedPreamble();
-        return preservedPreamble
-            ? `${preservedPreamble}\n\ntool call start: \`${toolLabel}\``
-            : `tool call start: \`${toolLabel}\``;
-    };
 
     return {
         prepareStepPre: (middleware: any) => async ({ model, stepNumber, steps }: { model: LanguageModelV3; stepNumber: number; steps: StepResult<any>[] }) => {
             currentModel = model;
-            if (messageInfo.hideToolCallNarration) {
-                messageInfo.sawToolCallThisStep = false;
-                messageInfo.suppressProgressUpdates = Boolean(
-                    messageInfo.hasSeenToolUse
-                    || steps.some(({ toolResults }) => (toolResults?.length || 0) > 0),
-                );
-            }
             const targetModel = config.TOOL_MODEL.trim();
             const useToolModelOverride = shouldOverrideToolModel(config, activeTools.length);
             if (useToolModelOverride) {
@@ -183,16 +139,7 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
                 hasRecordFirstChunkTime = true;
             }
             if (chunk.type === 'tool-call') {
-                messageInfo.sawToolCallThisStep = true;
-                if (messageInfo.hideToolCallNarration) {
-                    const statusText = renderToolCallStatus(chunk.toolName);
-                    messageInfo.hasSeenToolUse = true;
-                    messageInfo.suppressProgressUpdates = true;
-                    messageInfo.content = stripStreamedAnswerText(messageInfo.content);
-                    onStream?.send(statusText);
-                } else {
-                    onStream?.send(`${messageInfo.content.trimEnd()}\n\ntool call start: \`${chunk.toolName}\``);
-                }
+                onStream?.send(`${messageInfo.content.trimEnd()}\n\ntool call start: \`${chunk.toolName}\``);
                 log.info(`start tool: ${chunk.toolName}`);
             }
             switch (chunk.type) {
@@ -277,11 +224,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             log.info('llm request end');
             log.info(`[onStepFinish] text: "${text}", text length: ${text?.length || 0}, toolResults count: ${toolResults.length}`);
             log.debug('step raw request:', request);
-            if (toolResults.length > 0) {
-                messageInfo.authoritativeText = '';
-            } else if (text && text.trim()) {
-                messageInfo.authoritativeText = `${messageInfo.authoritativeText || ''}${text}`;
-            }
             writeDebugLog({
                 source: 'llm',
                 event: 'step-finish',
@@ -301,20 +243,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             record.end_time = Date.now();
 
             if (toolResults.length > 0) {
-                if (messageInfo.hideToolCallNarration) {
-                    const toolNames = [...new Set(toolResults.map(result => result.toolName).filter(Boolean))];
-                    const statusText = !messageInfo.sawToolCallThisStep && toolNames.length > 0
-                        ? renderToolCallStatus(toolNames.join(', '))
-                        : '';
-                    messageInfo.hasSeenToolUse = true;
-                    messageInfo.suppressProgressUpdates = true;
-                    messageInfo.content = stripStreamedAnswerText(messageInfo.content);
-                    if (statusText) {
-                        onStream?.send(statusText);
-                    }
-                } else {
-                    messageInfo.hasSeenToolUse = true;
-                }
                 const uniqueResults = toolResults.filter((result, index, self) =>
                     index === self.findIndex(r => r.toolCallId === result.toolCallId),
                 );
@@ -387,7 +315,6 @@ export async function AIMiddleware({ config, activeTools, onStream, toolChoice, 
             }
 
             hasRecordFirstChunkTime = false;
-            messageInfo.sawToolCallThisStep = false;
             step++;
         },
     };

@@ -47,7 +47,6 @@ vi.mock('../config/env', () => ({
     ENV: {
         CHAT_TOTAL_DURATION_LIMIT: 0,
         EXPANDABLE_THINKING: true,
-        HIDE_TOOL_CALL_NARRATION: false,
         TOOL_MODEL_SPECIALIST_SYSTEM: '',
     },
 }));
@@ -150,7 +149,6 @@ beforeEach(() => {
     streamHandlerMock.mockReset();
     streamTextMock.mockReset();
     wrapLanguageModelMock.mockClear();
-    ENV.HIDE_TOOL_CALL_NARRATION = false;
     ENV.TOOL_MODEL_SPECIALIST_SYSTEM = '';
 
     AIMiddlewareMock.mockResolvedValue({
@@ -332,171 +330,5 @@ describe('requestChatCompletionsV2 specialist mode', () => {
         }, null);
 
         expect(generateTextMock).toHaveBeenCalledTimes(2);
-    });
-
-    it('reconciles streamed draft text with the final authoritative step text', async () => {
-        streamHandlerMock.mockResolvedValue('Déjame buscar eso para ti.\n\nEl clima hoy está despejado.');
-        streamTextMock.mockImplementation((params: any) => {
-            void params.onStepFinish({
-                request: {},
-                response: {},
-                text: 'El clima hoy está despejado.',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                fullStream: {},
-                providerMetadata: Promise.resolve({}),
-                response: Promise.resolve({
-                    messages: [{ role: 'assistant', content: 'El clima hoy está despejado.' }],
-                }),
-            };
-        });
-        AIMiddlewareMock.mockImplementation(async ({ messageInfo }: { messageInfo: Record<string, any> }) => ({
-            onChunk: vi.fn(),
-            onStepFinish: vi.fn(async ({ text }: { text: string }) => {
-                messageInfo.authoritativeText = text;
-            }),
-            prepareStepPre: vi.fn(() => async ({ model }: { model: unknown }) => ({ model })),
-            transformParams: vi.fn(async ({ params }: { params: unknown }) => params),
-            wrapGenerate: vi.fn(async ({ doGenerate }: { doGenerate: () => Promise<unknown> }) => doGenerate()),
-            wrapStream: vi.fn(async ({ doStream }: { doStream: () => Promise<unknown> }) => doStream()),
-        }));
-
-        const result = await requestChatCompletionsV2({
-            activeTools: ['search'],
-            context: createContext(),
-            messages: createMessages(),
-            model: createModel(),
-            system: 'Be helpful.',
-            toolChoice: undefined,
-            tools: { search: {} },
-        }, { send: vi.fn() } as any);
-
-        expect(result.content).toBe('El clima hoy está despejado.');
-        expect(result.messages).toEqual([{ role: 'assistant', content: 'El clima hoy está despejado.' }]);
-    });
-
-    it('uses only the authoritative final text for tool-enabled streamed reasoning when narration hiding is enabled', async () => {
-        ENV.HIDE_TOOL_CALL_NARRATION = true;
-        streamHandlerMock.mockResolvedValue([
-            'The user wants the weather forecast.',
-            'Let me describe both tools first.',
-            '✹',
-            '//SEGMENTATIONMARK//',
-            'Let me give a nice summary as Erica.',
-            '✹',
-            '',
-            '¡Hmp! Pronóstico para Paraná hoy 18/05.',
-        ].join('\n'));
-        streamTextMock.mockImplementation((params: any) => {
-            void params.onStepFinish({
-                request: {},
-                response: {},
-                text: '',
-                toolResults: [{ toolName: 'search', toolCallId: 'call_1' }],
-                usage: {},
-            });
-            void params.onStepFinish({
-                request: {},
-                response: {},
-                text: '¡Hmp! Pronóstico para Paraná hoy 18/05.',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                fullStream: {},
-                providerMetadata: Promise.resolve({}),
-                response: Promise.resolve({
-                    messages: [{ role: 'assistant', content: '¡Hmp! Pronóstico para Paraná hoy 18/05.' }],
-                }),
-            };
-        });
-        AIMiddlewareMock.mockImplementation(async ({ messageInfo }: { messageInfo: Record<string, any> }) => ({
-            onChunk: vi.fn(),
-            onStepFinish: vi.fn(async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
-                if (toolResults.length > 0) {
-                    messageInfo.hasSeenToolUse = true;
-                    messageInfo.preservedPreamble = [
-                        'The user wants the weather forecast.',
-                        '',
-                        'Let me describe both tools first.',
-                        '✹',
-                    ].join('\n');
-                }
-                messageInfo.authoritativeText = `${messageInfo.authoritativeText || ''}${text}`;
-            }),
-            prepareStepPre: vi.fn(() => async ({ model }: { model: unknown }) => ({ model })),
-            transformParams: vi.fn(async ({ params }: { params: unknown }) => params),
-            wrapGenerate: vi.fn(async ({ doGenerate }: { doGenerate: () => Promise<unknown> }) => doGenerate()),
-            wrapStream: vi.fn(async ({ doStream }: { doStream: () => Promise<unknown> }) => doStream()),
-        }));
-
-        const result = await requestChatCompletionsV2({
-            activeTools: ['search'],
-            context: createContext(),
-            messages: createMessages(),
-            model: createModel(),
-            system: 'Be helpful.',
-            toolChoice: undefined,
-            tools: { search: {} },
-        }, { send: vi.fn() } as any);
-
-        expect(result.content).toBe([
-            'The user wants the weather forecast.',
-            '',
-            'Let me describe both tools first.',
-            '✹',
-            '',
-            '¡Hmp! Pronóstico para Paraná hoy 18/05.',
-        ].join('\n'));
-        expect(result.messages).toEqual([{ role: 'assistant', content: '¡Hmp! Pronóstico para Paraná hoy 18/05.' }]);
-    });
-
-    it('keeps normal streaming enabled when tools are available but unused', async () => {
-        ENV.HIDE_TOOL_CALL_NARRATION = true;
-        streamHandlerMock.mockImplementation(async (_stream: unknown, _extractor: unknown, _onStream: unknown, messageInfo: Record<string, any>) => {
-            expect(messageInfo.suppressProgressUpdates).toBe(false);
-            return 'Hola, ¿cómo estás?';
-        });
-        streamTextMock.mockImplementation((params: any) => {
-            void params.onStepFinish({
-                request: {},
-                response: {},
-                text: 'Hola, ¿cómo estás?',
-                toolResults: [],
-                usage: {},
-            });
-            return {
-                fullStream: {},
-                providerMetadata: Promise.resolve({}),
-                response: Promise.resolve({
-                    messages: [{ role: 'assistant', content: 'Hola, ¿cómo estás?' }],
-                }),
-            };
-        });
-        AIMiddlewareMock.mockImplementation(async ({ messageInfo }: { messageInfo: Record<string, any> }) => ({
-            onChunk: vi.fn(),
-            onStepFinish: vi.fn(async ({ text }: { text: string }) => {
-                messageInfo.authoritativeText = text;
-            }),
-            prepareStepPre: vi.fn(() => async ({ model }: { model: unknown }) => ({ model })),
-            transformParams: vi.fn(async ({ params }: { params: unknown }) => params),
-            wrapGenerate: vi.fn(async ({ doGenerate }: { doGenerate: () => Promise<unknown> }) => doGenerate()),
-            wrapStream: vi.fn(async ({ doStream }: { doStream: () => Promise<unknown> }) => doStream()),
-        }));
-
-        const result = await requestChatCompletionsV2({
-            activeTools: ['search'],
-            context: createContext(),
-            messages: createMessages(),
-            model: createModel(),
-            system: 'Be helpful.',
-            toolChoice: undefined,
-            tools: { search: {} },
-        }, { send: vi.fn() } as any);
-
-        expect(result.content).toBe('Hola, ¿cómo estás?');
-        expect(result.messages).toEqual([{ role: 'assistant', content: 'Hola, ¿cómo estás?' }]);
     });
 });

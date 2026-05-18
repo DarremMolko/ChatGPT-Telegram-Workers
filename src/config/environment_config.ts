@@ -170,9 +170,6 @@ export class EnvironmentConfig {
     ENABLE_SEARCH_SOURCE = true;
     // Whether to show thinking text
     SHOW_THINKING_TEXT = true;
-    // Hide streamed assistant preambles around tool-use steps and reconcile the final streamed text
-    // against the provider's authoritative final answer. Keeps explicit tool status lines.
-    HIDE_TOOL_CALL_NARRATION = false;
     // Enable verbose stream diagnostics in debug logs, including reasoning, text, tool, and source transitions.
     STREAM_DEBUG_DIAGNOSTICS = false;
     // Optional specialist-only system prompt used by TOOL_MODEL_MODE=specialist. When empty, the built-in neutral specialist prompt is used.

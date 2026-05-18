@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ENV } from '../config/env';
 import { EXPANDABLE_QUOTE_MARK } from '../telegram/utils/render_shared';
-import { extractLeadingStreamedAnswerText, extractPreservedToolPreamble, prependPreservedPreamble, reconcileStreamedAnswerText, renderResponseBreak, renderThinkingTag, stripStreamedAnswerText, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
+import { renderResponseBreak, renderThinkingTag, trimLeadingToolTransitionText, trimToolTransitionContent } from './thinking_format';
 
 const previousExpandableThinking = ENV.EXPANDABLE_THINKING;
 
@@ -59,104 +59,5 @@ describe('trimLeadingToolTransitionText', () => {
 
     it('preserves non-leading line breaks', () => {
         expect(trimLeadingToolTransitionText('Linea 1\nLinea 2')).toBe('Linea 1\nLinea 2');
-    });
-});
-
-describe('stripStreamedAnswerText', () => {
-    it('drops streamed answer text while preserving prior reasoning blocks', () => {
-        expect(stripStreamedAnswerText(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nDéjame buscar eso para ti.`))
-            .toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\n`);
-    });
-
-    it('clears the content when no segmentation boundary exists', () => {
-        expect(stripStreamedAnswerText('Déjame buscar eso para ti.')).toBe('');
-    });
-});
-
-describe('extractLeadingStreamedAnswerText', () => {
-    it('keeps only the first pre-tool paragraph', () => {
-        expect(extractLeadingStreamedAnswerText('Ok, I will look that up for you.\n\nActually, let me compare the tools first.'))
-            .toBe('Ok, I will look that up for you.');
-    });
-
-    it('extracts the first answer sentence after the reasoning segmentation boundary', () => {
-        expect(extractLeadingStreamedAnswerText(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast. Let me inspect both tools first.`))
-            .toBe('The user wants the weather forecast.');
-    });
-});
-
-describe('extractPreservedToolPreamble', () => {
-    it('ignores a pure quoted thinking placeholder before any answer text exists', () => {
-        expect(extractPreservedToolPreamble('>`Thinking...`')).toBe('');
-    });
-
-    it('preserves a quoted reasoning-only preamble before the first tool call', () => {
-        expect(extractPreservedToolPreamble('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."'))
-            .toBe('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n>"The user wants the weather forecast."');
-    });
-
-    it('skips a placeholder-only thinking paragraph and keeps the next visible preamble', () => {
-        expect(extractPreservedToolPreamble('//EXPANDABLEQUOTEMARK//\n>`Thinking...`\n\nOk, I will check that for you.'))
-            .toBe('Ok, I will check that for you.');
-    });
-
-    it('keeps only the quoted reasoning block when a thought boundary is present', () => {
-        expect(extractPreservedToolPreamble('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.\n\nActually, let me compare tools.'))
-            .toBe('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//');
-    });
-
-    it('keeps only the first reasoning-plus-answer block when later tool-planning rounds were also streamed', () => {
-        expect(extractPreservedToolPreamble([
-            '//EXPANDABLEQUOTEMARK//',
-            '>`Thought for 0.4 seconds`',
-            '>The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
-            '>✹',
-            '//SEGMENTATIONMARK//',
-            'The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
-            '',
-            '//EXPANDABLEQUOTEMARK//',
-            '>`Thought for 0.9 seconds`',
-            '>The user wants the weather forecast for Paraná, Argentina. I found some weather tools.',
-            '>✹',
-            '//SEGMENTATIONMARK//',
-            'The user wants the weather forecast for Paraná, Argentina. I found some weather tools.',
-        ].join('\n'))).toBe([
-            '//EXPANDABLEQUOTEMARK//',
-            '>`Thought for 0.4 seconds`',
-            '>The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
-            '>✹',
-            '//SEGMENTATIONMARK//',
-        ].join('\n'));
-    });
-});
-
-describe('prependPreservedPreamble', () => {
-    it('keeps the first preamble ahead of the final answer', () => {
-        expect(prependPreservedPreamble('El clima hoy está despejado.', 'Ok, I will look that up for you.'))
-            .toBe('Ok, I will look that up for you.\n\nEl clima hoy está despejado.');
-    });
-
-    it('does not duplicate the preamble when the final content already starts with it', () => {
-        expect(prependPreservedPreamble('Ok, I will look that up for you.\n\nEl clima hoy está despejado.', 'Ok, I will look that up for you.'))
-            .toBe('Ok, I will look that up for you.\n\nEl clima hoy está despejado.');
-    });
-
-    it('preserves multiline reasoning-heavy preambles intact', () => {
-        expect(prependPreservedPreamble('El clima hoy está despejado.', 'Thinking aloud...\n\nOk, I will look that up for you.'))
-            .toBe('Thinking aloud...\n\nOk, I will look that up for you.\n\nEl clima hoy está despejado.');
-    });
-});
-
-describe('reconcileStreamedAnswerText', () => {
-    it('replaces only the final answer segment after the last segmentation marker', () => {
-        expect(reconcileStreamedAnswerText(
-            `${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nDéjame buscar eso para ti.`,
-            'El clima hoy está despejado.',
-        )).toBe(`${EXPANDABLE_QUOTE_MARK}\n>\`Thinking...\`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nEl clima hoy está despejado.`);
-    });
-
-    it('falls back to the authoritative text when no segmentation marker exists', () => {
-        expect(reconcileStreamedAnswerText('Déjame buscar eso para ti.', 'El clima hoy está despejado.'))
-            .toBe('El clima hoy está despejado.');
     });
 });
