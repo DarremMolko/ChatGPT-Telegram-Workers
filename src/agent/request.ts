@@ -82,8 +82,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
         hasSeenToolUse: false,
         hideToolCallNarration: ENV.HIDE_TOOL_CALL_NARRATION,
         sawToolCallThisStep: false,
-        suppressProgressUpdates: ENV.HIDE_TOOL_CALL_NARRATION && effectiveActiveTools.length > 0,
-        toolEnabledRequest: effectiveActiveTools.length > 0,
+        suppressProgressUpdates: false,
     };
     const { prepareStepPre, onStepFinish, onChunk, ...middleware } = await AIMiddleware({
         config: context,
@@ -104,7 +103,7 @@ export async function requestChatCompletionsV2({ model, system, messages, tools,
 
         contentFull = await streamHandler(stream.fullStream, dataExtractor, onStream, messageInfo, abortSignal);
         responseMessages = messageInfo.occured_error ? [{ role: 'assistant', content: contentFull }] : (await stream.response).messages;
-        if (!messageInfo.occured_error && messageInfo.hideToolCallNarration && messageInfo.toolEnabledRequest && messageInfo.authoritativeText) {
+        if (!messageInfo.occured_error && messageInfo.hideToolCallNarration && messageInfo.hasSeenToolUse && messageInfo.authoritativeText) {
             contentFull = messageInfo.authoritativeText;
         } else if (!messageInfo.occured_error && messageInfo.authoritativeText) {
             const reconciledContent = reconcileStreamedAnswerText(contentFull, messageInfo.authoritativeText);
