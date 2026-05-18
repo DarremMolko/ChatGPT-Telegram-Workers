@@ -100,9 +100,9 @@ describe('extractPreservedToolPreamble', () => {
             .toBe('Ok, I will check that for you.');
     });
 
-    it('keeps reasoning context together with the first answer paragraph', () => {
+    it('keeps only the quoted reasoning block when a thought boundary is present', () => {
         expect(extractPreservedToolPreamble('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.\n\nActually, let me compare tools.'))
-            .toBe('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//\nThe user wants the weather forecast.');
+            .toBe('>`Thinking...`\n> revisar\n>✹\n//SEGMENTATIONMARK//');
     });
 
     it('keeps only the first reasoning-plus-answer block when later tool-planning rounds were also streamed', () => {
@@ -126,7 +126,6 @@ describe('extractPreservedToolPreamble', () => {
             '>The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
             '>✹',
             '//SEGMENTATIONMARK//',
-            'The user wants to know the weather forecast for today in Paraná, Argentina. Let me search for weather tools.',
         ].join('\n'));
     });
 });

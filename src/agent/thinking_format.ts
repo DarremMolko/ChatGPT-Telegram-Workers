@@ -91,14 +91,6 @@ export function extractLeadingStreamedAnswerText(content: string) {
     return firstSentence || compactLine;
 }
 
-function extractFirstParagraph(text: string) {
-    return text
-        .replace(/^\n+/, '')
-        .split(/\n\s*\n/)
-        .map(part => part.trim())
-        .find(Boolean) || '';
-}
-
 function splitVisibleParagraphs(content: string) {
     return content
         .trim()
@@ -151,12 +143,8 @@ function hasNonQuotedVisibleLine(content: string) {
 export function extractPreservedToolPreamble(content: string) {
     const boundaryEnd = findFirstSegmentationBoundary(content);
     if (boundaryEnd >= 0) {
-        const prefix = content.slice(0, boundaryEnd);
-        const firstParagraph = extractFirstParagraph(content.slice(boundaryEnd));
-        if (!firstParagraph) {
-            return '';
-        }
-        return `${prefix}${firstParagraph}`.trimEnd();
+        const prefix = content.slice(0, boundaryEnd).trimEnd();
+        return prefix;
     }
     const paragraphs = splitVisibleParagraphs(content);
     if (paragraphs.length === 0) {

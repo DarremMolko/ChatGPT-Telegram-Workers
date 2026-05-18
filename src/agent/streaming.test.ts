@@ -163,7 +163,7 @@ describe('streamHandler', () => {
         const result = await streamHandler(stream(), part => part.text, onStream as any, messageInfo as any);
 
         expect(result).toBe('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble\n\nExtra follow-up');
-        expect(messageInfo.preservedPreamble).toBe('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble');
+        expect(messageInfo.preservedPreamble).toBe('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//');
         expect(onStream.send).toHaveBeenCalledWith('>`Thinking...`\n> reviewing tools\n>✹\n//SEGMENTATIONMARK//\nActual preamble\n\nExtra follow-up●');
     });
 });
