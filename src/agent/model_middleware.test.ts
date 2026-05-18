@@ -66,7 +66,7 @@ describe('aIMiddleware', () => {
             send: vi.fn(),
         };
         const messageInfo: any = {
-            content: 'Déjame buscar eso para ti.',
+            content: 'Déjame buscar eso para ti.\n\nVoy a revisar dos herramientas.',
             hideToolCallNarration: true,
         };
         const middleware = await AIMiddleware({
@@ -98,7 +98,7 @@ describe('aIMiddleware', () => {
             },
         });
 
-        expect(onStream.send).toHaveBeenCalledWith('tool call start: `search_tools`');
+        expect(onStream.send).toHaveBeenCalledWith('Déjame buscar eso para ti.\n\ntool call start: `search_tools`');
         expect(messageInfo.content).toBe('');
         expect(messageInfo.suppressProgressUpdates).toBe(true);
     });

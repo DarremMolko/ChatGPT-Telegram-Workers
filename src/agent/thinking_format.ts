@@ -60,6 +60,25 @@ export function stripStreamedAnswerText(content: string) {
     return content.slice(0, boundaryEnd);
 }
 
+export function extractLeadingStreamedAnswerText(content: string) {
+    const boundaryEnd = findLatestSegmentationBoundary(content);
+    const candidate = (boundaryEnd < 0 ? content : content.slice(boundaryEnd)).trim();
+    if (!candidate) {
+        return '';
+    }
+    const firstParagraph = candidate
+        .split(/\n\s*\n/)
+        .map(part => part.trim())
+        .find(Boolean) || '';
+    const firstLine = firstParagraph
+        .split('\n')
+        .map(part => part.trim())
+        .find(Boolean) || '';
+    const compactLine = firstLine.replace(/\s+/g, ' ').trim();
+    const firstSentence = compactLine.match(/^(.+?[.!?…。！？])(?:\s+|$)/u)?.[1]?.trim();
+    return firstSentence || compactLine;
+}
+
 export function reconcileStreamedAnswerText(content: string, authoritativeText: string) {
     const finalText = `${authoritativeText || ''}`.trim();
     if (!finalText) {
