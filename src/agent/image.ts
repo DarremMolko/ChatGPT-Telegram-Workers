@@ -1,6 +1,6 @@
 import type { GeneratedImage, ImageResult } from './types';
 
-export async function requestText2Image(url: string, headers: Record<string, any>, body: any, render: (arg: Response | GeneratedImage[] | string[], prompt: string) => Promise<ImageResult>) {
+export async function requestText2Image(url: string, headers: Record<string, any>, body: any, render: (arg: Response | GeneratedImage[] | string[], prompt: string, metadata?: { outputFormat?: string }) => Promise<ImageResult>) {
     console.log('start generate image.');
     const resp = await fetch(url, {
         method: 'POST',
@@ -8,5 +8,5 @@ export async function requestText2Image(url: string, headers: Record<string, any
         body: JSON.stringify(body),
     });
 
-    return render(resp, body.prompt);
+    return render(resp, body.prompt, { outputFormat: body.output_format });
 }

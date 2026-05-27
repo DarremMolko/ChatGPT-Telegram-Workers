@@ -7,9 +7,16 @@ import { loadASRLLM, loadTTSLLM, TTS_AGENTS } from '../../agent';
 import { canUseDocumentOcr, extractDocumentText } from '../../agent/document_ocr';
 import { ENV } from '../../config/env';
 import { getLog, log } from '../../log';
-import { imageToBase64String } from '../../utils/image';
+import { createImageFile, imageToBase64String } from '../../utils/image';
 import { convertAudio } from '../../utils/others/audio';
 import { SEGMENTATION_MARK, wrapExpandableQuote } from './render_shared';
+
+function normalizeImageUploadFile(media: Blob, index: number): File {
+    if (media instanceof File) {
+        return media;
+    }
+    return createImageFile(media, media.type || null, `image-${index + 1}`);
+}
 
 export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: MessageSender, config: AgentUserConfig) {
     if (img.url?.length === 0 && img.raw?.length === 0) {
@@ -22,7 +29,7 @@ export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: 
             type: sendAsFile ? 'document' : 'photo',
             media: img.url?.[0] || '',
             caption: mergeLogMessages(caption[0], config),
-        }, ENV.DEFAULT_PARSE_MODE as Telegram.ParseMode, img.raw?.[0] && new File([img.raw[0]], 'image.png', { type: 'image/png' }));
+        }, ENV.DEFAULT_PARSE_MODE as Telegram.ParseMode, img.raw?.[0] && normalizeImageUploadFile(img.raw[0], 0));
     }
     const medias = (img.url || img.raw)!.map((media: string | Blob, index: number) => ({
         type: sendAsFile ? 'document' : 'photo',
@@ -32,7 +39,7 @@ export async function sendImages(img: ImageResult, sendAsFile: boolean, sender: 
     })) as Telegram.InputMedia[];
 
     if (img.raw && img.raw.length > 0) {
-        const files = img.raw.map((_, i) => new File([img.raw![i]], 'image.png', { type: 'image/png' }));
+        const files = img.raw.map((media, i) => normalizeImageUploadFile(media, i));
         return sender.sendMediaGroup(medias, files);
     }
     return sender.sendMediaGroup(medias);

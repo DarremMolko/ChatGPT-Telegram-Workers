@@ -5,6 +5,7 @@ import type { ASRAgent, ASRRequestOptions, ChatAgent, ChatStreamTextHandler, Ima
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
 import { log, withRequestLogger } from '../log';
+import { createImageFile } from '../utils';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
@@ -77,6 +78,7 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
             generationBody,
             providerOptions,
         } = buildOpenAIImageSettings('oailike', context, extraParams);
+        const outputFormat = generationBody.output_format;
 
         if (isEditMode) {
             const openaiApiBase = resolveProviderApiBase('oailike', context).rootURL;
@@ -96,7 +98,7 @@ export class OpenAILikeImage extends OpenAILikeBase implements ImageAgent {
             });
 
             return {
-                raw: images.map(img => new Blob([Buffer.from(img.uint8Array)], { type: 'image/png' })),
+                raw: images.map(img => createImageFile(Buffer.from(img.uint8Array), outputFormat)),
                 text: prompt,
             };
         }

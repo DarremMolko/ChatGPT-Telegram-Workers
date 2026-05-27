@@ -82,6 +82,8 @@ vi.mock('../../config/env', () => ({
         OWNER_ID: '1',
         REDIS: redisMock,
         STORE_HISTORY_LENGTH: 5,
+        TELEGRAM_FILE_DOWNLOAD_MAX_SIZE: 20_971_520,
+        TELEGRAM_PHOTO_SIZE_OFFSET: -1,
     },
 }));
 
@@ -167,6 +169,7 @@ vi.mock('../utils/tg_utils', async (importOriginal) => {
 vi.stubGlobal('fetch', fetchMock);
 
 const { customInfo } = await import('../../agent');
+const { ENV } = await import('../../config/env');
 const { getStats } = await import('../../utils/stats');
 const {
     BlockUserCommandHandler,
@@ -318,6 +321,7 @@ describe('tTSCommandHandler', () => {
         fetchMock.mockReset();
         canUseDocumentOcrMock.mockReturnValue(true);
         supportsDocumentOcrInputMock.mockReturnValue(true);
+        ENV.EXTRA_MESSAGE_CONTEXT = true;
     });
 
     it('renders /system as a callback-keyboard panel', async () => {
@@ -607,6 +611,52 @@ describe('tTSCommandHandler', () => {
 
         expect(response.ok).toBe(true);
         expect(getTelegramFileMock).toHaveBeenCalledWith(['photo-file-id'], 'bot-token', 'base64');
+        expect(request).toHaveBeenCalledWith('make it neon', context.USER_CONFIG, {
+            referenceImages: ['base64-image'],
+        });
+    });
+
+    it('uses replied photos for /img edits even when EXTRA_MESSAGE_CONTEXT is disabled', async () => {
+        ENV.EXTRA_MESSAGE_CONTEXT = false;
+        getTelegramFileMock.mockResolvedValue(['base64-image']);
+        const request = vi.fn(async () => ({
+            raw: [new Blob(['png'])],
+            text: 'make it neon',
+        }));
+        loadImageGenMock.mockReturnValue({
+            name: 'oailike',
+            request,
+        });
+        sendImagesMock.mockResolvedValue(new Response('ok', { status: 200 }));
+        const handler = new ImgCommandHandler();
+        const message = createMessage('/img make it neon');
+        message.reply_to_message = {
+            message_id: 2,
+            date: Math.floor(Date.now() / 1000),
+            chat: {
+                id: 123,
+                type: 'private',
+            } as Telegram.Chat,
+            from: {
+                id: 789,
+                is_bot: false,
+                first_name: 'Alice',
+            },
+            photo: [{
+                file_id: 'reply-photo-file-id',
+                file_unique_id: 'reply-photo-unique-id',
+                width: 512,
+                height: 512,
+                file_size: 1024,
+            }],
+        } as Telegram.Message;
+        const sender = createSender();
+        const context = createContext();
+
+        const response = await handler.handle(message, 'make it neon', context, sender);
+
+        expect(response.ok).toBe(true);
+        expect(getTelegramFileMock).toHaveBeenCalledWith(['reply-photo-file-id'], 'bot-token', 'base64');
         expect(request).toHaveBeenCalledWith('make it neon', context.USER_CONFIG, {
             referenceImages: ['base64-image'],
         });

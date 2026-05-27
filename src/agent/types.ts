@@ -83,7 +83,7 @@ export interface Agent<AgentRequest> {
     request: AgentRequest;
     model: (ctx: AgentUserConfig, params?: LLMChatRequestParams) => string;
     models?: (ctx: AgentUserConfig) => Promise<string[]>;
-    render?: (result: Response | GeneratedImage[] | string[], prompt: string) => Promise<ImageResult>;
+    render?: (result: Response | GeneratedImage[] | string[], prompt: string, metadata?: { outputFormat?: string }) => Promise<ImageResult>;
 }
 
 export interface ImageResult extends Pick<UnionData, 'url' | 'raw' | 'text'> {

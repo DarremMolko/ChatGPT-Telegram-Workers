@@ -1,6 +1,13 @@
 import { Cache } from '../cache';
 
 const IMAGE_CACHE = new Cache<Blob>();
+const IMAGE_MIME_TYPE_TO_EXTENSION: Record<string, string> = {
+    'image/gif': 'gif',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+};
 
 async function fetchImage(url: string): Promise<Blob> {
     const cache = IMAGE_CACHE.get(url);
@@ -29,20 +36,45 @@ async function urlToBase64String(url: string): Promise<string> {
     }
 }
 
-function getImageFormatFromBase64(base64String: string): string {
+export function detectImageMimeTypeFromBase64(base64String: string): string {
     const firstChar = base64String.charAt(0);
     switch (firstChar) {
         case '/':
-            return 'jpeg';
+            return 'image/jpeg';
         case 'i':
-            return 'png';
+            return 'image/png';
         case 'R':
-            return 'gif';
+            return 'image/gif';
         case 'U':
-            return 'webp';
+            return 'image/webp';
         default:
             throw new Error('Unsupported image format');
     }
+}
+
+export function resolveImageMimeType(format?: string | null): string {
+    const normalized = `${format || ''}`.trim().toLowerCase();
+    if (!normalized) {
+        return 'image/png';
+    }
+    if (normalized.includes('/')) {
+        return normalized;
+    }
+    if (normalized === 'jpg') {
+        return 'image/jpeg';
+    }
+    return `image/${normalized}`;
+}
+
+export function resolveImageFileName(mimeType?: string | null, basename = 'image'): string {
+    const normalizedMimeType = resolveImageMimeType(mimeType);
+    const extension = IMAGE_MIME_TYPE_TO_EXTENSION[normalizedMimeType] || 'png';
+    return `${basename}.${extension}`;
+}
+
+export function createImageFile(data: BlobPart, mimeTypeOrFormat?: string | null, basename = 'image'): File {
+    const mimeType = resolveImageMimeType(mimeTypeOrFormat);
+    return new File([data], resolveImageFileName(mimeType, basename), { type: mimeType });
 }
 
 interface Base64DataWithFormat {
@@ -52,14 +84,14 @@ interface Base64DataWithFormat {
 
 export async function imageToBase64String(url: string): Promise<Base64DataWithFormat> {
     const base64String = await urlToBase64String(url);
-    const format = getImageFormatFromBase64(base64String);
+    const format = detectImageMimeTypeFromBase64(base64String);
     return {
         data: base64String,
-        format: `image/${format}`,
+        format,
     };
 }
 
-export async function base64StringToBlob(base64String: string, type: 'image/png' | 'image/jpeg' | 'audio/mp3' | 'audio/oga' = 'image/png'): Promise<Blob> {
+export async function base64StringToBlob(base64String: string, type = 'image/png'): Promise<Blob> {
     try {
         const { Buffer } = await import('node:buffer');
         const buffer = Buffer.from(base64String, 'base64');

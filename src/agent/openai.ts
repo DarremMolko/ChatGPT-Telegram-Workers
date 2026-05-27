@@ -5,7 +5,7 @@ import type { ASRAgent, ASRRequestOptions, ChatAgent, ChatStreamTextHandler, Gen
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateImage } from 'ai';
 import { log, withRequestLogger } from '../log';
-import { base64StringToBlob } from '../utils';
+import { base64StringToBlob, createImageFile, detectImageMimeTypeFromBase64, resolveImageMimeType } from '../utils';
 import { buildProviderApiUrl, resolveProviderApiBase } from './api_base';
 import { requestText2Image } from './image';
 import { createLlmModel } from './llm';
@@ -77,6 +77,7 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
             generationBody,
             providerOptions,
         } = buildOpenAIImageSettings('openai', context, extraParams);
+        const outputFormat = generationBody.output_format;
 
         // Select the model intelligently:
         // - Edit mode: only dall-e-2 and gpt-image-* support editing.
@@ -105,7 +106,7 @@ export class OpenAIImage extends OpenAIBase implements ImageAgent {
             });
 
             return {
-                raw: images.map(img => new Blob([Buffer.from(img.uint8Array)], { type: 'image/png' })),
+                raw: images.map(img => createImageFile(Buffer.from(img.uint8Array), outputFormat)),
                 text: prompt,
             };
         }
@@ -150,7 +151,7 @@ export class OpenAITTS extends OpenAIBase implements TTSAgent {
     };
 }
 
-export async function renderImage(response: Response | GeneratedImage[] | string[], prompt: string): Promise<ImageResult> {
+export async function renderImage(response: Response | GeneratedImage[] | string[], prompt: string, metadata?: { outputFormat?: string }): Promise<ImageResult> {
     const resp = response as Response;
     if (!resp.ok)
         throw new Error(await resp.text());
@@ -162,7 +163,13 @@ export async function renderImage(response: Response | GeneratedImage[] | string
     let data: (string | Blob)[] = [];
     respJson.data?.forEach(({ url, b64_json }: { url: string; b64_json: string }) => data.push(url ?? (b64_json)));
     if (image_type === 'b64') {
-        data = await Promise.all(data.map(b64_json => base64StringToBlob(b64_json as string)));
+        data = await Promise.all(data.map(async (b64_json) => {
+            const base64 = b64_json as string;
+            const mimeType = metadata?.outputFormat
+                ? resolveImageMimeType(metadata.outputFormat)
+                : detectImageMimeTypeFromBase64(base64);
+            return createImageFile(await base64StringToBlob(base64, mimeType), mimeType);
+        }));
     }
     return { [image_type === 'b64' ? 'raw' : 'url']: data, text: prompt };
 };

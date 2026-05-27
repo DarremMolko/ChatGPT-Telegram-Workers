@@ -82,6 +82,28 @@ describe('extractMessageInfo', () => {
         }));
     });
 
+    it('maps supported image documents to image input', () => {
+        const info = extractMessageInfo(createDocumentMessage('image/webp', 'sticker.webp'), 999);
+
+        expect(info).toEqual(expect.objectContaining({
+            type: 'image',
+            original_type: 'document',
+            mime_type: 'image/webp',
+            file_name: 'sticker.webp',
+        }));
+    });
+
+    it('marks unsupported image documents as unsupported instead of failing later', () => {
+        const info = extractMessageInfo(createDocumentMessage('image/tiff', 'scan.tiff'), 999);
+
+        expect(info).toEqual(expect.objectContaining({
+            type: 'unsupported',
+            original_type: 'document',
+            mime_type: 'image/tiff',
+            file_name: 'scan.tiff',
+        }));
+    });
+
     it('maps common text-like application MIME types to text input', () => {
         expect(extractMessageInfo(createDocumentMessage('application/json', 'data.json'), 999)).toEqual(expect.objectContaining({
             type: 'text',

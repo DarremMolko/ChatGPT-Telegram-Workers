@@ -25,7 +25,7 @@ import { chatWithLLM } from '../handler/chat';
 import { cancelActiveRequests, getActiveRequestCount } from '../utils/active_request';
 import { sendImages } from '../utils/media';
 import { buildRenderedTextParams, checkIsNeedTagIds, sendAction } from '../utils/send';
-import { chunkArray, getTelegramFile, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
+import { chunkArray, extractMessageInfo, getTelegramFile, stripMergedQuoteFromCommandText } from '../utils/tg_utils';
 import { sendCommandError } from './error';
 
 export {
@@ -647,6 +647,18 @@ async function initializeCommandHistory(context: WorkerContext): Promise<void> {
     context.MIDDLE_CONTEXT.history = context.MIDDLE_CONTEXT.history || [];
 }
 
+function resolveReferenceImageFileIds(message: Telegram.Message, context: WorkerContext): string[] {
+    const currentIds = context.MIDDLE_CONTEXT.messageInfo?.id || [];
+    if (['image', 'photo'].includes(context.MIDDLE_CONTEXT.messageInfo?.type || '') && currentIds.length > 0) {
+        return currentIds;
+    }
+    if (!message.reply_to_message) {
+        return [];
+    }
+    const replyInfo = extractMessageInfo(message.reply_to_message, context.SHARE_CONTEXT.botId);
+    return ['image', 'photo'].includes(replyInfo.type) ? (replyInfo.id || []) : [];
+}
+
 export class ImgCommandHandler implements CommandHandler {
     command = '/img';
     scopes: ScopeType[] = ['all_private_chats', 'all_chat_administrators'];
@@ -665,8 +677,9 @@ export class ImgCommandHandler implements CommandHandler {
                 return sender.sendPlainText('Please input your image prompt');
             }
             const extraParams: Record<string, any> = {};
-            if (['image', 'photo'].includes(context.MIDDLE_CONTEXT.messageInfo?.type) && (context.MIDDLE_CONTEXT.messageInfo?.id?.length || 0) > 0) {
-                extraParams.referenceImages = await getTelegramFile(context.MIDDLE_CONTEXT.messageInfo.id!, context.SHARE_CONTEXT.botToken, 'base64');
+            const referenceImageIds = resolveReferenceImageFileIds(message, context);
+            if (referenceImageIds.length > 0) {
+                extraParams.referenceImages = await getTelegramFile(referenceImageIds, context.SHARE_CONTEXT.botToken, 'base64');
             }
             for (const { flag, value } of flags) {
                 if (flag === 'n' || flag === 'count' || flag === 'quantity') {

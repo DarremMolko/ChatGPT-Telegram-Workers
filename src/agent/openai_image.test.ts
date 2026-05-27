@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createImageFile } from '../utils';
 import { buildOpenAIImageSettings, isOpenAIImageModel, resolveImageEditModel } from './openai_image';
 
 const baseContext: any = {
@@ -86,5 +87,15 @@ describe('buildOpenAIImageSettings', () => {
                 inputFidelity: 'high',
             },
         });
+    });
+});
+
+describe('createImageFile', () => {
+    it('preserves the requested output format in generated filenames', () => {
+        const file = createImageFile(new Uint8Array([1, 2, 3]), 'webp');
+
+        expect(file).toBeInstanceOf(File);
+        expect(file.type).toBe('image/webp');
+        expect(file.name).toBe('image.webp');
     });
 });

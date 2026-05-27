@@ -23,6 +23,22 @@ export interface UnionData {
     raw?: Blob[];
 }
 
+const SUPPORTED_INLINE_IMAGE_MIME_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+]);
+
+const SUPPORTED_INLINE_IMAGE_EXTENSIONS = new Set([
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+]);
+
 export function getMessageText(message?: Pick<Telegram.Message, 'text' | 'caption'> | null): string {
     return message?.text || message?.caption || '';
 }
@@ -217,7 +233,10 @@ export function extractMessageInfo(message: Telegram.Message, currentBotId: numb
 
 function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType {
     const mediaType = mimeType?.toLowerCase() || '';
-    const directSupport = mediaType.match(/^(audio|image|text|video)\//)?.[1];
+    if (mediaType.startsWith('image/')) {
+        return isSupportedInlineImageInput(mediaType, fileName) ? 'image' : 'unsupported';
+    }
+    const directSupport = mediaType.match(/^(audio|text|video)\//)?.[1];
     if (directSupport) {
         return directSupport as MsgType;
     }
@@ -231,6 +250,15 @@ function resolveDocumentUnionType(mimeType?: string, fileName?: string): MsgType
         return 'document';
     }
     return 'unsupported';
+}
+
+function isSupportedInlineImageInput(mimeType?: string, fileName?: string): boolean {
+    const normalizedMimeType = `${mimeType || ''}`.trim().toLowerCase();
+    if (SUPPORTED_INLINE_IMAGE_MIME_TYPES.has(normalizedMimeType)) {
+        return true;
+    }
+    const extension = fileName?.split('.').pop()?.toLowerCase() || '';
+    return SUPPORTED_INLINE_IMAGE_EXTENSIONS.has(extension);
 }
 
 function findPhotoFileID(photos: Telegram.PhotoSize[], offset: number): string {
