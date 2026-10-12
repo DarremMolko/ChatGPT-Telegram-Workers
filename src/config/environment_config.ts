@@ -90,9 +90,6 @@ export class EnvironmentConfig {
     // Whether to rewrite GitHub-style pipe tables into Telegram-friendly card text.
     // This is a compatibility stopgap until Telegram supports native table rendering.
     TELEGRAM_RENDER_PIPE_TABLES = true;
-    // Enable Telegram rich messages and AI chat rendering features
-    // (Rich Messages API, native tables, math, details, draft streaming with can_stop and <tg-thinking>)
-    TELEGRAM_RICH_MESSAGES = false;
     // Native Redis connection URL. Prefer rediss:// for hosted Redis with TLS.
     REDIS_URL = '';
     // Message expired time, scale: minute

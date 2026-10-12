@@ -180,16 +180,6 @@ export function summarizeTelegramUpdate(update: Telegram.Update) {
             queryPreview: previewText(update.chosen_inline_result.query),
         };
     }
-    if ((update as any).stopped_message_generation) {
-        const stopped = (update as any).stopped_message_generation;
-        return {
-            updateId: update.update_id,
-            type: 'stopped_message_generation',
-            chatId: stopped.chat?.id ?? null,
-            draftId: stopped.draft_id ?? null,
-            messageThreadId: stopped.message_thread_id ?? null,
-        };
-    }
     if (update.edited_message) {
         return {
             updateId: update.update_id,

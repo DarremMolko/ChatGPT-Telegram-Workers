@@ -118,7 +118,7 @@ class Environment extends EnvironmentConfig {
         ]);
 
         ConfigMerger.merge(this.USER_CONFIG, source);
-        this.normalizeConfig(source);
+        this.normalizeConfig();
         this.USER_CONFIG.DEFINE_KEYS = this.USER_CONFIG.DEFINE_KEYS.filter(key => Object.keys(this.USER_CONFIG).includes(key));
         this.I18N = loadI18n('en');
 
@@ -148,14 +148,7 @@ class Environment extends EnvironmentConfig {
         }
     }
 
-    private normalizeConfig(source?: any) {
-        const rawFlag = source?.TELEGRAM_AI_CHAT_RENDERING ?? source?.TELEGRAM_RICH_MESSAGES ?? (this as any).TELEGRAM_AI_CHAT_RENDERING;
-        if (typeof rawFlag !== 'undefined') {
-            this.TELEGRAM_RICH_MESSAGES = `${rawFlag}`.toLowerCase() === 'true';
-        }
-        if (this.TELEGRAM_RICH_MESSAGES && !this.TELEGRAM_ALLOWED_UPDATES.includes('stopped_message_generation')) {
-            this.TELEGRAM_ALLOWED_UPDATES.push('stopped_message_generation');
-        }
+    private normalizeConfig() {
         this.OWNER_ID = `${this.OWNER_ID || ''}`.trim();
         this.ADMIN_WHITE_LIST = Array.from(new Set(this.ADMIN_WHITE_LIST.map((id: string) => `${id}`.trim()).filter(Boolean)));
         this.ADMIN_AVAILABLE_UTILITIES = Array.from(new Set(

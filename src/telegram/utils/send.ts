@@ -1,13 +1,11 @@
 /* eslint-disable antfu/if-newline */
 import type * as Telegram from 'telegram-bot-api-types';
 import type { TelegramBotAPI } from '../api';
-import type { EditRichMessageTextParams, SendRichMessageDraftParams, SendRichMessageParams } from '../api/types';
 import type { ExpandParams } from './render_shared';
 import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
-import { stripAllMarkerLines } from './render_shared';
 import { renderMessageChunks, renderSingleMessage } from './rich_text';
 import { waitUntil } from './tg_utils';
 
@@ -57,182 +55,11 @@ class MessageContext implements Record<string, any> {
 export class MessageSender {
     api: TelegramBotAPI;
     context: MessageContext;
-    private draftId: number | null = null;
-    private richDraftSupported = true;
-
-    getDraftId(): number | null {
-        return this.draftId;
-    }
-
-    resetDraftState(): void {
-        this.draftId = null;
-    }
-
-    ensureDraftId(): number {
-        if (!this.draftId) {
-            this.draftId = Math.max(1, Math.floor((Date.now() % 1e9) + Math.random() * 1e5));
-        }
-        return this.draftId;
-    }
-
-    canUseRichDraft(): boolean {
-        return Boolean(
-            ENV.TELEGRAM_RICH_MESSAGES
-            && this.context.chatType === 'private'
-            && this.richDraftSupported,
-        );
-    }
-
-    canUseRichMessage(): boolean {
-        return Boolean(ENV.TELEGRAM_RICH_MESSAGES);
-    }
-
-    async sendRichDraft(
-        message: string,
-        retryCount = 0,
-    ): Promise<Response | null> {
-        if (!this.context) {
-            throw new Error('Message context not set');
-        }
-        if (!this.canUseRichDraft()) {
-            return null;
-        }
-        const maxRetries = 3;
-        const cleanMessage = stripAllMarkerLines(message).trim();
-        const isThinkingPlaceholder = cleanMessage === '...' || cleanMessage === '';
-        const markdownContent = isThinkingPlaceholder
-            ? '<tg-thinking>Thinking...</tg-thinking>'
-            : cleanMessage.replace(/●\s*$/, '').trim();
-
-        if (!markdownContent) {
-            return null;
-        }
-
-        const draftId = this.ensureDraftId();
-        const params: SendRichMessageDraftParams = {
-            chat_id: this.context.chat_id,
-            draft_id: draftId,
-            rich_message: { markdown: markdownContent },
-            message_thread_id: this.context.message_thread_id || undefined,
-            can_stop: true,
-            keep_on_stop: true,
-        };
-
-        let resp: Response;
-        try {
-            resp = await this.api.sendRichMessageDraft(params);
-        } catch (e) {
-            log.warn(`sendRichMessageDraft network error: ${(e as Error).message}`);
-            this.richDraftSupported = false;
-            this.resetDraftState();
-            return null;
-        }
-
-        if (resp.status === 429 && retryCount < maxRetries) {
-            const waitTime = await extractRetryAfter(resp, 5);
-            log.error(`Status 429, need wait: ${waitTime}s (retry ${retryCount + 1}/${maxRetries})`);
-            await waitUntil(Date.now() + waitTime * 1000);
-            return this.sendRichDraft(message, retryCount + 1);
-        }
-
-        if (!resp.ok) {
-            const description = await extractTelegramDescription(resp);
-            log.warn(`Telegram rich draft unavailable (${resp.status} ${description}), falling back to message edits`);
-            this.richDraftSupported = false;
-            this.resetDraftState();
-            return null;
-        }
-
-        return resp;
-    }
-
-    sendRichMessage(
-        markdown: string,
-        type: 'tip' | 'chat' = 'chat',
-    ): Promise<Response> {
-        if (!this.context) {
-            throw new Error('Message context not set');
-        }
-        return checkIsNeedTagIds(this.context, this.sendLongRichMessage(markdown, this.context), type);
-    }
-
-    private async sendLongRichMessage(markdown: string, context: MessageContext): Promise<Response> {
-        const chatContext = { ...context };
-        const chunks = splitRichMarkdown(markdown, 32000);
-        let lastResponse: Response | null = null;
-
-        for (let i = 0; i < chunks.length; i++) {
-            if (!chunks[i].trim()) {
-                continue;
-            }
-            chatContext.message_id = context.sentMessageIds[i] ?? null;
-            context.reply_to_message_id && i > 0 && (chatContext.reply_to_message_id = context.sentMessageIds[i - 1]);
-
-            lastResponse = await this.sendRichMessageChunk(chunks[i], chatContext);
-            if (lastResponse.status !== 200) {
-                break;
-            }
-            const respJson = await lastResponse.clone().json() as Telegram.ResponseWithMessage;
-            if (respJson?.result?.message_id) {
-                this.context.sentMessageIds[i] = respJson.result.message_id;
-                this.context.message_id = respJson.result.message_id;
-            }
-        }
-
-        if (lastResponse === null) {
-            throw new Error('Send rich message failed');
-        }
-        return lastResponse;
-    }
-
-    private async sendRichMessageChunk(
-        chunk: string,
-        context: MessageContext,
-        retryCount = 0,
-    ): Promise<Response> {
-        const maxRetries = 3;
-        let resp: Response;
-
-        if (context.message_id) {
-            const params: EditRichMessageTextParams = {
-                chat_id: context.chat_id,
-                message_id: context.message_id,
-                rich_message: { markdown: chunk },
-            };
-            resp = await this.api.editMessageText(params);
-        } else {
-            const replyParameters = buildReplyParameters(context);
-            const params: SendRichMessageParams = {
-                chat_id: context.chat_id,
-                message_thread_id: context.message_thread_id || undefined,
-                rich_message: { markdown: chunk },
-                ...(replyParameters ? { reply_parameters: replyParameters } : {}),
-            };
-            resp = await this.api.sendRichMessage(params);
-        }
-
-        if (resp.status === 429 && retryCount < maxRetries) {
-            const waitTime = await extractRetryAfter(resp, 5);
-            log.error(`Status 429, need wait: ${waitTime}s (retry ${retryCount + 1}/${maxRetries})`);
-            await waitUntil(Date.now() + waitTime * 1000);
-            return this.sendRichMessageChunk(chunk, context, retryCount + 1);
-        }
-
-        if (!resp.ok) {
-            const description = await extractTelegramDescription(resp);
-            log.warn(`sendRichMessage failed (${resp.status} ${description}), falling back to standard sendLongMessage`);
-            return this.sendLongMessage(chunk, context);
-        }
-
-        return resp;
-    }
 
     constructor(token: string, context: MessageContext) {
         this.api = createTelegramBotAPI(token);
         this.context = context;
         this.sendRichText = this.sendRichText.bind(this);
-        this.sendRichMessage = this.sendRichMessage.bind(this);
-        this.sendRichDraft = this.sendRichDraft.bind(this);
         this.sendPlainText = this.sendPlainText.bind(this);
         this.sendPhoto = this.sendPhoto.bind(this);
         this.sendMediaGroup = this.sendMediaGroup.bind(this);
@@ -344,9 +171,6 @@ export class MessageSender {
     ): Promise<Response> {
         if (!this.context) {
             throw new Error('Message context not set');
-        }
-        if (ENV.TELEGRAM_RICH_MESSAGES && parseMode === undefined && type === 'chat') {
-            return this.sendRichMessage(message, type);
         }
         return checkIsNeedTagIds(this.context, this.sendLongMessage(message, {
             ...this.context,
@@ -615,15 +439,6 @@ export class ChosenInlineSender {
     }
 
     editMessageText(text: string, parse_mode?: Telegram.ParseMode, expandParams?: ExpandParams): Promise<Response> {
-        if (ENV.TELEGRAM_RICH_MESSAGES) {
-            return this.api.editMessageText({
-                inline_message_id: this.context.inline_message_id,
-                rich_message: { markdown: text },
-                link_preview_options: {
-                    is_disabled: ENV.DISABLE_WEB_PREVIEW,
-                },
-            } as any);
-        }
         return this.api.editMessageText({
             inline_message_id: this.context.inline_message_id,
             ...buildRenderedTextParams(parse_mode, text, expandParams),
@@ -642,51 +457,4 @@ export class ChosenInlineSender {
             },
         });
     }
-}
-
-async function extractRetryAfter(resp: Response, fallback = 5): Promise<number> {
-    try {
-        const errorBody = await resp.clone().json() as { parameters?: { retry_after?: number } };
-        const retryAfter = errorBody.parameters?.retry_after || resp.headers.get('Retry-After');
-        return retryAfter ? Number.parseInt(String(retryAfter), 10) : fallback;
-    } catch {
-        const retryAfter = resp.headers.get('Retry-After');
-        return retryAfter ? Number.parseInt(retryAfter, 10) : fallback;
-    }
-}
-
-async function extractTelegramDescription(resp: Response): Promise<string> {
-    try {
-        const body = await resp.clone().json() as Telegram.ResponseError;
-        return body.description || resp.statusText;
-    } catch {
-        return resp.statusText;
-    }
-}
-
-function splitRichMarkdown(markdown: string, maxChunkSize = 32000): string[] {
-    const cleaned = stripAllMarkerLines(markdown).trim();
-    if (cleaned.length <= maxChunkSize) {
-        return [cleaned];
-    }
-    const chunks: string[] = [];
-    let start = 0;
-    while (start < cleaned.length) {
-        let end = Math.min(start + maxChunkSize, cleaned.length);
-        if (end < cleaned.length) {
-            let breakPoint = -1;
-            for (let i = end - 1; i >= start + Math.floor(maxChunkSize / 2); i--) {
-                if (cleaned[i] === '\n') {
-                    breakPoint = i + 1;
-                    break;
-                }
-            }
-            if (breakPoint > start) {
-                end = breakPoint;
-            }
-        }
-        chunks.push(cleaned.slice(start, end));
-        start = end;
-    }
-    return chunks;
 }

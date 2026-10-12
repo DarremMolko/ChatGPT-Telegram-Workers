@@ -17,7 +17,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Area | What remains |
 | --- | --- |
 | Chat | `openai` and `oailike`, with configurable `v1/responses` or `v1/chat/completions` routing, Telegram text/image/audio/PDF inputs, and optional document OCR preprocessing |
-| Streaming | Telegram replies stream through message edits by default, with optional official draft streaming (`sendRichMessageDraft`) and Rich Messages (`sendRichMessage`) when `TELEGRAM_RICH_MESSAGES=true` |
+| Streaming | Telegram replies stream through the normal message edit/send path |
 | Images | `/img` generation for both provider families; reply-to-image editing through the OpenAI-compatible image path |
 | Speech | Telegram voice/audio input via STT, explicit `/stt` transcription, text-to-speech output via `/tts`, and configurable text/audio workflows |
 | Tools | Generic MCP groups and OpenAI Responses built-in tools |
@@ -25,9 +25,7 @@ This repository now intentionally focuses on a narrow runtime surface:
 | Runtime control | Inline `/settings`, `/set`, `/setenv`, `/setenvs`, `/map`, `/stop`, per-chat blocklists, and history export |
 | Deployment | Local polling, optional local health endpoint, Docker, and Docker Compose |
 
-Telegram supports native table rendering, math formulas, collapsible details, and client-side draft streaming through the official Rich Messages API. Enable this with `TELEGRAM_RICH_MESSAGES=true` (or `TELEGRAM_AI_CHAT_RENDERING=true`). When enabled, tables are natively rendered without card text conversion, drafts stream with client-side animations and native stop button support, and completed replies are persisted via `sendRichMessage`.
-
-When `TELEGRAM_RICH_MESSAGES` is disabled, the bot uses the compatibility MarkdownV2 layer and rewrites detected pipe tables into card text (controllable via `TELEGRAM_RENDER_PIPE_TABLES`).
+Telegram still does not natively render GitHub-style pipe tables. The current bot rewrites detected pipe tables into Telegram-friendly card text as a compatibility layer. Treat that behavior as a stopgap rather than a permanent rendering model, and revisit it if Telegram adds first-class table support. You can disable the rewrite with `TELEGRAM_RENDER_PIPE_TABLES=false`.
 
 ## How Configuration Works
 

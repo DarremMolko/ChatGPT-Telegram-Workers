@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bindActiveDraft, cancelActiveByChatId, cancelActiveDraft, getPendingScopedExecutionCount, registerActiveRequest, runScopedExecution, ScopeBusyError, ScopeSupersededError, unbindActiveDraft } from './active_request';
+import { getPendingScopedExecutionCount, registerActiveRequest, runScopedExecution, ScopeBusyError, ScopeSupersededError } from './active_request';
 
 describe('runScopedExecution', () => {
     it('serializes requests in queue mode', async () => {
@@ -87,43 +87,5 @@ describe('runScopedExecution', () => {
         await expect(third).resolves.toBe('third');
         await Promise.resolve();
         expect(getPendingScopedExecutionCount(scopeKey)).toBe(0);
-    });
-});
-
-describe('active draft tracking', () => {
-    it('cancels active requests by draftId', () => {
-        const scopeKey = 'draft:test:1';
-        const active = registerActiveRequest(scopeKey);
-        bindActiveDraft(scopeKey, 9991, 12345);
-
-        expect(active.signal.aborted).toBe(false);
-        const cancelled = cancelActiveDraft(9991);
-        expect(cancelled).toBe(1);
-        expect(active.signal.aborted).toBe(true);
-        active.done();
-    });
-
-    it('cancels active requests by chatId', () => {
-        const scopeKey = 'draft:test:2';
-        const active = registerActiveRequest(scopeKey);
-        bindActiveDraft(scopeKey, 9992, 54321);
-
-        expect(active.signal.aborted).toBe(false);
-        const cancelled = cancelActiveByChatId(54321);
-        expect(cancelled).toBe(1);
-        expect(active.signal.aborted).toBe(true);
-        active.done();
-    });
-
-    it('unbindActiveDraft removes binding', () => {
-        const scopeKey = 'draft:test:3';
-        const active = registerActiveRequest(scopeKey);
-        bindActiveDraft(scopeKey, 9993, 11111);
-        unbindActiveDraft(9993);
-
-        const cancelled = cancelActiveDraft(9993);
-        expect(cancelled).toBe(0);
-        expect(active.signal.aborted).toBe(false);
-        active.done();
     });
 });
