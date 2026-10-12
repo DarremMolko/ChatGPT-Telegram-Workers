@@ -15,7 +15,7 @@ import { isUserCancelledSignal } from '../../utils/abort';
 import { formatErrorAsMarkdown } from '../../utils/error';
 import { canUseAdminUtilityForAccess, describeAdminUtilityDisabled, resolveUserAccess } from '../access';
 import { createTelegramBotAPI } from '../api';
-import { registerActiveRequest } from '../utils/active_request';
+import { bindActiveDraft, registerActiveRequest, unbindActiveDraft } from '../utils/active_request';
 import { fileUrlToBase64Message, mergeLogMessages, sendImages, stt, tts } from '../utils/media';
 import { MessageSender, sendAction } from '../utils/send';
 import { transformPipeTables } from '../utils/table_render';
@@ -307,6 +307,8 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     let sentPromise = null as Promise<Response | undefined> | null;
     let nextEnableTime: number | null = null;
     const isMessageSender = sender instanceof MessageSender;
+    let usingRichDraft = false;
+    const shouldTransformPipeTables = !ENV.TELEGRAM_RICH_MESSAGES && ENV.TELEGRAM_RENDER_PIPE_TABLES;
     const sendInterval = isMessageSender ? ENV.TELEGRAM_MIN_STREAM_INTERVAL : ENV.INLINE_QUERY_SEND_INTERVAL;
     const isSendTelegraph = (text: string) => {
         return isMessageSender
@@ -363,7 +365,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
 
     streamSender.send = async (text: string, type = 'chat'): Promise<any> => {
         try {
-            const outboundText = transformPipeTables(text, { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES });
+            const outboundText = transformPipeTables(text, { enabled: shouldTransformPipeTables });
             if (type === 'chat') {
                 cache = outboundText;
                 heartWaitedTime = 0;
@@ -402,6 +404,28 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
 
             const data = mergeLogMessages(displayText, context?.USER_CONFIG, { quoteInfo: true });
             expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
+
+            if (isMessageSender && ENV.TELEGRAM_RICH_MESSAGES && sender.canUseRichDraft()) {
+                const draftId = sender.ensureDraftId();
+                if (context?.SHARE_CONTEXT?.chatHistoryKey) {
+                    bindActiveDraft(context.SHARE_CONTEXT.chatHistoryKey, draftId, sender.context.chat_id);
+                }
+                const draftResp = await sender.sendRichDraft(data);
+                if (draftResp) {
+                    usingRichDraft = true;
+                    sentPromise = Promise.resolve(draftResp);
+                    if (draftResp.status === 429) {
+                        const retryAfter = Number.parseInt(draftResp.headers.get('Retry-After') || '', 10);
+                        if (retryAfter) {
+                            nextEnableTime = Date.now() + retryAfter * 1000;
+                        }
+                    }
+                    return;
+                }
+                usingRichDraft = false;
+                sender.resetDraftState();
+            }
+
             log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
             isMessageSender && sendAction(sender.api.token, sender.context.chat_id, 'typing');
             sentPromise = sender.sendRichText(data, undefined, 'chat', expandParams);
@@ -428,6 +452,9 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
     streamSender.end = async (text: string, needLog = true, type = 'chat'): Promise<any> => {
         log.info('--- start end ---');
         streamSender.clearHeartbeat();
+        if (isMessageSender && sender.getDraftId()) {
+            unbindActiveDraft(sender.getDraftId()!);
+        }
         await sentPromise;
         if ((nextEnableTime || 0) > Date.now()) {
             log.info(`Need await: ${(nextEnableTime || 0) - Date.now()}ms`);
@@ -436,7 +463,7 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         if (type === 'error') {
             text = `${cache}\n${text}`;
         }
-        const outboundText = transformPipeTables(text, { enabled: ENV.TELEGRAM_RENDER_PIPE_TABLES });
+        const outboundText = transformPipeTables(text, { enabled: shouldTransformPipeTables });
         if (isSendDocument(outboundText)) {
             return sendDocument(sender as MessageSender, { question: question || 'Redo Question', answer: outboundText, log: getLog(context?.USER_CONFIG || {} as AgentUserConfig, { onlyModel: false, isParagraph: true }) });
         }
@@ -446,6 +473,12 @@ export function OnStreamHander(sender: MessageSender | ChosenInlineSender, conte
         const data = context && needLog ? mergeLogMessages(outboundText, context.USER_CONFIG, { quoteInfo: true }) : outboundText;
         log.info(`sent message ids: ${isMessageSender ? sender.context.sentMessageIds : sender.context.inline_message_id}`);
         expandParams.addQuote = addQuotePrerequisites && data.length > ENV.ADD_QUOTE_LIMIT;
+
+        if (usingRichDraft && isMessageSender) {
+            sender.resetDraftState();
+            return sender.sendRichMessage(data, 'chat');
+        }
+
         let maxFetchFailedTimes = 3;
         while (true) {
             try {

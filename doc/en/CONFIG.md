@@ -199,6 +199,7 @@ Telegram document notes:
 | `STREAM_MODE` | Stream chat output when possible. | `true` |
 | `TELEGRAM_MIN_STREAM_INTERVAL` | Minimum delay between streamed Telegram updates, in milliseconds. | `0` |
 | `DEFAULT_PARSE_MODE` | Telegram parse mode for rich messages. | `MarkdownV2` |
+| `TELEGRAM_RICH_MESSAGES` | Enable latest Telegram AI chat rendering features: official Rich Messages formatting (`sendRichMessage`, `sendRichMessageDraft`), native markdown tables, collapsible details, math formulas, draft streaming with native client animation and stop button, and animated `<tg-thinking>` placeholders. Can also be set via `TELEGRAM_AI_CHAT_RENDERING`. | `false` |
 | `DISABLE_WEB_PREVIEW` | Disable Telegram link previews. | `false` |
 | `SHOW_THINKING_TEXT` | Show streamed reasoning text when the underlying model/provider returns it. | `true` |
 | `EXPANDABLE_BANNER` | Render the show-info banner as an expandable quote. | `false` |

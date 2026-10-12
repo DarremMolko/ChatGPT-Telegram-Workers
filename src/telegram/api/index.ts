@@ -1,4 +1,5 @@
 import type * as Telegram from 'telegram-bot-api-types';
+import type { TelegramRichBotMethods } from './types';
 import { ENV } from '../../config/env';
 
 class APIClientBase {
@@ -70,7 +71,8 @@ class APIClientBase {
     }
 }
 
-export type TelegramBotAPI = APIClientBase & Telegram.AllBotMethods;
+export type TelegramBotAPI = APIClientBase & Telegram.AllBotMethods & TelegramRichBotMethods;
+export * from './types';
 
 export function createTelegramBotAPI(token: string): TelegramBotAPI {
     const client = new APIClientBase(token);

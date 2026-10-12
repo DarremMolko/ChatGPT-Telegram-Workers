@@ -35,6 +35,25 @@ describe('summarizeTelegramUpdate', () => {
             command: '/vision',
         });
     });
+
+    it('extracts a summary for stopped_message_generation updates', () => {
+        const summary = summarizeTelegramUpdate({
+            update_id: 124,
+            stopped_message_generation: {
+                chat: { id: 456, type: 'private' },
+                draft_id: 8888,
+                message_thread_id: 42,
+            },
+        } as any);
+
+        expect(summary).toMatchObject({
+            updateId: 124,
+            type: 'stopped_message_generation',
+            chatId: 456,
+            draftId: 8888,
+            messageThreadId: 42,
+        });
+    });
 });
 
 describe('summarizeUserConfig', () => {

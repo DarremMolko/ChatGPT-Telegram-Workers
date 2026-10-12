@@ -70,6 +70,12 @@ OPENAI_TTS_VOICE = "alloy"
 # These are not required, but they are useful in most real deployments.
 # Optional: restrict Telegram subscriptions to the update types this bot handles.
 # TELEGRAM_ALLOWED_UPDATES = ["message", "inline_query", "callback_query", "chosen_inline_result"]
+#
+# Optional: enable latest Telegram AI chat rendering features
+# (official Rich Messages API, native tables without card transforms, collapsible
+# details, math formulas, draft streaming with native client animations and Stop button,
+# and animated <tg-thinking> placeholders).
+# TELEGRAM_RICH_MESSAGES = true
 
 # -----------------------------------------------------------------------------
 # 5. Optional Access Bootstrap

@@ -1,4 +1,5 @@
 import type * as Telegram from 'telegram-bot-api-types';
+import type { MessageGenerationStopped } from '../api/types';
 import type { MessageHandler } from './types';
 import { WorkerContextBase } from '../../config/context';
 import { ENV } from '../../config/env';
@@ -6,7 +7,7 @@ import { log, writeDebugLog } from '../../log';
 import { formatDiagnosticFields, summarizeShareContext, summarizeTelegramMessage, summarizeTelegramUpdate } from '../../log/diagnostics';
 import { resolveMatchedCommand } from '../command';
 import { handleCallbackQuery, handleChosenInlineQuery, handleInlineQuery } from '../query';
-import { getPendingScopedExecutionCount, runScopedExecution, ScopeBusyError, ScopeSupersededError } from '../utils/active_request';
+import { cancelActiveByChatId, cancelActiveDraft, getPendingScopedExecutionCount, runScopedExecution, ScopeBusyError, ScopeSupersededError } from '../utils/active_request';
 import { MessageSender } from '../utils/send';
 import { ChatHandler } from './chat';
 import { GroupMention } from './group';
@@ -37,6 +38,8 @@ function loadMessage(body: Telegram.Update) {
             return (token: string) => handleCallbackQuery(token, body.callback_query!);
         case !!body.chosen_inline_result:
             return (token: string) => handleChosenInlineQuery(token, body.chosen_inline_result!);
+        case !!(body as any).stopped_message_generation:
+            return (token: string) => handleStoppedMessageGeneration(token, (body as any).stopped_message_generation);
         case !!body.edited_message:
             log.info('Ignore edited message');
             return null;
@@ -196,4 +199,15 @@ export function catchError(e: Error) {
         message: e.message,
         stack: e.stack,
     }), { status: 500 });
+}
+
+async function handleStoppedMessageGeneration(_token: string, stopped: MessageGenerationStopped): Promise<Response> {
+    log.info(`[STOPPED MESSAGE GENERATION] chatId=${stopped.chat?.id} draftId=${stopped.draft_id}`);
+    const cancelledDraft = cancelActiveDraft(stopped.draft_id);
+    let cancelledChat = 0;
+    if (stopped.chat?.id) {
+        cancelledChat = cancelActiveByChatId(stopped.chat.id);
+    }
+    log.info(`[STOPPED MESSAGE GENERATION] cancelledDraft=${cancelledDraft} cancelledChat=${cancelledChat}`);
+    return new Response('OK', { status: 200 });
 }

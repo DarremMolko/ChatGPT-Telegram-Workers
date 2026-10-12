@@ -15,6 +15,8 @@ export interface ActiveRequestHandle {
 export type ScopedExecutionPolicy = 'queue' | 'cancel_previous' | 'drop_if_busy' | 'parallel';
 
 const activeRequests = new Map<string, Map<string, ActiveRequestRecord>>();
+const activeDraftScopes = new Map<number, string>();
+const activeChatScopes = new Map<number, Set<string>>();
 const scopedExecutions = new Map<string, {
     pendingCount: number;
     tail: Promise<void>;
@@ -48,6 +50,17 @@ function cleanupScope(scopeKey: string): void {
     const scope = activeRequests.get(scopeKey);
     if (scope && scope.size === 0) {
         activeRequests.delete(scopeKey);
+        for (const [draftId, boundScope] of activeDraftScopes.entries()) {
+            if (boundScope === scopeKey) {
+                activeDraftScopes.delete(draftId);
+            }
+        }
+        for (const [chatId, scopes] of activeChatScopes.entries()) {
+            scopes.delete(scopeKey);
+            if (scopes.size === 0) {
+                activeChatScopes.delete(chatId);
+            }
+        }
     }
 }
 
@@ -163,4 +176,46 @@ export function cancelActiveRequests(scopeKey: string): number {
 
 export function getActiveRequestCount(scopeKey: string): number {
     return activeRequests.get(scopeKey)?.size ?? 0;
+}
+
+export function bindActiveDraft(scopeKey: string, draftId: number, chatId: number): void {
+    activeDraftScopes.set(draftId, scopeKey);
+    let scopes = activeChatScopes.get(chatId);
+    if (!scopes) {
+        scopes = new Set();
+        activeChatScopes.set(chatId, scopes);
+    }
+    scopes.add(scopeKey);
+    log.info(`[ACTIVE DRAFT] bound draftId=${draftId} chatId=${chatId} scope=${scopeKey}`);
+}
+
+export function unbindActiveDraft(draftId: number): void {
+    const scopeKey = activeDraftScopes.get(draftId);
+    if (scopeKey) {
+        activeDraftScopes.delete(draftId);
+        log.info(`[ACTIVE DRAFT] unbound draftId=${draftId} scope=${scopeKey}`);
+    }
+}
+
+export function cancelActiveDraft(draftId: number): number {
+    const scopeKey = activeDraftScopes.get(draftId);
+    if (scopeKey) {
+        activeDraftScopes.delete(draftId);
+        log.info(`[ACTIVE DRAFT] cancelling by draftId=${draftId} scope=${scopeKey}`);
+        return cancelActiveRequests(scopeKey);
+    }
+    return 0;
+}
+
+export function cancelActiveByChatId(chatId: number): number {
+    const scopes = activeChatScopes.get(chatId);
+    if (!scopes) {
+        return 0;
+    }
+    let total = 0;
+    for (const scopeKey of scopes) {
+        total += cancelActiveRequests(scopeKey);
+    }
+    log.info(`[ACTIVE DRAFT] cancelling by chatId=${chatId} totalCancelled=${total}`);
+    return total;
 }
