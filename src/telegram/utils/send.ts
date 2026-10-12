@@ -7,7 +7,7 @@ import type { RenderedText } from './rich_text';
 import { ENV } from '../../config/env';
 import { log, tagMessageIds } from '../../log';
 import { createTelegramBotAPI } from '../api';
-import { stripSegmentationMarkerLines } from './render_shared';
+import { stripAllMarkerLines } from './render_shared';
 import { renderMessageChunks, renderSingleMessage } from './rich_text';
 import { waitUntil } from './tg_utils';
 
@@ -98,7 +98,7 @@ export class MessageSender {
             return null;
         }
         const maxRetries = 3;
-        const cleanMessage = stripSegmentationMarkerLines(message).trim();
+        const cleanMessage = stripAllMarkerLines(message).trim();
         const isThinkingPlaceholder = cleanMessage === '...' || cleanMessage === '';
         const markdownContent = isThinkingPlaceholder
             ? '<tg-thinking>Thinking...</tg-thinking>'
@@ -665,7 +665,7 @@ async function extractTelegramDescription(resp: Response): Promise<string> {
 }
 
 function splitRichMarkdown(markdown: string, maxChunkSize = 32000): string[] {
-    const cleaned = stripSegmentationMarkerLines(markdown).trim();
+    const cleaned = stripAllMarkerLines(markdown).trim();
     if (cleaned.length <= maxChunkSize) {
         return [cleaned];
     }

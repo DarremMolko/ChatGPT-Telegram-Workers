@@ -26,6 +26,13 @@ export function stripSegmentationMarkerLines(text: string): string {
         .join('\n');
 }
 
+export function stripAllMarkerLines(text: string): string {
+    return text
+        .split('\n')
+        .map(line => (line === SEGMENTATION_MARK || line === EXPANDABLE_QUOTE_MARK) ? '' : line)
+        .join('\n');
+}
+
 function escapeForRegex(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
